@@ -2,6 +2,7 @@
 import json
 import requests
 
+# Created by Salvatore Cascio (sacascio)
 headers = {'Content-type': 'application/json'}
 url = 'https://192.168.29.133/api/aaaLogin.json'
 
