@@ -16,7 +16,7 @@ import cobra.model.pol
 import cobra.model.vz
 import re
 import requests
-
+import sys
 
 """
 To get class names for printing, go into UI, enable 'Show Debug Info'
@@ -33,7 +33,7 @@ apicURL = 'https://10.90.60.174'
 
 #####################################################################
 
-def printClass(class_name,attribute):
+def printClass(md,class_name,attribute):
     items = md.lookupByClass(class_name)
 
     for item in items:
@@ -49,24 +49,40 @@ def createTenant(md,tn,desc):
     cfgRequest.addMo(fvTenantMo)
     md.commit(cfgRequest)
 
-ls = LoginSession(apicURL, apicUN, apicPW)
-md = MoDirectory(ls)
-md.login()
-
-# Print LLDP Adjacent Endpoints
-printClass('lldpAdjEp','mgmtIp')
-
-# Print all tenants
-printClass('fvTenant','name')
-
-# Print all fabric Nodes
-printClass('fabricNode','name')
-printClass('fabricNode','model')
-printClass('fabricNode','id')
-printClass('aaaUser','name')
-
-# Create tenants
-createTenant(md,'EvictMe', 'My First Eviction')
+def createVRF(md,tn,vrfname,desc):
+    tenant     = 'uni/tn-' + tn
+    uniMo      = md.lookupByDn(tenant)
+    fvCtxMo = Ctx(uniMo,name=vrfname, descr=desc)
+    
+    cfgRequest = ConfigRequest()
+    cfgRequest.addMo(fvCtxMo)
+    md.commit(cfgRequest)
 
 
-md.logout()
+def main():
+    ls = LoginSession(apicURL, apicUN, apicPW)
+    md = MoDirectory(ls)
+    md.login()
+
+    # Print LLDP Adjacent Endpoints
+    printClass(md,'lldpAdjEp','mgmtIp')
+
+    # Print all tenants
+    printClass(md,'fvTenant','name')
+
+    # Print all fabric Nodes
+    printClass(md,'fabricNode','name')
+    printClass(md,'fabricNode','model')
+    printClass(md,'fabricNode','id')
+    printClass(md,'aaaUser','name')
+
+    # Create tenants
+    createTenant(md,'EvictMe', 'My First Eviction')
+
+    # Create VRF in EvictMe
+    createVRF(md,'EvictMe', 'VRF-Eviction', 'My VRF for eviction')
+
+    md.logout()
+
+if __name__ == '__main__':
+    main()
