@@ -10,8 +10,9 @@ from cobra.mit.access import MoDirectory
 from cobra.mit.session import LoginSession
 from cobra.model.fv import Ctx
 from cobra.model.fv import Tenant
+from cobra.model.fv import BD
+from cobra.model.l2ext import Out
 from cobra.mit.request import ConfigRequest
-
 import cobra.model.pol
 import cobra.model.vz
 import re
@@ -21,6 +22,14 @@ import sys
 """
 To get class names for printing, go into UI, enable 'Show Debug Info'
 The lower left part of the screen will show the class name
+
+To get MO for creation, in an interactive python shell:
+    import cobra.model
+    help(cobra.model)
+
+This will print the packages, then you can just import, for example, l2ext for L2OUT and use the above class printing steps to get the full MO name
+ex. create L2OUT, import cobra.model.l2ext.  Debug GUI shows l2extOut.  So all you have to call is the method "Out" with parameters
+
 
 """
 
@@ -52,12 +61,29 @@ def createTenant(md,tn,desc):
 def createVRF(md,tn,vrfname,desc):
     tenant     = 'uni/tn-' + tn
     uniMo      = md.lookupByDn(tenant)
-    fvCtxMo = Ctx(uniMo,name=vrfname, descr=desc)
+    fvCtxMo    = Ctx(uniMo,name=vrfname, descr=desc)
     
     cfgRequest = ConfigRequest()
     cfgRequest.addMo(fvCtxMo)
     md.commit(cfgRequest)
 
+def createBD(md,tn,bdname,desc):
+    tenant     = 'uni/tn-' + tn
+    uniMo      = md.lookupByDn(tenant)
+    fvBDMo     = BD(uniMo,name=bdname, descr=desc, ipLearning='no')
+    
+    cfgRequest = ConfigRequest()
+    cfgRequest.addMo(fvBDMo)
+    md.commit(cfgRequest)
+
+def createL2OUT(md,tn,l2out,desc):
+    tenant     = 'uni/tn-' + tn
+    uniMo      = md.lookupByDn(tenant)
+    L2OUTMo  = Out(uniMo,name=l2out, descr=desc)
+    
+    cfgRequest = ConfigRequest()
+    cfgRequest.addMo(L2OUTMo)
+    md.commit(cfgRequest)
 
 def main():
     ls = LoginSession(apicURL, apicUN, apicPW)
@@ -69,6 +95,9 @@ def main():
 
     # Print all tenants
     printClass(md,'fvTenant','name')
+    
+    # Print all L2OUT
+    printClass(md,'l2extOut','name')
 
     # Print all fabric Nodes
     printClass(md,'fabricNode','name')
@@ -81,6 +110,12 @@ def main():
 
     # Create VRF in EvictMe
     createVRF(md,'EvictMe', 'VRF-Eviction', 'My VRF for eviction')
+    
+    # Create BD in EvictMe
+    createBD(md,'EvictMe', 'BD-Eviction', 'My BD for eviction')
+    
+    # Create L2OUT in EvictMe
+    createL2OUT(md,'EvictMe', 'L2OUT-Eviction', 'My L2OUT for eviction')
 
     md.logout()
 
