@@ -6,7 +6,7 @@ import requests
 # May 16, 2017
 # U: MAY 19
 headers = {'Content-type': 'application/json'}
-url = 'https://192.168.29.133/api/aaaLogin.json'
+url = 'https://192.168.29.134/api/aaaLogin.json'
 
 pay =  { "aaaUser" : { "attributes": {"name":"admin","pwd":"admin12345"} } }
 payload =  json.dumps(pay)

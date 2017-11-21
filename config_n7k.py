@@ -12,7 +12,7 @@ def process_xlsx(filename):
     wb = openpyxl.load_workbook(filename)
 
     for sheet in wb.worksheets:
-         print sheet['A2'].value +  " in worksheet %s " % sheet.title
+        print sheet['A2'].value +  " in worksheet %s " % sheet.title
     wb.close()
 
 def process_xls(filename):
@@ -26,7 +26,7 @@ def main(argv):
         sys.exit(1)
 
     try:
-        opts,args = getopt.getopt(argv,"f:",["file="])
+        opts = getopt.getopt(argv,"f:",["file="])
     except getopt.GetoptError as err:
         print str(err)
         sys.exit(2)
@@ -41,11 +41,11 @@ def main(argv):
                     print sys.argv[0] + " excel file %s NOT found" % filename
                     sys.exit(1)
                 else:
-                   try:
-                       open_workbook(filename)
-                   except XLRDError:
+                    try:
+                        open_workbook(filename)
+                    except XLRDError:
                         print sys.argv[0] + " file %s is not an Excel file" % filename
-                   else:
+                    else:
                         if magic.from_file(filename) == 'Microsoft Excel 2007+':
                             process_xlsx(filename)
                         else:
