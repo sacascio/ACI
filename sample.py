@@ -12,6 +12,8 @@ from cobra.model.fv import Ctx
 from cobra.model.fv import Tenant
 from cobra.model.fv import BD
 from cobra.model.l2ext import Out
+from cobra.model.l3ext import LNodeP
+from cobra.model.bgp import PeerP
 from cobra.mit.request import ConfigRequest
 import cobra.model.pol
 import cobra.model.vz
@@ -85,6 +87,24 @@ def createL2OUT(md,tn,l2out,desc):
     cfgRequest.addMo(L2OUTMo)
     md.commit(cfgRequest)
 
+def createLogicalNodeProfile(md,tn,l3out,profile,desc):
+    parentdn   = 'uni/tn-' + tn + '/out-' + l3out 
+    uniMo      = md.lookupByDn(parentdn)
+    lnp        = LNodeP(uniMo,name=profile, descr=desc)
+    
+    cfgRequest = ConfigRequest()
+    cfgRequest.addMo(lnp)
+    md.commit(cfgRequest)
+
+def createBGPPeer(md,tn,l3out,profile,address,desc):
+    parentdn   = 'uni/tn-' + tn + '/out-' + l3out + '/lnodep-' + profile 
+    uniMo      = md.lookupByDn(parentdn)
+    bgpp        = PeerP(uniMo,name=profile, addr=address, descr=desc)
+    
+    cfgRequest = ConfigRequest()
+    cfgRequest.addMo(bgpp)
+    md.commit(cfgRequest)
+
 def main():
     ls = LoginSession(apicURL, apicUN, apicPW)
     md = MoDirectory(ls)
@@ -104,6 +124,9 @@ def main():
     printClass(md,'fabricNode','model')
     printClass(md,'fabricNode','id')
     printClass(md,'aaaUser','name')
+    
+    # Print BGP Peer
+    printClass(md,'bgpPeerP','addr')
 
     # Create tenants
     createTenant(md,'EvictMe', 'My First Eviction')
@@ -116,6 +139,12 @@ def main():
     
     # Create L2OUT in EvictMe
     createL2OUT(md,'EvictMe', 'L2OUT-Eviction', 'My L2OUT for eviction')
+    
+    # Create L3OUT Logical Node Profile
+    createLogicalNodeProfile(md,'EvictMe', 'DC-L3OUT', 'MyProfile', 'My LNP')
+    
+    # Create L3OUT BGP Peer
+    createBGPPeer(md,'EvictMe', 'DC-L3OUT', 'MyProfile', '9.9.9.9', 'My BGP Peer')
 
     md.logout()
 
