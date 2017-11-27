@@ -15,8 +15,6 @@ def process_xlsx(filename):
         print sheet['A2'].value +  " in worksheet %s " % sheet.title
     wb.close()
 
-def process_xls(filename):
-    print "XLS file"
 
 
 def main(argv):
@@ -49,7 +47,8 @@ def main(argv):
                         if magic.from_file(filename) == 'Microsoft Excel 2007+':
                             process_xlsx(filename)
                         else:
-                            process_xls(filename)
+                            print "File must be in .xlsx format"
+                            sys.exit(10)
 
 if __name__ == '__main__':
     main(sys.argv[1:])
