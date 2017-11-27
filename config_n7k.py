@@ -48,7 +48,7 @@ def main(argv):
                             process_xlsx(filename)
                         else:
                             print "File must be in .xlsx format"
-                            sys.exit(1)
+                            sys.exit(10)
 
 if __name__ == '__main__':
     main(sys.argv[1:])
