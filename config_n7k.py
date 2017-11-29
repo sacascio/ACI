@@ -11,6 +11,122 @@ from xlrd import open_workbook, XLRDError
 import json
 from IPy import IP
 
+def get_loopback(wb):
+        
+        ws = wb.active 
+        row_start = ws.min_row
+        row_end   = ws.max_row
+        data = {}
+        
+        # Process Loopback assignments
+
+        for x in range(row_start,row_end):
+
+            # Get IP DC1
+            cell = 'B' + str(x)
+            value = ws[cell].value 
+            
+            if value is not None and not bool((re.search('IP',value,re.IGNORECASE))) and value != 'DC1':
+            
+                try:
+                    IP(value)
+                except:
+                    print "Worksheet %s, Cell %s, value is not an IP address" % ws,cell
+                    sys.exit(1)
+                else:
+                    dc1ip = value
+
+            # Get hostname DC1
+            cell = 'C' + str(x)
+            value = ws[cell].value 
+            
+            if value is not None and not bool((re.search('Hostname',value,re.IGNORECASE))) and value != 'DC1':
+                dc1hn = value
+                dc1hn = dc1hn.strip()
+                
+            # Get Description
+            cell = 'D' + str(x)
+            value = ws[cell].value 
+            
+            if value is not None and not bool((re.search('Description',value,re.IGNORECASE))) and value != 'DC1':
+                dc1desc = value
+                dc1desc = dc1desc.strip()
+                
+            # Get IP DC2
+            cell = 'E' + str(x)
+            value = ws[cell].value 
+            
+            if value is not None and not bool((re.search('IP',value,re.IGNORECASE))) and value != 'DC2':
+            
+                try:
+                    IP(value)
+                except:
+                    print "Worksheet %s, Cell %s, value is not an IP address" % ws,cell
+                    sys.exit(1)
+                else:
+                    dc2ip = value
+
+            # Get hostname DC2
+            cell = 'F' + str(x)
+            value = ws[cell].value 
+            
+            if value is not None and not bool((re.search('Hostname',value,re.IGNORECASE))) and value != 'DC2':
+                dc2hn = value
+                dc2hn = dc2hn.strip()
+            
+            # IF row is blank, skip
+            else:
+                continue
+                
+            # Get Description
+            cell = 'G' + str(x)
+            value = ws[cell].value 
+            
+            if value is not None and not bool((re.search('Description',value,re.IGNORECASE))) and value != 'DC2':
+                dc2desc = value
+                dc2desc = dc2desc.strip()
+
+            # Push all data to dictionary
+            # Use Debug option to print data
+            if bool((re.search('soe',value,re.IGNORECASE))):
+                district = 'SOE'
+
+            if bool((re.search('sde',value,re.IGNORECASE))):
+                district = 'SDE'
+            
+            if bool((re.search('gis',value,re.IGNORECASE))):
+                district = 'GIS'
+
+            # If district exist, append attributes as a list
+            if district in data:
+                        data[district].append(
+                                    {
+                                     'dc1ip'         : dc1ip,
+                                     'dc1desc'       : dc1desc,
+                                     'dc1hn'         : dc1hn,
+                                     'dc2ip'         : dc2ip,
+                                     'dc2desc'       : dc2desc,
+                                     'dc2hn'         : dc2hn
+                                    })
+            
+            # Initial key/value assignment
+            else:
+                data.update({  
+                     district :  
+                                [ 
+                                  {
+                                      'dc1ip'         : dc1ip,
+                                      'dc1desc'       : dc1desc,
+                                      'dc1hn'         : dc1hn,
+                                      'dc2ip'         : dc2ip,
+                                      'dc2desc'       : dc2desc,
+                                      'dc2hn'         : dc2hn
+                                 }
+                            ] 
+                           } )
+
+        return data
+            
 def get_inner_to_pa(wb,district):
         
         ws = wb.active 
@@ -363,10 +479,8 @@ def process_xlsx(filename,debug):
 
     ##############################################################################################
 
-    # Set ws_definition as the active worksheet to read from
-    # Process ws_soe_inner_to_pa
-   
     # process <district>_inner_to_pa worksheets - format is similar for all 3 so use 1 function
+    
         ws_soe_inner_to_pa = "SOE-VRF P2P Inner-to-PA"
         ws_sde_inner_to_pa = "SDE VRF P2P Inner-to-PA"
         ws_gis_inner_to_pa = "GIS VRF P2P Inner-to-PA"
@@ -383,7 +497,7 @@ def process_xlsx(filename,debug):
                     sys.exit(9)
             else:
                     district = inner[:3]
-                    inner_data = ws_soe_to_inner_pa = get_inner_to_pa(wb,district)
+                    inner_data = get_inner_to_pa(wb,district)
                     final_all_inner_data.update(inner_data)
         
         if debug == True :
@@ -391,7 +505,42 @@ def process_xlsx(filename,debug):
             
     
     ############################################################################################## 
-    return ws_definition_data,final_all_inner_data
+
+    # Load BGP ASN numbers - this is hardcoded as it will not change
+    bgp_asn = {}
+
+    bgp_asn =  { 'SOE' : { 'Outer' : { 'dc1' :  65550, 'dc2' : 65510 } } }
+    bgp_asn['SOE'].update({'Inner' : { 'dc1' :  65501, 'dc2' : 65511 } } )
+    
+    bgp_asn.update({'GIS' : { 'Inner' : { 'dc1' :  65502, 'dc2' : 65512 } } } )
+    bgp_asn['GIS'].update(  { 'Outer' : { 'dc1' :  65500, 'dc2' : 65510 } } )
+
+    bgp_asn.update({'SDE' : { 'Inner' : { 'dc1' :  65506, 'dc2' : 65516 } } } )
+    bgp_asn['SDE'].update(  { 'Outer' : { 'dc1' :  65505, 'dc2' : 65515 } } )
+   
+    if debug == True:
+        print json.dumps(bgp_asn)
+
+    #############################################################################################
+
+    # Load Loopback assignments
+    ws_loopback = "Loopback Assignment"
+    loopback_data = {}
+
+    try:
+            wb.active = worksheets.index(ws_loopback)
+    except:
+            print "Worksheet %s not found" % ws_loopback
+            sys.exit(9)
+    else:
+            loopback_data = get_loopback(wb)
+      
+    if debug == True :
+       print json.dumps(loopback_data)
+
+
+    ##############################################################################################
+    return ws_definition_data,final_all_inner_data,bgp_asn
 
 def main(argv):
 
