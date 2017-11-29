@@ -10,9 +10,10 @@ import numbers
 from xlrd import open_workbook, XLRDError
 import json
 
-def process_xlsx(filename):
+def process_xlsx(filename,debug):
     worksheets = []
-    data = {}
+    ws_definition_data = {}
+    ws_soe_inner_to_pa = {}
 
     # Important worksheets
     ws_definition = "SOE_SDE_GIS_VRF_RT_Definition"
@@ -28,6 +29,8 @@ def process_xlsx(filename):
     wb.close()
 
     # Set ws_definition as the active worksheet to read from
+    # Process "SOE_SDE_GIS_VRF_RT_Definition
+
     try:
         wb.active = worksheets.index(ws_definition)
     except:
@@ -37,9 +40,7 @@ def process_xlsx(filename):
         row_start = ws.min_row
         row_end   = ws.max_row
 
-        
-        #b = chr(ord(a) + 1)
-        
+        # Process ws_definition tab 
         for x in range(row_start,row_end):
             # Get District
             cell = 'A' + str(x)
@@ -147,12 +148,12 @@ def process_xlsx(filename):
            # Push data into dictionary
            # Use Debug option to print data
 
-            if district in data:
-                if tenant in data[district]:
-                  data[district][tenant].append(
+            # If tenant and district exist, append attributes as a list
+            if district in ws_definition_data:
+                if tenant in ws_definition_data[district]:
+                  ws_definition_data[district][tenant].append(
                                     {
                                      'vrfnumber'     : vrf,
-                                     'district'      : district,
                                      'subzone'       : szone,
                                      'dc1vrf'        : vrfnamedc1,
                                      'dc2vrf'        : vrfnamedc2,
@@ -163,11 +164,11 @@ def process_xlsx(filename):
                                      'ospfdc2'       : ospfdc2,
                                      'outervdcencap' : outvdcencap
                                    })
+                # If district exists, but not tenant, add new key (tenant) and initial attributes
                 else:
-                    data[district][tenant] = [ {  
+                    ws_definition_data[district][tenant] = [ {  
                                      
                                       'vrfnumber'     : vrf,
-                                      'district'      : district,
                                       'subzone'       : szone,
                                       'dc1vrf'        : vrfnamedc1,
                                       'dc2vrf'        : vrfnamedc2,
@@ -179,15 +180,14 @@ def process_xlsx(filename):
                                       'outervdcencap' : outvdcencap
                                      } ]
 
-
+            # Initial key/value assignment
             else:
-                    data.update({  
+                    ws_definition_data.update({  
                               district :  
                               { 
                                 tenant :  [ 
                                      {
                                       'vrfnumber'     : vrf,
-                                      'district'      : district,
                                       'subzone'       : szone,
                                       'dc1vrf'        : vrfnamedc1,
                                       'dc2vrf'        : vrfnamedc2,
@@ -202,11 +202,44 @@ def process_xlsx(filename):
                               } 
                          })
        
-        if opt == "-d" :
-            print json.dumps(data)
+        if debug == True :
+            print json.dumps(ws_definition_data)
 
-                    
+    ##############################################################################################
+
+    # Set ws_definition as the active worksheet to read from
+    # Process "SOE_SDE_GIS_VRF_RT_Definition
+    
+    try:
+        wb.active = worksheets.index(ws_soe_inner_to_pa)
+    except:
+        print "Worksheet %s not found" % ws_soe_inner_to_pa
+    else:
+        ws = wb.active
+        row_start = ws.min_row
+        row_end   = ws.max_row
+   
+        print row_start
+        print row_end
+    
+        # Process ws_soe_inner_to_pa
+        for x in range(row_start,row_end):
+            # Get VRF#
+            cell = 'A' + str(x)
+            value = ws[cell].value 
+            
+            if value is not None and bool((re.search('VRF-',value,re.IGNORECASE))):
+                vrfnumber = value
+                print vrfnumber
+
+
+    
+    ################################################################################################ 
+    return ws_definition_data
+
 def main(argv):
+
+    debug = False
 
     if len(argv) == 0:
         print "Usage: " +  sys.argv[0] + " -f|--file <excel file name> -d|--debug.  No arguments given"
@@ -219,6 +252,10 @@ def main(argv):
         sys.exit(2)
     else:
         for opt,arg in opts:
+            if opt in ("-d","--debug"):
+                debug = True
+
+        for opt,arg in opts:
             if opt == '-h':
                 print sys.argv[0] + " -f|--file <excel file name> -d|--debug"
                 sys.exit(1)
@@ -227,7 +264,6 @@ def main(argv):
                 if not os.path.isfile(filename):
                     print sys.argv[0] + " excel file %s NOT found" % filename
                     sys.exit(1)
-            elif opt in ( "-d")
                 else:
                     try:
                         open_workbook(filename)
@@ -235,7 +271,7 @@ def main(argv):
                         print sys.argv[0] + " file %s is not an Excel file" % filename
                     else:
                         if magic.from_file(filename) == 'Microsoft Excel 2007+':
-                            process_xlsx(filename)
+                            process_xlsx(filename,debug)
                         else:
                             print "File must be in .xlsx format"
                             sys.exit(10)
