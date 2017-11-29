@@ -389,8 +389,6 @@ def process_xlsx(filename,debug):
         if debug == True :
            print json.dumps(final_all_inner_data)
             
-
-
     
     ############################################################################################## 
     return ws_definition_data,final_all_inner_data
