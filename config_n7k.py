@@ -9,19 +9,174 @@ import re
 import numbers
 from xlrd import open_workbook, XLRDError
 import json
+from IPy import IP
+
+def get_inner_to_pa(wb,district):
+        
+        ws = wb.active 
+        row_start = ws.min_row
+        row_end   = ws.max_row
+        data = {}
+        
+        if district in ("SOE","GIS"):
+            max_n7k = 4
+        else:
+            max_n7k = 2
+
+        # Process ws_soe_inner_to_pa
+        for x in range(row_start,row_end):
+            # Get VRF#
+            cell = 'A' + str(x)
+            value = ws[cell].value 
+            
+            if value is not None and bool((re.search('VRF-',value,re.IGNORECASE))):
+                vrfnumber = value
+            
+            # Get description
+            cell = 'B'  + str(x)
+            value = ws[cell].value
+            
+            if value is not None and not bool((re.search('Connection',value,re.IGNORECASE))):
+                connectdesc = value
+            
+            # get N7K IP DC1
+            cell = 'C'  + str(x)
+            value = ws[cell].value
+            
+            if value is not None and not bool((re.search('IP Add',value,re.IGNORECASE))) and not bool((re.search('DC',value,re.IGNORECASE))):
+                try:
+                    IP(value)
+                except:
+                    print "Worksheet %s, Cell %s, value is not an IP address" % ws,cell
+                    sys.exit(1)
+                else:
+                    dc1n7kip = value
+            
+            # get PA FW IP DC1
+            cell = 'D'  + str(x)
+            value = ws[cell].value
+            
+            if value is not None and not bool((re.search('IP Add',value,re.IGNORECASE))) and not bool((re.search('DC',value,re.IGNORECASE))):
+                try:
+                    IP(value)
+                except:
+                    print "Worksheet %s, Cell %s, value is not an IP address" % ws,cell
+                    sys.exit(1)
+                else:
+                    dc1pafwip = value
+            
+            # get sub zone name
+            cell = 'E'  + str(x)
+            value = ws[cell].value
+
+            if value is not None and not bool((re.search('Zone',value,re.IGNORECASE))):
+                subzone = value
+                subzone = subzone.strip()
+                
+            # get N7K VRF Name DC1
+            cell = 'F'  + str(x)
+            value = ws[cell].value
+            
+            if value != 0 and value is not None and value != 'DC1 ' and value != 'DC2' and not bool((re.search('N7K',value,re.IGNORECASE))) :
+                n7kvrfdc1 = value
+                n7kvrfdc1 = n7kvrfdc1.strip()
+            
+            # get N7K VRF Name DC2
+            cell = 'G'  + str(x)
+            value = ws[cell].value
+            
+            if value != 0 and value is not None and value != 'DC1 ' and value != 'DC2' and not bool((re.search('N7K',value,re.IGNORECASE))) :
+                n7kvrfdc2 = value
+                n7kvrfdc2 = n7kvrfdc2.strip()
+
+            # get N7K IP DC2
+            cell = 'H'  + str(x)
+            value = ws[cell].value
+            
+            if value is not None and not bool((re.search('IP Add',value,re.IGNORECASE))) and not bool((re.search('DC',value,re.IGNORECASE))):
+                try:
+                    IP(value)
+                except:
+                    print "Worksheet %s, Cell %s, value is not an IP address" % ws,cell
+                    sys.exit(1)
+                else:
+                    dc2n7kip = value
+            
+            # get PA FW IP DC2
+            cell = 'I'  + str(x)
+            value = ws[cell].value
+            
+            if value is not None and not bool((re.search('IP Add',value,re.IGNORECASE))) and not bool((re.search('DC',value,re.IGNORECASE))):
+                try:
+                    IP(value)
+                except:
+                    print "Worksheet %s, Cell %s, value is not an IP address" % ws,cell
+                    sys.exit(1)
+                else:
+                    dc2pafwip = value
+                   
+            # Push all data to dictionary
+            # Use Debug option to print data
+                
+            # If subzone and connection exist, append attributes as a list
+                if district in data:
+                    if subzone in data[district]:
+                        if len(data[district][subzone]) < max_n7k:
+                            data[district][subzone].append(
+                                        {
+                                         'vrfnumber'     : vrfnumber,
+                                         'desc'          : connectdesc,
+                                         'dc1n7kip'      : dc1n7kip,
+                                         'dc1pafwip'     : dc1pafwip,
+                                         'n7kvrfdc1'     : n7kvrfdc1,
+                                         'n7kvrfdc2'     : n7kvrfdc2,
+                                         'dc2n7kip'      : dc2n7kip,
+                                         'dc2pafwip'     : dc2pafwip
+                                        })
+                # If district exists, but not tenant, add new key (tenant) and initial attributes
+                    else:
+                         data[district][subzone] = [ {  
+                                  'vrfnumber'     : vrfnumber,
+                                  'desc'          : connectdesc,
+                                  'dc1n7kip'      : dc1n7kip,
+                                  'dc1pafwip'     : dc1pafwip,
+                                  'n7kvrfdc1'     : n7kvrfdc1,
+                                  'n7kvrfdc2'     : n7kvrfdc2,
+                                  'dc2n7kip'      : dc2n7kip,
+                                  'dc2pafwip'     : dc2pafwip
+                                } ]
+
+                # Initial key/value assignment
+                else:
+                    data.update({  
+                         district :  
+                                 { 
+                                      subzone :  [ 
+                                      {
+                                     'vrfnumber'     : vrfnumber,
+                                     'desc'          : connectdesc,
+                                     'dc1n7kip'      : dc1n7kip,
+                                     'dc1pafwip'     : dc1pafwip,
+                                     'n7kvrfdc1'     : n7kvrfdc1,
+                                     'n7kvrfdc2'     : n7kvrfdc2,
+                                     'dc2n7kip'      : dc2n7kip,
+                                     'dc2pafwip'     : dc2pafwip
+                                     }
+                                ] 
+                               } 
+                    })
+   
+
+        return data
 
 def process_xlsx(filename,debug):
     worksheets = []
     ws_definition_data = {}
-    ws_soe_inner_to_pa = {}
 
     # Important worksheets
     ws_definition = "SOE_SDE_GIS_VRF_RT_Definition"
-    ws_soe_inner_to_pa = "SOE-VRF P2P Inner-to-PA"
-    ws_sde_inner_to_pa = "SDE VRF P2P Inner-to-PA"
-    ws_gis_inner_to_pa = "GIS VRF P2P Inner-to-PA"
 
-    wb = openpyxl.load_workbook(filename)
+    wb = openpyxl.load_workbook(filename, data_only=True)
 
     # Get all worksheets
     for sheet in wb:
@@ -29,12 +184,13 @@ def process_xlsx(filename,debug):
     wb.close()
 
     # Set ws_definition as the active worksheet to read from
-    # Process "SOE_SDE_GIS_VRF_RT_Definition
-
+    # Process SOE_SDE_GIS_VRF_RT_Definition
+    
+   
     try:
         wb.active = worksheets.index(ws_definition)
     except:
-        print "Worksheet not found"
+        print "Worksheet %s not found" % ws_definition
     else:
         ws = wb.active
         row_start = ws.min_row
@@ -208,34 +364,36 @@ def process_xlsx(filename,debug):
     ##############################################################################################
 
     # Set ws_definition as the active worksheet to read from
-    # Process "SOE_SDE_GIS_VRF_RT_Definition
-    
-    try:
-        wb.active = worksheets.index(ws_soe_inner_to_pa)
-    except:
-        print "Worksheet %s not found" % ws_soe_inner_to_pa
-    else:
-        ws = wb.active
-        row_start = ws.min_row
-        row_end   = ws.max_row
+    # Process ws_soe_inner_to_pa
    
-        print row_start
-        print row_end
-    
-        # Process ws_soe_inner_to_pa
-        for x in range(row_start,row_end):
-            # Get VRF#
-            cell = 'A' + str(x)
-            value = ws[cell].value 
+    # process <district>_inner_to_pa worksheets - format is similar for all 3 so use 1 function
+        ws_soe_inner_to_pa = "SOE-VRF P2P Inner-to-PA"
+        ws_sde_inner_to_pa = "SDE VRF P2P Inner-to-PA"
+        ws_gis_inner_to_pa = "GIS VRF P2P Inner-to-PA"
+  
+        inner_ws = [ ws_soe_inner_to_pa,ws_sde_inner_to_pa,ws_gis_inner_to_pa]
+        final_all_inner_data = {}
+
+        for inner in inner_ws: 
+
+            try:
+                    wb.active = worksheets.index(inner)
+            except:
+                    print "Worksheet %s not found" % inner
+                    sys.exit(9)
+            else:
+                    district = inner[:3]
+                    inner_data = ws_soe_to_inner_pa = get_inner_to_pa(wb,district)
+                    final_all_inner_data.update(inner_data)
+        
+        if debug == True :
+           print json.dumps(final_all_inner_data)
             
-            if value is not None and bool((re.search('VRF-',value,re.IGNORECASE))):
-                vrfnumber = value
-                print vrfnumber
 
 
     
-    ################################################################################################ 
-    return ws_definition_data
+    ############################################################################################## 
+    return ws_definition_data,final_all_inner_data
 
 def main(argv):
 
