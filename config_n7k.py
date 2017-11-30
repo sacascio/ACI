@@ -88,32 +88,37 @@ def get_loopback(wb):
 
             # Push all data to dictionary
             # Use Debug option to print data
+
             if bool((re.search('soe',value,re.IGNORECASE))):
-                district = 'SOE'
+                district = ['SOE']
 
             if bool((re.search('sde',value,re.IGNORECASE))):
-                district = 'SDE'
+                district = ['SDE']
             
             if bool((re.search('gis',value,re.IGNORECASE))):
-                district = 'GIS'
-
-            # If district exist, append attributes as a list
-            if district in data:
-                        data[district].append(
-                                    {
-                                     'dc1ip'         : dc1ip,
-                                     'dc1desc'       : dc1desc,
-                                     'dc1hn'         : dc1hn,
-                                     'dc2ip'         : dc2ip,
-                                     'dc2desc'       : dc2desc,
-                                     'dc2hn'         : dc2hn
-                                    })
+                district = ['GIS']
+                
+            if bool((re.search('soe/gis',value,re.IGNORECASE))):
+                district = ['GIS','SOE']
             
-            # Initial key/value assignment
-            else:
-                data.update({  
-                     district :  
-                                [ 
+            for d in district: 
+                # If district exist, append attributes as a list
+                if d in data:
+                         data[d].append(
+                                     {
+                                      'dc1ip'         : dc1ip,
+                                      'dc1desc'       : dc1desc,
+                                      'dc1hn'         : dc1hn,
+                                      'dc2ip'         : dc2ip,
+                                      'dc2desc'       : dc2desc,
+                                      'dc2hn'         : dc2hn
+                                     })
+            
+                #Initial key/value assignment
+                else:
+                 data.update({  
+                      d :  
+                                 [ 
                                   {
                                       'dc1ip'         : dc1ip,
                                       'dc1desc'       : dc1desc,
@@ -124,7 +129,6 @@ def get_loopback(wb):
                                  }
                             ] 
                            } )
-
         return data
             
 def get_inner_to_pa(wb,district):
