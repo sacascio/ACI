@@ -11,6 +11,74 @@ from xlrd import open_workbook, XLRDError
 import json
 from IPy import IP
 
+
+def get_outer_to_pa(wb):
+        
+        ws = wb.active 
+        row_start = ws.min_row
+        row_end   = ws.max_row
+        data = {}
+
+        # Process outer VDC to PA
+
+        for x in range(row_start,row_end):
+            
+            # Get district and tenant
+            cell = 'A' + str(x)
+            value = ws[cell].value 
+            
+            if value is not None and  \
+            not bool((re.search('Addressing',value,re.IGNORECASE))) and \
+            not bool((re.search('Mask',value,re.IGNORECASE))) and \
+            value != "vSYS":
+                value = value.strip()
+
+                if value == 'SDE':
+                    district = value
+                elif value == 'SOE':
+                    district = value
+                elif value == 'GIS':
+                    district = value
+                else:
+                    tenant = value
+
+            # Get PA IP DC1
+            cell = 'B' + str(x)
+            value = ws[cell].value 
+            
+            if value is None or value == 'DC1':
+                continue
+           
+            if not bool((re.search('FW',value,re.IGNORECASE))):
+                
+                try:
+                    IP(value)
+                except:
+                    print "Worksheet %s, Cell %s, value is not an IP address" % ws,cell
+                    sys.exit(1)
+                else:
+                    dc1paip = value
+            
+            # Get PA IP DC1
+            cell = 'C' + str(x)
+            value = ws[cell].value 
+            
+            if value is None or value == 'DC1':
+                continue
+           
+            if not bool((re.search('VDC',value,re.IGNORECASE))) and not bool((re.search('Address',value,re.IGNORECASE))):
+                
+                try:
+                    IP(value)
+                except:
+                    print "Worksheet %s, Cell %s, value is not an IP address" % ws,cell
+                    sys.exit(1)
+                else:
+                    dc1n7kip = value
+            
+                print "tenant %s, district %s, paip %s, n7kip %s" % (tenant,district,dc1paip,dc1n7kip)
+
+
 def get_loopback(wb):
         
         ws = wb.active 
@@ -114,7 +182,7 @@ def get_loopback(wb):
                                       'dc2hn'         : dc2hn
                                      })
             
-                #Initial key/value assignment
+                # Initial key/value assignment
                 else:
                  data.update({  
                       d :  
@@ -542,6 +610,22 @@ def process_xlsx(filename,debug):
     if debug == True :
        print json.dumps(loopback_data)
 
+
+    ##############################################################################################
+    # Load outer VDC to PA FW
+    ws_outer_to_pa = "P2P-Outer-VDC"
+    outer_to_pa_data = {}
+
+    try:
+            wb.active = worksheets.index(ws_outer_to_pa)
+    except:
+            print "Worksheet %s not found" % ws_outer_to_pa
+            sys.exit(9)
+    else:
+            outer_to_pa_data = get_outer_to_pa(wb)
+      
+    if debug == True :
+       print json.dumps(outer_to_pa_data)
 
     ##############################################################################################
     return ws_definition_data,final_all_inner_data,bgp_asn
