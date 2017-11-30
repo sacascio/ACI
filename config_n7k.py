@@ -21,8 +21,7 @@ def get_outer_to_pa(wb):
 
         # Process outer VDC to PA
 
-        for x in range(row_start,row_end):
-            
+        for x in range(row_start,row_end+1):
             # Get district and tenant
             cell = 'A' + str(x)
             value = ws[cell].value 
@@ -59,7 +58,7 @@ def get_outer_to_pa(wb):
                 else:
                     dc1paip = value
             
-            # Get PA IP DC1
+            # Get N7K IP DC1
             cell = 'C' + str(x)
             value = ws[cell].value 
             
@@ -76,8 +75,93 @@ def get_outer_to_pa(wb):
                 else:
                     dc1n7kip = value
             
-                print "tenant %s, district %s, paip %s, n7kip %s" % (tenant,district,dc1paip,dc1n7kip)
+            # Get N7K VDC
+            cell = 'D' + str(x)
+            value = ws[cell].value 
+            
+            if value is None:
+                continue
 
+            value = value.strip()
+            n7k = value
+            
+            # Get PA IP DC2
+            cell = 'E' + str(x)
+            value = ws[cell].value 
+            
+            if value is None or value == 'DC2':
+                continue
+           
+            if not bool((re.search('FW',value,re.IGNORECASE))):
+                
+                try:
+                    IP(value)
+                except:
+                    print "Worksheet %s, Cell %s, value is not an IP address" % ws,cell
+                    sys.exit(1)
+                else:
+                    dc2paip = value
+            
+            # Get N7K IP DC2
+            cell = 'F' + str(x)
+            value = ws[cell].value 
+            
+            if value is None or value == 'DC2':
+                continue
+           
+            if not bool((re.search('Address',value,re.IGNORECASE))):
+                
+                try:
+                    IP(value)
+                except:
+                    print "Worksheet %s, Cell %s, value is not an IP address" % ws,cell
+                    sys.exit(1)
+                else:
+                    dc2n7kip = value
+            
+            # If tenant and district exist, append attributes as a list
+            
+            if district in data:
+                if tenant in data[district]:
+                  data[district][tenant].append(
+                                    {
+                                     'dc1paip'     : dc1paip,
+                                     'dc1n7kip'    : dc1n7kip,
+                                     'n7kname'     : n7k,
+                                     'dc2paip'     : dc2paip,
+                                     'dc2n7kip'    : dc2n7kip
+                                   })
+                # If district exists, but not tenant, add new key (tenant) and initial attributes
+                else:
+                    data[district][tenant] = [ {  
+                                     
+                                     'dc1paip'     : dc1paip,
+                                     'dc1n7kip'    : dc1n7kip,
+                                     'n7kname'     : n7k,
+                                     'dc2paip'     : dc2paip,
+                                     'dc2n7kip'    : dc2n7kip
+                                     
+                                     } ]
+
+            # Initial key/value assignment
+            else:
+                    data.update({  
+                              district :  
+                              { 
+                                tenant :  [ 
+                                     {
+                                     'dc1paip'     : dc1paip,
+                                     'dc1n7kip'    : dc1n7kip,
+                                     'n7kname'     : n7k,
+                                     'dc2paip'     : dc2paip,
+                                     'dc2n7kip'    : dc2n7kip
+                                    }
+                                ] 
+                              } 
+                         })
+        
+
+        return data
 
 def get_loopback(wb):
         
@@ -628,7 +712,8 @@ def process_xlsx(filename,debug):
        print json.dumps(outer_to_pa_data)
 
     ##############################################################################################
-    return ws_definition_data,final_all_inner_data,bgp_asn
+    
+    return ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa_data
 
 def main(argv):
 
