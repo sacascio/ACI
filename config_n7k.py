@@ -57,7 +57,7 @@ def get_outer_to_pa(wb):
                     sys.exit(1)
                 else:
                     dc1paip = value
-            
+                    
             # Get N7K IP DC1
             cell = 'C' + str(x)
             value = ws[cell].value 
@@ -711,6 +711,27 @@ def process_xlsx(filename,debug):
     if debug == True :
        print json.dumps(outer_to_pa_data)
 
+    ##############################################################################################
+    
+    # Interfaces to PA Firewall - hardcoded - this will most likely not change
+    
+    n7k_fw_int = {}
+
+    n7k_fw_int =  { 'SOE' : { 'Outer' : { 'N7K-A' :  { 'dc1'  : { 'int1' : 'E2/21', 'int2' : 'E2/29' }, 'dc2' : { 'int1' : 'E2/21', 'int2' : 'E2/29'} }, 'N7K-B' : { 'dc1'  : { 'int1' : 'E2/21', 'int2' : 'E2/29' }, 'dc2' : { 'int1' : 'E2/21', 'int2' : 'E2/29'} }} } }
+    n7k_fw_int['SOE'].update({'Inner' : { 'dc1' :  65501, 'dc2' : 65511 } } )
+    """
+    bgp_asn.update({'GIS' : { 'Inner' : { 'dc1' :  65502, 'dc2' : 65512 } } } )
+    bgp_asn['GIS'].update(  { 'Outer' : { 'dc1' :  65500, 'dc2' : 65510 } } )
+
+    bgp_asn.update({'SDE' : { 'Inner' : { 'dc1' :  65506, 'dc2' : 65516 } } } )
+    bgp_asn['SDE'].update(  { 'Outer' : { 'dc1' :  65505, 'dc2' : 65515 } } )
+    """
+    if debug == True:
+        print json.dumps(n7k_fw_int)
+    
+    
+    
+    
     ##############################################################################################
     
     return ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa_data
