@@ -771,7 +771,8 @@ def main(argv):
                         print sys.argv[0] + " file %s is not an Excel file" % filename
                     else:
                         if magic.from_file(filename) == 'Microsoft Excel 2007+':
-                            process_xlsx(filename,debug)
+                            (ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa_data,n7k_fw_int) = process_xlsx(filename,debug)
+                            
                         else:
                             print "File must be in .xlsx format"
                             sys.exit(10)
