@@ -10,6 +10,21 @@ import numbers
 from xlrd import open_workbook, XLRDError
 import json
 from IPy import IP
+from dns.rdatatype import NULL
+
+def inner_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa_data,n7k_fw_int):
+    
+    for district in ws_definition_data:
+        for vsys in ws_definition_data[district]:
+            for attribs in ws_definition_data[district][vsys]:
+                # DC1 config
+                innervdcvlan =  attribs['innervdcencap']
+                print "interface vlan " + str(innervdcvlan)
+                print "    description Layer3_%s_%s" % (vsys,attribs['dc1vrf'])
+                print "    vrf member %s " % (attribs['dc1vrf'])
+                print "    ip address <ip address>/30"
+                print "    ip ospf network point-to-point"
+                print "    ip router ospf %s area %s" % (attribs['subzone'],attribs['ospfdc1'])
 
 
 def get_outer_to_pa(wb):
@@ -511,13 +526,17 @@ def process_xlsx(filename,debug):
             if value is not None and value != 'VRF' and value != '#':
                     vrf = value
             
-            # Get VRF Name for DC1
+            # Get VRF Name for DC1 - skip entire row if VRF name for DC1 is blank 
             cell = 'E' + str(x)
             value = ws[cell].value 
             
-            if value is not None and not bool(re.search('N7K',value, re.IGNORECASE)) and value != 'DC1' and value != 'DC2':
-                    vrfnamedc1 = value
-                    vrfnamedc1 = vrfnamedc1.strip()
+            if value is None:
+                continue
+            
+            else:
+                    if  not bool(re.search('N7K',value, re.IGNORECASE)) and value != 'DC1' and value != 'DC2':
+                        vrfnamedc1 = value
+                        vrfnamedc1 = vrfnamedc1.strip()
 
             # Get VRF Name for DC2
             cell = 'F' + str(x)
@@ -632,6 +651,8 @@ def process_xlsx(filename,debug):
        
         if debug == True :
             print json.dumps(ws_definition_data)
+            sys.exit(9)
+            
 
     ##############################################################################################
 
@@ -772,6 +793,7 @@ def main(argv):
                     else:
                         if magic.from_file(filename) == 'Microsoft Excel 2007+':
                             (ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa_data,n7k_fw_int) = process_xlsx(filename,debug)
+                            inner_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa_data,n7k_fw_int)
                             
                         else:
                             print "File must be in .xlsx format"
