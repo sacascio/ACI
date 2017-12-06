@@ -10,21 +10,33 @@ import numbers
 from xlrd import open_workbook, XLRDError
 import json
 from IPy import IP
-from dns.rdatatype import NULL
 
-def inner_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa_data,n7k_fw_int):
+def inner_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa_data,n7k_fw_int,config):
+    vlans = []
     
     for district in ws_definition_data:
         for vsys in ws_definition_data[district]:
             for attribs in ws_definition_data[district][vsys]:
                 # DC1 config
-                innervdcvlan =  attribs['innervdcencap']
-                print "interface vlan " + str(innervdcvlan)
-                print "    description Layer3_%s_%s" % (vsys,attribs['dc1vrf'])
-                print "    vrf member %s " % (attribs['dc1vrf'])
-                print "    ip address <ip address>/30"
-                print "    ip ospf network point-to-point"
-                print "    ip router ospf %s area %s" % (attribs['subzone'],attribs['ospfdc1'])
+                if config is True:
+                    innervdcvlan =  attribs['innervdcencap']
+                    print "interface vlan " + str(innervdcvlan)
+                    print "  description Layer3_%s_%s" % (vsys,attribs['dc1vrf'])
+                    print "  vrf member %s " % (attribs['dc1vrf'])
+                    print "  ip address <ip address>/30"
+                    print "  ip ospf network point-to-point"
+                    print "  ip router ospf %s area %s" % (attribs['subzone'],attribs['ospfdc1'])
+                    
+                    vlans.append(str(innervdcvlan))
+            
+            # got all vlans for district/subzone - now add the vlans to the FW Int config
+            vlans.sort()
+            
+            for n7k in n7k_fw_int[district]['Inner']:
+                    fwint1 =  n7k_fw_int[district]['Inner'][n7k]['dc1']['int1']
+                    print fwint1
+        #print district,vlans
+        #vlans = []
 
 
 def get_outer_to_pa(wb):
@@ -651,7 +663,6 @@ def process_xlsx(filename,debug):
        
         if debug == True :
             print json.dumps(ws_definition_data)
-            sys.exit(9)
             
 
     ##############################################################################################
@@ -760,14 +771,15 @@ def process_xlsx(filename,debug):
 
 def main(argv):
 
-    debug = False
+    debug  = False
+    config = False
 
     if len(argv) == 0:
         print "Usage: " +  sys.argv[0] + " -f|--file <excel file name> -d|--debug.  No arguments given"
         sys.exit(1)
 
     try:
-        opts,args = getopt.getopt(argv,"f:hd",["file=","help","debug"])
+        opts,args = getopt.getopt(argv,"f:hdc",["file=","help","debug","config"])
     except getopt.GetoptError as err:
         print str(err)
         sys.exit(2)
@@ -775,10 +787,14 @@ def main(argv):
         for opt,arg in opts:
             if opt in ("-d","--debug"):
                 debug = True
+            if opt in ("-c", "--config"):
+                config = True
 
         for opt,arg in opts:
             if opt == '-h':
-                print sys.argv[0] + " -f|--file <excel file name> -d|--debug"
+                print sys.argv[0] + " -f|--file <excel file name> -d|--debug -c|--config"
+                print "-d|--debug:  Prints excel data in JSON format (no switch changes made)"
+                print "-c|--config: Prints config file for use in Nexus 7K (no switch changes made)"
                 sys.exit(1)
             elif opt in ( "-f", "--file"):
                 filename = arg
@@ -793,7 +809,7 @@ def main(argv):
                     else:
                         if magic.from_file(filename) == 'Microsoft Excel 2007+':
                             (ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa_data,n7k_fw_int) = process_xlsx(filename,debug)
-                            inner_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa_data,n7k_fw_int)
+                            inner_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa_data,n7k_fw_int,config)
                             
                         else:
                             print "File must be in .xlsx format"
