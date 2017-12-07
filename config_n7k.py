@@ -19,27 +19,38 @@ def inner_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa
     n7k_dev   = ['N7K-E','N7K-F']
     
     for district in districts:
-        for vsys in ws_definition_data[district]:
-            for attribs in ws_definition_data[district][vsys]:
-                    # DC1 config
-                if config is True:
-                    innervdcvlan =  attribs['innervdcencap']
-                    print "interface vlan " + str(innervdcvlan)
-                    print "  description Layer3_%s_%s" % (vsys,attribs['dc1vrf'])
-                    print "  vrf member %s " % (attribs['dc1vrf'])
-                    print "  ip address <ip address>/30"
-                    print "  ip ospf network point-to-point"
-                    print "  ip router ospf %s area %s" % (vsys,attribs['ospfdc1'])
-                    print "  no shutdown"
-                    
-                    vlans.append(str(innervdcvlan))
+        # DC1 config - select N7K naming convention based on prod (GIS/SOE) or dev (SDE)
+        if district in ('GIS','SOE'):
+            n7k = n7k_prod
+        else:
+            n7k = n7k_dev
+        
+        for nexusvdc in n7k:
+            print "PROC %s" % nexusvdc
+            for vsys in ws_definition_data[district]:
             
-                        # got all vlans for district/subzone - now add the vlans to the FW Int config
-        vlans.sort()
+                
+            
+                
+                for attribs in ws_definition_data[district][vsys]:
+                    if config is True:
+                        innervdcvlan =  attribs['innervdcencap']
+                        print "interface vlan " + str(innervdcvlan)
+                        print "  description Layer3_%s_%s" % (vsys,attribs['dc1vrf'])
+                        print "  vrf member %s " % (attribs['dc1vrf'])
+                        print "  ip address <ip address>/30"
+                        print "  ip ospf network point-to-point"
+                        print "  ip router ospf %s area 0.0.0.%s" % (vsys.upper(),attribs['ospfdc1'])
+                        print "  no shutdown"
+                    
+                        vlans.append(str(innervdcvlan))
+            
+                # got all vlans for district/subzone - now add the vlans to the FW Int config
+                vlans.sort()
        
-        for n7k in n7k_fw_int[district]['Inner']:
-            fwint1 =  n7k_fw_int[district]['Inner'][n7k]['dc1']['int1']
-            print fwint1
+                for n7k in n7k_fw_int[district]['Inner']:
+                    fwint1 =  n7k_fw_int[district]['Inner'][nexusvdc]['dc1']['int1']
+                    print fwint1
         #print district,vlans
         #vlans = []
 
