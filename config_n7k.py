@@ -12,47 +12,56 @@ import json
 from IPy import IP
 
 def inner_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa_data,n7k_fw_int,config):
+   
     vlans = []
+    #dcs = ['dc1', 'dc2']
+    dcs = ['dc2']
     #districts = ['SOE','GIS','SDE']
-    districts = ['SOE']
+    districts = ['GIS']
     n7k_prod  = ['N7K-A','N7K-B','N7K-C','N7K-D']
     n7k_dev   = ['N7K-E','N7K-F']
     
-    for district in districts:
-        # DC1 config - select N7K naming convention based on prod (GIS/SOE) or dev (SDE)
-        if district in ('GIS','SOE'):
-            n7k = n7k_prod
-        else:
-            n7k = n7k_dev
-        
-        for nexusvdc in n7k:
-            print "PROC %s" % nexusvdc
-            for vsys in ws_definition_data[district]:
-            
+    for dc in dcs:
+        for district in districts:
+            # DC1 config - select N7K naming convention based on prod (GIS/SOE) or dev (SDE)
+            if district in ('GIS','SOE'):
+                n7k = n7k_prod
+            else:
+                n7k = n7k_dev
+
+            for nexusvdc in n7k:
+                # Get the firewall interfaces
+                fwint1 =  n7k_fw_int[district]['Inner'][nexusvdc][dc]['int1']
+                fwint2 =  n7k_fw_int[district]['Inner'][nexusvdc][dc]['int2']
                 
-            
-                
-                for attribs in ws_definition_data[district][vsys]:
-                    if config is True:
-                        innervdcvlan =  attribs['innervdcencap']
-                        print "interface vlan " + str(innervdcvlan)
-                        print "  description Layer3_%s_%s" % (vsys,attribs['dc1vrf'])
-                        print "  vrf member %s " % (attribs['dc1vrf'])
-                        print "  ip address <ip address>/30"
-                        print "  ip ospf network point-to-point"
-                        print "  ip router ospf %s area 0.0.0.%s" % (vsys.upper(),attribs['ospfdc1'])
-                        print "  no shutdown"
+                for vsys in ws_definition_data[district]:
+                    for attribs in ws_definition_data[district][vsys]:
+                        if config is True:
+                            innervdcvlan =  attribs['innervdcencap']
+                            subzone      =  attribs['subzone']
+                            n7kip        =  final_all_inner_data[district][subzone][nexusvdc][0][dc + 'n7kip']
+                            print "interface vlan " + str(innervdcvlan)
+                            print "  description Layer3_%s_%s" % (vsys,attribs[dc+'vrf'])
+                            print "  vrf member %s " % (attribs[dc+'vrf'])
+                            print "  ip address %s/30" % (n7kip)
+                            print "  ip ospf network point-to-point"
+                            print "  ip router ospf %s area 0.0.0.%s" % (vsys.upper(),attribs['ospf' + dc])
+                            print "  no shutdown"
                     
-                        vlans.append(str(innervdcvlan))
+                            vlans.append(str(innervdcvlan))
             
-                # got all vlans for district/subzone - now add the vlans to the FW Int config
+                # got all vlans for district/subzone per N7K - now add the vlans to the FW Int config
                 vlans.sort()
+
+                # Add vlans to allowed list on firewall interfaces
+                print "interface %s" % (fwint1)
+                print " switchport trunk allow vlan add " + ','.join(map(str,vlans))
+                vlans = []
+                
+                # BGP Configuration
        
-                for n7k in n7k_fw_int[district]['Inner']:
-                    fwint1 =  n7k_fw_int[district]['Inner'][nexusvdc]['dc1']['int1']
-                    print fwint1
-        #print district,vlans
-        #vlans = []
+                
+        
 
 
 def get_outer_to_pa(wb):
@@ -353,6 +362,9 @@ def get_inner_to_pa(wb,district):
             
             if value is not None and not bool((re.search('Connection',value,re.IGNORECASE))):
                 connectdesc = value
+                temp = connectdesc[3]
+                connectdesc = connectdesc[:3] + "-" + temp
+
             
             # get N7K IP DC1
             cell = 'C'  + str(x)
@@ -387,6 +399,9 @@ def get_inner_to_pa(wb,district):
             if value is not None and not bool((re.search('Zone',value,re.IGNORECASE))):
                 subzone = value
                 subzone = subzone.strip()
+                subzone = subzone.replace(' ',"_")
+                subzone = subzone.upper()
+                
                 
             # get N7K VRF Name DC1
             cell = 'F'  + str(x)
@@ -436,11 +451,11 @@ def get_inner_to_pa(wb,district):
             # If subzone and connection exist, append attributes as a list
                 if district in data:
                     if subzone in data[district]:
-                        if len(data[district][subzone]) < max_n7k:
-                            data[district][subzone].append(
+                        if connectdesc in data[district][subzone]:
+                            if len(data[district][subzone]) < max_n7k:
+                                data[district][subzone][connectdesc].append(
                                         {
                                          'vrfnumber'     : vrfnumber,
-                                         'desc'          : connectdesc,
                                          'dc1n7kip'      : dc1n7kip,
                                          'dc1pafwip'     : dc1pafwip,
                                          'n7kvrfdc1'     : n7kvrfdc1,
@@ -449,10 +464,9 @@ def get_inner_to_pa(wb,district):
                                          'dc2pafwip'     : dc2pafwip
                                         })
                 # If district exists, but not tenant, add new key (tenant) and initial attributes
-                    else:
-                         data[district][subzone] = [ {  
+                        else:
+                                data[district][subzone][connectdesc] = [ {  
                                   'vrfnumber'     : vrfnumber,
-                                  'desc'          : connectdesc,
                                   'dc1n7kip'      : dc1n7kip,
                                   'dc1pafwip'     : dc1pafwip,
                                   'n7kvrfdc1'     : n7kvrfdc1,
@@ -460,25 +474,40 @@ def get_inner_to_pa(wb,district):
                                   'dc2n7kip'      : dc2n7kip,
                                   'dc2pafwip'     : dc2pafwip
                                 } ]
+                    else:
+                        data[district][subzone] = {}        
+                        data[district][subzone][connectdesc] = [ {  
+                                  'vrfnumber'     : vrfnumber,
+                                  'dc1n7kip'      : dc1n7kip,
+                                  'dc1pafwip'     : dc1pafwip,
+                                  'n7kvrfdc1'     : n7kvrfdc1,
+                                  'n7kvrfdc2'     : n7kvrfdc2,
+                                  'dc2n7kip'      : dc2n7kip,
+                                  'dc2pafwip'     : dc2pafwip
+                                } ]
+                        
 
                 # Initial key/value assignment
                 else:
                     data.update({  
                          district :  
                                  { 
-                                      subzone :  [ 
-                                      {
-                                     'vrfnumber'     : vrfnumber,
-                                     'desc'          : connectdesc,
-                                     'dc1n7kip'      : dc1n7kip,
-                                     'dc1pafwip'     : dc1pafwip,
-                                     'n7kvrfdc1'     : n7kvrfdc1,
-                                     'n7kvrfdc2'     : n7kvrfdc2,
-                                     'dc2n7kip'      : dc2n7kip,
-                                     'dc2pafwip'     : dc2pafwip
-                                     }
-                                ] 
-                               } 
+                                      subzone : 
+                                             { 
+                                         
+                                                connectdesc :  [ 
+                                                         {
+                                                          'vrfnumber'     : vrfnumber,
+                                                          'dc1n7kip'      : dc1n7kip,
+                                                          'dc1pafwip'     : dc1pafwip,
+                                                          'n7kvrfdc1'     : n7kvrfdc1,
+                                                          'n7kvrfdc2'     : n7kvrfdc2,
+                                                          'dc2n7kip'      : dc2n7kip,
+                                                          'dc2pafwip'     : dc2pafwip
+                                                          }
+                                                         ] 
+                                              }
+                                 } 
                     })
    
 
@@ -535,6 +564,8 @@ def process_xlsx(filename,debug):
             if value is not None and value != 'Sub Zone' and value != 'Network Segmentation Zone' and not bool(re.search('Zone',value, re.IGNORECASE)):
                 tenant = value
                 tenant = tenant.strip()
+                tenant = tenant.replace(" ","_")
+                tenant = tenant.upper()
          
             # Get Sub Zone
             cell = 'C' + str(x)
@@ -546,6 +577,8 @@ def process_xlsx(filename,debug):
             if value is not None and not bool(re.search('Sub Zone',value, re.IGNORECASE)):
                 szone = value
                 szone = szone.strip()
+                szone = szone.replace(" ","_")
+                szone = szone.upper()
 
             # Get VRF #
             cell = 'D' + str(x)
@@ -791,7 +824,9 @@ def main(argv):
     config = False
 
     if len(argv) == 0:
-        print "Usage: " +  sys.argv[0] + " -f|--file <excel file name> -d|--debug.  No arguments given"
+        print "Usage: " +  sys.argv[0] + " -f|--file <excel file name> -d|--debug -c|--config.  No arguments given"
+        print "-d|--debug:  Prints excel data in JSON format (no switch changes made)"
+        print "-c|--config: Prints config file for use in Nexus 7K (no switch changes made)"
         sys.exit(1)
 
     try:
@@ -826,7 +861,6 @@ def main(argv):
                         if magic.from_file(filename) == 'Microsoft Excel 2007+':
                             (ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa_data,n7k_fw_int) = process_xlsx(filename,debug)
                             inner_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa_data,n7k_fw_int,config)
-                            
                         else:
                             print "File must be in .xlsx format"
                             sys.exit(10)
