@@ -6,18 +6,16 @@ import getopt
 import os.path
 import magic
 import re
-import numbers
+#import numbers
 from xlrd import open_workbook, XLRDError
 import json
 from IPy import IP
 
-def inner_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa_data,n7k_fw_int,loopback_data,config):
+def inner_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa_data,n7k_fw_int,loopback_data):
    
     vlans = []
-    #dcs = ['dc1', 'dc2']
-    dcs = ['dc2']
-    #districts = ['SOE','GIS','SDE']
-    districts = ['SOE']
+    dcs = ['dc1', 'dc2']
+    districts = ['SOE','GIS','SDE']
     n7k_prod  = ['N7K-A','N7K-B','N7K-C','N7K-D']
     n7k_dev   = ['N7K-E','N7K-F']
     loopback_position  = {'N7K-A' : 1, 'N7K-B' : 2, 'N7K-C' : 3, 'N7K-D' : 4, 'N7K-E' : 1, 'N7K-F' : 2}
@@ -39,19 +37,19 @@ def inner_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa
                 
                 for vsys in ws_definition_data[district]:
                     for attribs in ws_definition_data[district][vsys]:
-                        if config is True:
-                            innervdcvlan =  attribs['innervdcencap']
-                            subzone      =  attribs['subzone']
-                            n7kip        =  final_all_inner_data[district][subzone][nexusvdc][0][dc + 'n7kip']
-                            print "interface vlan " + str(innervdcvlan)
-                            print "  description Layer3_%s_%s" % (vsys,attribs[dc+'vrf'])
-                            print "  vrf member %s " % (attribs[dc+'vrf'])
-                            print "  ip address %s/30" % (n7kip)
-                            print "  ip ospf network point-to-point"
-                            print "  ip router ospf %s area 0.0.0.%s" % (vsys.upper(),attribs['ospf' + dc])
-                            print "  no shutdown"
+                        innervdcvlan =  attribs['innervdcencap']
+                        subzone      =  attribs['subzone']
+                        n7kip        =  final_all_inner_data[district][subzone][nexusvdc][0][dc + 'n7kip']
+                        print "interface vlan " + str(innervdcvlan)
+                        print "  description Layer3_%s_%s" % (vsys,attribs[dc+'vrf'])
+                        print "  vrf member %s " % (attribs[dc+'vrf'])
+                        print "  ip address %s/30" % (n7kip)
+                        print "  ip ospf network point-to-point"
+                        print "  ip router ospf %s area 0.0.0.%s" % (vsys.upper(),attribs['ospf' + dc])
+                        print "  no shutdown"
+                        print "!"
                     
-                            vlans.append(str(innervdcvlan))
+                        vlans.append(str(innervdcvlan))
                     
                     print "!"
                     # Begin OSPF config
@@ -79,6 +77,7 @@ def inner_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa
                 print " router-id %s" % (loopback_address)
                 print " address-family l2vpn evpn"
                 print "  maximum-paths 8"
+                
                 for vsys in ws_definition_data[district]:
                     for attribs in ws_definition_data[district][vsys]:
                         vrf = attribs[dc+'vrf']
@@ -115,7 +114,6 @@ def inner_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa
                 print " switchport trunk allow vlan add " + ','.join(map(str,vlans))
                 print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
                 print ""
-                
                 vlans = []
                 
 def get_outer_to_pa(wb):
@@ -887,16 +885,14 @@ def process_xlsx(filename,debug):
 def main(argv):
 
     debug  = False
-    config = False
 
     if len(argv) == 0:
-        print "Usage: " +  sys.argv[0] + " -f|--file <excel file name> -d|--debug -c|--config.  No arguments given"
+        print "Usage: " +  sys.argv[0] + " -f|--file <excel file name> -d|--debug.  No arguments given"
         print "-d|--debug:  Prints excel data in JSON format (no switch changes made)"
-        print "-c|--config: Prints config file for use in Nexus 7K (no switch changes made)"
         sys.exit(1)
 
     try:
-        opts,args = getopt.getopt(argv,"f:hdc",["file=","help","debug","config"])
+        opts,args = getopt.getopt(argv,"f:hd",["file=","help","debug"])
     except getopt.GetoptError as err:
         print str(err)
         sys.exit(2)
@@ -904,14 +900,11 @@ def main(argv):
         for opt,arg in opts:
             if opt in ("-d","--debug"):
                 debug = True
-            if opt in ("-c", "--config"):
-                config = True
-
+          
         for opt,arg in opts:
             if opt == '-h':
-                print sys.argv[0] + " -f|--file <excel file name> -d|--debug -c|--config"
+                print sys.argv[0] + " -f|--file <excel file name> -d|--debug"
                 print "-d|--debug:  Prints excel data in JSON format (no switch changes made)"
-                print "-c|--config: Prints config file for use in Nexus 7K (no switch changes made)"
                 sys.exit(1)
             elif opt in ( "-f", "--file"):
                 filename = arg
@@ -927,7 +920,7 @@ def main(argv):
                         if magic.from_file(filename) == 'Microsoft Excel 2007+':
                             (ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa_data,n7k_fw_int,loopback_data) = process_xlsx(filename,debug)
                             if debug is False:
-                                inner_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa_data,n7k_fw_int,loopback_data,config)
+                                inner_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa_data,n7k_fw_int,loopback_data)
                         else:
                             print "File must be in .xlsx format"
                             sys.exit(10)
