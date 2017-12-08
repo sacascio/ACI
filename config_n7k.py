@@ -11,16 +11,19 @@ from xlrd import open_workbook, XLRDError
 import json
 from IPy import IP
 
-def inner_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa_data,n7k_fw_int,config):
+def inner_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa_data,n7k_fw_int,loopback_data,config):
    
     vlans = []
     #dcs = ['dc1', 'dc2']
-    dcs = ['dc2']
+    dcs = ['dc1']
     #districts = ['SOE','GIS','SDE']
-    districts = ['GIS']
+    districts = ['SOE']
     n7k_prod  = ['N7K-A','N7K-B','N7K-C','N7K-D']
     n7k_dev   = ['N7K-E','N7K-F']
+    loopback_position  = {'N7K-A' : 1, 'N7K-B' : 2, 'N7K-C' : 3, 'N7K-D' : 4, 'N7K-E' : 1, 'N7K-F' : 2}
     
+    
+       
     for dc in dcs:
         for district in districts:
             # DC1 config - select N7K naming convention based on prod (GIS/SOE) or dev (SDE)
@@ -49,7 +52,53 @@ def inner_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa
                             print "  no shutdown"
                     
                             vlans.append(str(innervdcvlan))
-            
+                            
+                            # OSPF Configuration
+                            n7k_num = loopback_position[nexusvdc]
+                            for vals in loopback_data[district]:
+                                if vals[dc + 'hn'] == dc + 'dcinxc' + str(n7k_num) + district.lower() + 'inner':
+                                    loopback_address = vals[dc + 'ip']  
+                            print "router ospf %s" % (vsys)
+                            print " vrf %s" % (attribs[dc+'vrf'])
+                            print "   router-id %s" % (loopback_address)
+                            print "   log-adjacency-changes"
+                            
+                            
+                # BGP Configuration
+                inner_as   = bgp_asn[district]['Inner'][dc]
+                outer_as   = bgp_asn[district]['Outer'][dc]
+                            
+                print "router bgp %s" % (inner_as)
+                print " router-id %s" % (loopback_address)
+                print " address-family l2vpn evpn"
+                print "  maximum-paths 8"
+                for vsys in ws_definition_data[district]:
+                    
+                    
+                    for attribs in ws_definition_data[district][vsys]:
+                        vrf = attribs[dc+'vrf']
+                        print "vrf %s" % (vrf)
+                        for vdc in n7k:
+                            n7k_num = loopback_position[vdc]
+                            if district == 'SDE':
+                                outervdc = dc + district.lower() + 'nxc' + str(n7k_num) + district.lower() + 'outer'
+                            else:
+                                outervdc = dc + 'dcinxc' + str(n7k_num) + 'dciouter'
+                                
+                            tname = vsys + "-" + dc.upper() + "-" + district
+                            
+                            neighbor_ip = outer_to_pa_data[district][vsys][vdc][0][dc + 'n7kip']
+                            print " address-family ipv4 unicast"
+                            print "  maximum-paths 8"
+                            print " neighbor %s remote-as %s" % (neighbor_ip,outer_as) 
+                            print " description TO_%s_%s" % (outervdc,tname)
+                
+                
+                
+                    
+                            
+                            
+                            
                 # got all vlans for district/subzone per N7K - now add the vlans to the FW Int config
                 vlans.sort()
 
@@ -58,7 +107,7 @@ def inner_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa
                 print " switchport trunk allow vlan add " + ','.join(map(str,vlans))
                 vlans = []
                 
-                # BGP Configuration
+                
        
                 
         
@@ -92,6 +141,8 @@ def get_outer_to_pa(wb):
                     district = value
                 else:
                     tenant = value
+                    tenant = tenant.upper()
+                    tenant = tenant.replace(" ","_")
 
             # Get PA IP DC1
             cell = 'B' + str(x)
@@ -175,40 +226,50 @@ def get_outer_to_pa(wb):
             
             if district in data:
                 if tenant in data[district]:
-                  data[district][tenant].append(
+                    if n7k in data[district][tenant]:
+                            data[district][tenant][n7k].append(
                                     {
                                      'dc1paip'     : dc1paip,
                                      'dc1n7kip'    : dc1n7kip,
-                                     'n7kname'     : n7k,
                                      'dc2paip'     : dc2paip,
                                      'dc2n7kip'    : dc2n7kip
                                    })
-                # If district exists, but not tenant, add new key (tenant) and initial attributes
-                else:
-                    data[district][tenant] = [ {  
+                            # If district exists, but not tenant, add new key (tenant) and initial attributes
+                    else:
+                            data[district][tenant][n7k] = [ {  
                                      
                                      'dc1paip'     : dc1paip,
                                      'dc1n7kip'    : dc1n7kip,
-                                     'n7kname'     : n7k,
                                      'dc2paip'     : dc2paip,
                                      'dc2n7kip'    : dc2n7kip
                                      
                                      } ]
+                            
+                else:
+                    data[district][tenant] = {}        
+                    data[district][tenant][n7k] = [ {  
+                                  'dc1paip'     : dc1paip,
+                                  'dc1n7kip'    : dc1n7kip,
+                                  'dc2paip'     : dc2paip,
+                                   'dc2n7kip'    : dc2n7kip
+                                } ]
 
             # Initial key/value assignment
             else:
                     data.update({  
                               district :  
                               { 
-                                tenant :  [ 
+                                tenant :  
+                                    { 
+                                      n7k : [ 
                                      {
                                      'dc1paip'     : dc1paip,
                                      'dc1n7kip'    : dc1n7kip,
-                                     'n7kname'     : n7k,
                                      'dc2paip'     : dc2paip,
                                      'dc2n7kip'    : dc2n7kip
                                     }
-                                ] 
+                                    ] 
+                                }
                               } 
                          })
         
@@ -746,7 +807,7 @@ def process_xlsx(filename,debug):
     # Load BGP ASN numbers - this is hardcoded as it will not change
     bgp_asn = {}
 
-    bgp_asn =  { 'SOE' : { 'Outer' : { 'dc1' :  65550, 'dc2' : 65510 } } }
+    bgp_asn =  { 'SOE' : { 'Outer' : { 'dc1' :  65500, 'dc2' : 65510 } } }
     bgp_asn['SOE'].update({'Inner' : { 'dc1' :  65501, 'dc2' : 65511 } } )
     
     bgp_asn.update({'GIS' : { 'Inner' : { 'dc1' :  65502, 'dc2' : 65512 } } } )
@@ -816,7 +877,7 @@ def process_xlsx(filename,debug):
     
     ##############################################################################################
     
-    return ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa_data,n7k_fw_int
+    return ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa_data,n7k_fw_int,loopback_data
 
 def main(argv):
 
@@ -859,8 +920,9 @@ def main(argv):
                         print sys.argv[0] + " file %s is not an Excel file" % filename
                     else:
                         if magic.from_file(filename) == 'Microsoft Excel 2007+':
-                            (ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa_data,n7k_fw_int) = process_xlsx(filename,debug)
-                            inner_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa_data,n7k_fw_int,config)
+                            (ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa_data,n7k_fw_int,loopback_data) = process_xlsx(filename,debug)
+                            if debug is False:
+                                inner_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa_data,n7k_fw_int,loopback_data,config)
                         else:
                             print "File must be in .xlsx format"
                             sys.exit(10)
