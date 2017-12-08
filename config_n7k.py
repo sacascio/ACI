@@ -15,15 +15,13 @@ def inner_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa
    
     vlans = []
     #dcs = ['dc1', 'dc2']
-    dcs = ['dc1']
+    dcs = ['dc2']
     #districts = ['SOE','GIS','SDE']
     districts = ['SOE']
     n7k_prod  = ['N7K-A','N7K-B','N7K-C','N7K-D']
     n7k_dev   = ['N7K-E','N7K-F']
     loopback_position  = {'N7K-A' : 1, 'N7K-B' : 2, 'N7K-C' : 3, 'N7K-D' : 4, 'N7K-E' : 1, 'N7K-F' : 2}
     
-    
-       
     for dc in dcs:
         for district in districts:
             # DC1 config - select N7K naming convention based on prod (GIS/SOE) or dev (SDE)
@@ -33,6 +31,8 @@ def inner_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa
                 n7k = n7k_dev
 
             for nexusvdc in n7k:
+                print "!!! District %s, DC %s, nexusVDC %s" % (district,dc,nexusvdc)
+                print "!"
                 # Get the firewall interfaces
                 fwint1 =  n7k_fw_int[district]['Inner'][nexusvdc][dc]['int1']
                 fwint2 =  n7k_fw_int[district]['Inner'][nexusvdc][dc]['int2']
@@ -52,18 +52,25 @@ def inner_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa
                             print "  no shutdown"
                     
                             vlans.append(str(innervdcvlan))
-                            
-                            # OSPF Configuration
+                    
+                    print "!"
+                    # Begin OSPF config
+                    print "router ospf %s" % (vsys)  
+                          
+                    for attribs in ws_definition_data[district][vsys]:    
                             n7k_num = loopback_position[nexusvdc]
                             for vals in loopback_data[district]:
                                 if vals[dc + 'hn'] == dc + 'dcinxc' + str(n7k_num) + district.lower() + 'inner':
                                     loopback_address = vals[dc + 'ip']  
-                            print "router ospf %s" % (vsys)
                             print " vrf %s" % (attribs[dc+'vrf'])
                             print "   router-id %s" % (loopback_address)
                             print "   log-adjacency-changes"
+                            print "!"
                             
-                            
+                print "!"
+                print "!"
+                print "!"
+                print "!"            
                 # BGP Configuration
                 inner_as   = bgp_asn[district]['Inner'][dc]
                 outer_as   = bgp_asn[district]['Outer'][dc]
@@ -73,8 +80,6 @@ def inner_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa
                 print " address-family l2vpn evpn"
                 print "  maximum-paths 8"
                 for vsys in ws_definition_data[district]:
-                    
-                    
                     for attribs in ws_definition_data[district][vsys]:
                         vrf = attribs[dc+'vrf']
                         print "vrf %s" % (vrf)
@@ -92,27 +97,27 @@ def inner_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa
                             print "  maximum-paths 8"
                             print " neighbor %s remote-as %s" % (neighbor_ip,outer_as) 
                             print " description TO_%s_%s" % (outervdc,tname)
-                
-                
-                
-                    
-                            
-                            
-                            
+                            print "    ebgp-multihop 4"
+                            print "    address-family ipv4 unicast"
+                            print "      send-community both"
+                           
                 # got all vlans for district/subzone per N7K - now add the vlans to the FW Int config
                 vlans.sort()
-
+                print "!"
+                print "!"
+                print "! Allow VLANs on the firewall"
                 # Add vlans to allowed list on firewall interfaces
                 print "interface %s" % (fwint1)
                 print " switchport trunk allow vlan add " + ','.join(map(str,vlans))
+                print "!"
+                print "!"
+                print "interface %s" % (fwint2)
+                print " switchport trunk allow vlan add " + ','.join(map(str,vlans))
+                print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+                print ""
+                
                 vlans = []
                 
-                
-       
-                
-        
-
-
 def get_outer_to_pa(wb):
         
         ws = wb.active 
