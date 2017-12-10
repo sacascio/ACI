@@ -11,9 +11,10 @@ from xlrd import open_workbook, XLRDError
 import json
 from IPy import IP
 
-def inner_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa_data,n7k_fw_int,loopback_data):
+def inner_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa_data,n7k_fw_int,loopback_data,configure):
    
     vlans = []
+    commands = []
     dcs = ['dc1', 'dc2']
     districts = ['SOE','GIS','SDE']
     n7k_prod  = ['N7K-A','N7K-B','N7K-C','N7K-D']
@@ -40,14 +41,24 @@ def inner_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa
                         innervdcvlan =  attribs['innervdcencap']
                         subzone      =  attribs['subzone']
                         n7kip        =  final_all_inner_data[district][subzone][nexusvdc][0][dc + 'n7kip']
-                        print "interface vlan " + str(innervdcvlan)
-                        print "  description Layer3_%s_%s" % (vsys,attribs[dc+'vrf'])
-                        print "  vrf member %s " % (attribs[dc+'vrf'])
-                        print "  ip address %s/30" % (n7kip)
-                        print "  ip ospf network point-to-point"
-                        print "  ip router ospf %s area 0.0.0.%s" % (vsys.upper(),attribs['ospf' + dc])
-                        print "  no shutdown"
+                        commands.append("interface vlan " + str(innervdcvlan))
+                        commands.append("  description Layer3_%s_%s" % (vsys,attribs[dc+'vrf']))
+                        commands.append("  vrf member %s " % (attribs[dc+'vrf']))
+                        commands.append("  ip address %s/30" % (n7kip))
+                        commands.append("  ip ospf network point-to-point")
+                        commands.append("  ip router ospf %s area 0.0.0.%s" % (vsys.upper(),attribs['ospf' + dc]))
+                        commands.append("  no shutdown")
+                        
+                        print '\n'.join(map(str,commands))
                         print "!"
+                        
+                        if configure is True:
+                            
+                            commands = ";".join(map(str,commands))
+                            print "*** sending above config to %s,%s,%s ***"  %(dc,district,nexusvdc)
+                        
+                        commands = []
+                        
                     
                         vlans.append(str(innervdcvlan))
                     
@@ -885,14 +896,17 @@ def process_xlsx(filename,debug):
 def main(argv):
 
     debug  = False
+    configure = False
 
     if len(argv) == 0:
         print "Usage: " +  sys.argv[0] + " -f|--file <excel file name> -d|--debug.  No arguments given"
         print "-d|--debug:  Prints excel data in JSON format (no switch changes made)"
+        print "-e|--execute <n7k list>: Invokes N7K API to configure N7K. <n7k list> file must be in this format:"
+        print "        <SOE|GIS|SDE>,<DC1|DC2>,<N7K-A|N7K-B|N7K-C|N7K-D>,<IP>"
         sys.exit(1)
 
     try:
-        opts,args = getopt.getopt(argv,"f:hd",["file=","help","debug"])
+        opts,args = getopt.getopt(argv,"f:hde:",["file=","help","debug","n7k="])
     except getopt.GetoptError as err:
         print str(err)
         sys.exit(2)
@@ -900,11 +914,25 @@ def main(argv):
         for opt,arg in opts:
             if opt in ("-d","--debug"):
                 debug = True
-          
+            if opt in ("-e", "--execute"):
+                configure = True
+                vdcfile = arg
+                if not os.path.isfile(vdcfile):
+                    print sys.argv[0] + " VDC File list %s NOT found" % vdcfile
+                    sys.exit(1)
+                
+        if debug is True and configure is True:
+            print "Cannot use option d and option e together.  Use option e or option d"
+            sys.exit(9)
+         
+         
         for opt,arg in opts:
             if opt == '-h':
                 print sys.argv[0] + " -f|--file <excel file name> -d|--debug"
                 print "-d|--debug:  Prints excel data in JSON format (no switch changes made)"
+                print "-e|--execute <n7k list>: Invokes N7K API to configure N7K. <n7k list> file must be in this format:"
+                print "        <SOE|GIS|SDE>,<DC1|DC2>,<N7K-A|N7K-B|N7K-C|N7K-D>,<IP>"
+        
                 sys.exit(1)
             elif opt in ( "-f", "--file"):
                 filename = arg
@@ -920,10 +948,13 @@ def main(argv):
                         if magic.from_file(filename) == 'Microsoft Excel 2007+':
                             (ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa_data,n7k_fw_int,loopback_data) = process_xlsx(filename,debug)
                             if debug is False:
-                                inner_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa_data,n7k_fw_int,loopback_data)
+                                inner_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa_data,n7k_fw_int,loopback_data,configure)
                         else:
                             print "File must be in .xlsx format"
                             sys.exit(10)
+                            
+             
+                 
 
 if __name__ == '__main__':
     main(sys.argv[1:])
