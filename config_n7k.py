@@ -48,51 +48,69 @@ def inner_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa
                         commands.append("  ip ospf network point-to-point")
                         commands.append("  ip router ospf %s area 0.0.0.%s" % (vsys.upper(),attribs['ospf' + dc]))
                         commands.append("  no shutdown")
+                        vlans.append(str(innervdcvlan))
+                    
+                    print '\n'.join(map(str,commands))
+                    print "!"
                         
-                        print '\n'.join(map(str,commands))
-                        print "!"
-                        
-                        if configure is True:
+                    if configure is True:
                             
-                            commands = ";".join(map(str,commands))
-                            print "*** sending above config to %s,%s,%s ***"  %(dc,district,nexusvdc)
-                        
+                        commands = ";".join(map(str,commands))
+                        print "*** sending above config to %s,%s,%s ***"  %(dc,district,nexusvdc)
                         commands = []
                         
                     
-                        vlans.append(str(innervdcvlan))
                     
                     print "!"
                     # Begin OSPF config
-                    print "router ospf %s" % (vsys)  
+                    commands.append("router ospf %s" % (vsys))
+                    #print "router ospf %s" % (vsys)"  
                           
                     for attribs in ws_definition_data[district][vsys]:    
                             n7k_num = loopback_position[nexusvdc]
                             for vals in loopback_data[district]:
                                 if vals[dc + 'hn'] == dc + 'dcinxc' + str(n7k_num) + district.lower() + 'inner':
                                     loopback_address = vals[dc + 'ip']  
-                            print " vrf %s" % (attribs[dc+'vrf'])
-                            print "   router-id %s" % (loopback_address)
-                            print "   log-adjacency-changes"
-                            print "!"
+                            commands.append(" vrf %s" % (attribs[dc+'vrf']))
+                            #print " vrf %s" % (attribs[dc+'vrf'])"
+                            commands.append("   router-id %s" % (loopback_address))
+                            #print "   router-id %s" % (loopback_address)
+                            commands.append("   log-adjacency-changes")
+                            #print "   log-adjacency-changes"
+                            
+                    print '\n'.join(map(str,commands))
+                    print "!"
+                            
+                    if configure is True:
+                            
+                        commands = ";".join(map(str,commands))
+                        print "*** sending above config to %s,%s,%s ***"  %(dc,district,nexusvdc)
+                        
+                        commands = []
                             
                 print "!"
                 print "!"
                 print "!"
-                print "!"            
+                print "!"
+                           
                 # BGP Configuration
                 inner_as   = bgp_asn[district]['Inner'][dc]
                 outer_as   = bgp_asn[district]['Outer'][dc]
                             
-                print "router bgp %s" % (inner_as)
-                print " router-id %s" % (loopback_address)
-                print " address-family l2vpn evpn"
-                print "  maximum-paths 8"
+                #print "router bgp %s" % (inner_as)
+                commands.append("router bgp %s" % (inner_as))
+                #print " router-id %s" % (loopback_address)
+                commands.append(" router-id %s" % (loopback_address))
+                #print " address-family l2vpn evpn"
+                commands.append(" address-family l2vpn evpn")
+                #print "  maximum-paths 8"
+                commands.append("  maximum-paths 8")
                 
                 for vsys in ws_definition_data[district]:
                     for attribs in ws_definition_data[district][vsys]:
                         vrf = attribs[dc+'vrf']
-                        print "vrf %s" % (vrf)
+                        #print "vrf %s" % (vrf)
+                        commands.append("vrf %s" % (vrf))
                         for vdc in n7k:
                             n7k_num = loopback_position[vdc]
                             if district == 'SDE':
@@ -103,13 +121,29 @@ def inner_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa
                             tname = vsys + "-" + dc.upper() + "-" + district
                             
                             neighbor_ip = outer_to_pa_data[district][vsys][vdc][0][dc + 'n7kip']
-                            print " address-family ipv4 unicast"
-                            print "  maximum-paths 8"
-                            print " neighbor %s remote-as %s" % (neighbor_ip,outer_as) 
-                            print " description TO_%s_%s" % (outervdc,tname)
-                            print "    ebgp-multihop 4"
-                            print "    address-family ipv4 unicast"
-                            print "      send-community both"
+                            #print " address-family ipv4 unicast"
+                            commands.append(" address-family ipv4 unicast")
+                            #print "  maximum-paths 8"
+                            commands.append("  maximum-paths 8")
+                            #print " neighbor %s remote-as %s" % (neighbor_ip,outer_as)
+                            commands.append(" neighbor %s remote-as %s" % (neighbor_ip,outer_as)) 
+                            #print " description TO_%s_%s" % (outervdc,tname)
+                            commands.append(" description TO_%s_%s" % (outervdc,tname))
+                            #print "    ebgp-multihop 4"
+                            commands.append("    ebgp-multihop 4")
+                            #print "    address-family ipv4 unicast"
+                            commands.append("    address-family ipv4 unicast")
+                            #print "      send-community both"
+                            commands.append("      send-community both")
+                       
+                print '\n'.join(map(str,commands))
+                print "!"
+                            
+                if configure is True:
+                            
+                    commands = ";".join(map(str,commands))
+                    print "*** sending above config to %s,%s,%s ***"  %(dc,district,nexusvdc)
+                    commands = []
                            
                 # got all vlans for district/subzone per N7K - now add the vlans to the FW Int config
                 vlans.sort()
