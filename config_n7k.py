@@ -11,7 +11,7 @@ from xlrd import open_workbook, XLRDError
 import json
 from IPy import IP
 
-def inner_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa_data,n7k_fw_int,loopback_data,configure):
+def inner_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa_data,n7k_fw_int,loopback_data,configure,lines):
    
     vlans = []
     commands = []
@@ -897,6 +897,7 @@ def main(argv):
 
     debug  = False
     configure = False
+    errfound = 0
 
     if len(argv) == 0:
         print "Usage: " +  sys.argv[0] + " -f|--file <excel file name> -d|--debug.  No arguments given"
@@ -920,6 +921,47 @@ def main(argv):
                 if not os.path.isfile(vdcfile):
                     print sys.argv[0] + " VDC File list %s NOT found" % vdcfile
                     sys.exit(1)
+                else:
+                    # Verify file is in the following format: DISTRICT,DC,N7K-[A|B|C|D|E|F],IP
+                    with open (vdcfile) as data:
+                        lines = data.read().splitlines()
+                    
+                    for data in lines:
+                        d = data.split(",")
+                        f_district = d[0]
+                        f_dc       = d[1]
+                        f_dev      = d[2]
+                        f_ip       = d[3]
+                        
+                        if f_district.upper() not in ('SOE','GIS','SDE'):
+                            print "Incorrect district %s, line %s.  Expecting GIS, SOE or SDE." % (f_district,lines.index(data)+1)
+                            errfound = 1
+                            
+                        if f_dc.upper() not in ('DC1','DC2'):
+                            print "Incorrect Data Center %s, line %s.  Expecting DC1 or DC2" % (f_dc,lines.index(data)+1)
+                            errfound = 1
+                            
+                        if f_district.upper() in ('SOE','GIS') and f_dev.upper()[4] not in ('A','B','C','D'):
+                            print "Incorrect N7K device %s for district %s, line %s.  Expecting N7K-[A-D]" % (f_dev,f_district,lines.index(data)+1)
+                            errfound = 1
+                            
+                        if f_district.upper() in ('SDE') and f_dev.upper()[4] not in ('E','F'):
+                            print "Incorrect N7K device %s for district %s, line %s.  Expecting N7K-[E or F]" % (f_dev,f_district,lines.index(data)+1)
+                            errfound = 1
+                    
+                        try:
+                            IP(f_ip)
+                        except:
+                            print "Invalid IP %s, line %s" % (f_ip,lines.index(data)+1)
+                            errfound = 1
+                            
+                    if errfound:
+                        print "\nPlease correct N7K device file passed to the -e option and try again"    
+                        sys.exit(9)
+                        
+                    # Remove duplicates, if any
+                    lines = list(set(lines))   
+                   
                 
         if debug is True and configure is True:
             print "Cannot use option d and option e together.  Use option e or option d"
@@ -948,7 +990,7 @@ def main(argv):
                         if magic.from_file(filename) == 'Microsoft Excel 2007+':
                             (ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa_data,n7k_fw_int,loopback_data) = process_xlsx(filename,debug)
                             if debug is False:
-                                inner_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa_data,n7k_fw_int,loopback_data,configure)
+                                inner_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa_data,n7k_fw_int,loopback_data,configure,lines)
                         else:
                             print "File must be in .xlsx format"
                             sys.exit(10)
