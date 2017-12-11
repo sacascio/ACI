@@ -15,151 +15,131 @@ def inner_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa
    
     vlans = []
     commands = []
-    dcs = ['dc1', 'dc2']
-    districts = ['SOE','GIS','SDE']
-    n7k_prod  = ['N7K-A','N7K-B','N7K-C','N7K-D']
-    n7k_dev   = ['N7K-E','N7K-F']
     loopback_position  = {'N7K-A' : 1, 'N7K-B' : 2, 'N7K-C' : 3, 'N7K-D' : 4, 'N7K-E' : 1, 'N7K-F' : 2}
     
-    for dc in dcs:
-        for district in districts:
-            # DC1 config - select N7K naming convention based on prod (GIS/SOE) or dev (SDE)
-            if district in ('GIS','SOE'):
-                n7k = n7k_prod
-            else:
-                n7k = n7k_dev
-
-            for nexusvdc in n7k:
-                print "!!! District %s, DC %s, nexusVDC %s" % (district,dc,nexusvdc)
-                print "!"
+    for info in lines:
+        i = info.split(",")
+        district = i[0].upper()
+        dc       = i[1].lower()
+        nexusvdc = i[2].upper()
+        n7kip    = i[3]
+        
+        print "!!! District %s, DC %s, nexusVDC %s" % (district,dc,nexusvdc)
+        print "!"
                 # Get the firewall interfaces
-                fwint1 =  n7k_fw_int[district]['Inner'][nexusvdc][dc]['int1']
-                fwint2 =  n7k_fw_int[district]['Inner'][nexusvdc][dc]['int2']
+        fwint1 =  n7k_fw_int[district]['Inner'][nexusvdc][dc]['int1']
+        fwint2 =  n7k_fw_int[district]['Inner'][nexusvdc][dc]['int2']
                 
-                for vsys in ws_definition_data[district]:
-                    for attribs in ws_definition_data[district][vsys]:
-                        innervdcvlan =  attribs['innervdcencap']
-                        subzone      =  attribs['subzone']
-                        n7kip        =  final_all_inner_data[district][subzone][nexusvdc][0][dc + 'n7kip']
-                        commands.append("interface vlan " + str(innervdcvlan))
-                        commands.append("  description Layer3_%s_%s" % (vsys,attribs[dc+'vrf']))
-                        commands.append("  vrf member %s " % (attribs[dc+'vrf']))
-                        commands.append("  ip address %s/30" % (n7kip))
-                        commands.append("  ip ospf network point-to-point")
-                        commands.append("  ip router ospf %s area 0.0.0.%s" % (vsys.upper(),attribs['ospf' + dc]))
-                        commands.append("  no shutdown")
-                        vlans.append(str(innervdcvlan))
+        for vsys in ws_definition_data[district]:
+            for attribs in ws_definition_data[district][vsys]:
+                innervdcvlan =  attribs['innervdcencap']
+                subzone      =  attribs['subzone']
+                n7kip        =  final_all_inner_data[district][subzone][nexusvdc][0][dc + 'n7kip']
+                commands.append("interface vlan " + str(innervdcvlan))
+                commands.append("  description Layer3_%s_%s" % (vsys,attribs[dc+'vrf']))
+                commands.append("  vrf member %s " % (attribs[dc+'vrf']))
+                commands.append("  ip address %s/30" % (n7kip))
+                commands.append("  ip ospf network point-to-point")
+                commands.append("  ip router ospf %s area 0.0.0.%s" % (vsys.upper(),attribs['ospf' + dc]))
+                commands.append("  no shutdown")
+                vlans.append(str(innervdcvlan))
                     
-                    print '\n'.join(map(str,commands))
-                    print "!"
+            print '\n'.join(map(str,commands))
+            print "!"
                         
-                    if configure is True:
-                            
-                        commands = ";".join(map(str,commands))
-                        print "*** sending above config to %s,%s,%s ***"  %(dc,district,nexusvdc)
-                        commands = []
-                        
-                    
-                    
-                    print "!"
-                    # Begin OSPF config
-                    commands.append("router ospf %s" % (vsys))
-                    #print "router ospf %s" % (vsys)"  
-                          
-                    for attribs in ws_definition_data[district][vsys]:    
-                            n7k_num = loopback_position[nexusvdc]
-                            for vals in loopback_data[district]:
-                                if vals[dc + 'hn'] == dc + 'dcinxc' + str(n7k_num) + district.lower() + 'inner':
-                                    loopback_address = vals[dc + 'ip']  
-                            commands.append(" vrf %s" % (attribs[dc+'vrf']))
-                            #print " vrf %s" % (attribs[dc+'vrf'])"
-                            commands.append("   router-id %s" % (loopback_address))
-                            #print "   router-id %s" % (loopback_address)
-                            commands.append("   log-adjacency-changes")
-                            #print "   log-adjacency-changes"
-                            
-                    print '\n'.join(map(str,commands))
-                    print "!"
-                            
-                    if configure is True:
-                            
-                        commands = ";".join(map(str,commands))
-                        print "*** sending above config to %s,%s,%s ***"  %(dc,district,nexusvdc)
-                        
-                        commands = []
-                            
-                print "!"
-                print "!"
-                print "!"
-                print "!"
-                           
-                # BGP Configuration
-                inner_as   = bgp_asn[district]['Inner'][dc]
-                outer_as   = bgp_asn[district]['Outer'][dc]
-                            
-                #print "router bgp %s" % (inner_as)
-                commands.append("router bgp %s" % (inner_as))
-                #print " router-id %s" % (loopback_address)
-                commands.append(" router-id %s" % (loopback_address))
-                #print " address-family l2vpn evpn"
-                commands.append(" address-family l2vpn evpn")
-                #print "  maximum-paths 8"
-                commands.append("  maximum-paths 8")
+            if configure is True:            
+                commands = ";".join(map(str,commands))
+                print "*** sending above config to %s,%s,%s ***"  %(dc,district,nexusvdc)
+                commands = []
                 
-                for vsys in ws_definition_data[district]:
-                    for attribs in ws_definition_data[district][vsys]:
-                        vrf = attribs[dc+'vrf']
-                        #print "vrf %s" % (vrf)
-                        commands.append("vrf %s" % (vrf))
-                        for vdc in n7k:
-                            n7k_num = loopback_position[vdc]
-                            if district == 'SDE':
-                                outervdc = dc + district.lower() + 'nxc' + str(n7k_num) + district.lower() + 'outer'
-                            else:
-                                outervdc = dc + 'dcinxc' + str(n7k_num) + 'dciouter'
+            print "!"
+            
+            # Begin OSPF config
+            commands.append("router ospf %s" % (vsys))
+                  
+            for attribs in ws_definition_data[district][vsys]:    
+                n7k_num = loopback_position[nexusvdc]
+                for vals in loopback_data[district]:
+                   
+                    if district == 'SDE':
+                        lbname = dc + district.lower() + 'nxc' + str(n7k_num) + district.lower() + 'inner'
+                    else:
+                        lbname = dc + 'dcinxc' + str(n7k_num) + district.lower() + 'inner'
+                    
+                    if vals[dc + 'hn'] == lbname:
+                        loopback_address = vals[dc + 'ip']
+                        
+                commands.append(" vrf %s" % (attribs[dc+'vrf']))
+                commands.append("   router-id %s" % (loopback_address))
+                commands.append("   log-adjacency-changes")
+                     
+            print '\n'.join(map(str,commands))
+            print "!"
+                            
+            if configure is True:
+                commands = ";".join(map(str,commands))
+                print "*** sending above config to %s,%s,%s ***"  %(dc,district,nexusvdc)
+                commands = []
+                            
+            print "!"
+            print "!"
+
+
+        # BGP Configuration
+        inner_as   = bgp_asn[district]['Inner'][dc]
+        outer_as   = bgp_asn[district]['Outer'][dc]
+
+        commands.append("router bgp %s" % (inner_as))
+        commands.append(" router-id %s" % (loopback_address))
+        commands.append(" address-family l2vpn evpn")
+        commands.append("  maximum-paths 8")
+                
+        for vsys in ws_definition_data[district]:
+            for attribs in ws_definition_data[district][vsys]:
+                vrf = attribs[dc+'vrf']
+                commands.append("vrf %s" % (vrf))
+
+                n7k_num = loopback_position[nexusvdc]
+                            
+                if district == 'SDE':
+                    outervdc = dc + district.lower() + 'nxc' + str(n7k_num) + district.lower() + 'outer'
+                else:
+                    outervdc = dc + 'dcinxc' + str(n7k_num) + 'dciouter'
                                 
-                            tname = vsys + "-" + dc.upper() + "-" + district
-                            
-                            neighbor_ip = outer_to_pa_data[district][vsys][vdc][0][dc + 'n7kip']
-                            #print " address-family ipv4 unicast"
-                            commands.append(" address-family ipv4 unicast")
-                            #print "  maximum-paths 8"
-                            commands.append("  maximum-paths 8")
-                            #print " neighbor %s remote-as %s" % (neighbor_ip,outer_as)
-                            commands.append(" neighbor %s remote-as %s" % (neighbor_ip,outer_as)) 
-                            #print " description TO_%s_%s" % (outervdc,tname)
-                            commands.append(" description TO_%s_%s" % (outervdc,tname))
-                            #print "    ebgp-multihop 4"
-                            commands.append("    ebgp-multihop 4")
-                            #print "    address-family ipv4 unicast"
-                            commands.append("    address-family ipv4 unicast")
-                            #print "      send-community both"
-                            commands.append("      send-community both")
+                tname = vsys + "-" + dc.upper() + "-" + district        
+                neighbor_ip = outer_to_pa_data[district][vsys][nexusvdc][0][dc + 'n7kip']
+                commands.append(" address-family ipv4 unicast")
+                commands.append("  maximum-paths 8")
+                commands.append(" neighbor %s remote-as %s" % (neighbor_ip,outer_as))
+                commands.append(" description TO_%s_%s" % (outervdc,tname))
+                commands.append("    ebgp-multihop 4")
+                commands.append("    address-family ipv4 unicast")
+                commands.append("      send-community both")
                        
-                print '\n'.join(map(str,commands))
-                print "!"
+        print '\n'.join(map(str,commands))
+        print "!"
                             
-                if configure is True:
+        if configure is True:
                             
-                    commands = ";".join(map(str,commands))
-                    print "*** sending above config to %s,%s,%s ***"  %(dc,district,nexusvdc)
-                    commands = []
+            commands = ";".join(map(str,commands))
+            print "*** sending above config to %s,%s,%s ***"  %(dc,district,nexusvdc)
+            commands = []
                            
-                # got all vlans for district/subzone per N7K - now add the vlans to the FW Int config
-                vlans.sort()
-                print "!"
-                print "!"
-                print "! Allow VLANs on the firewall"
-                # Add vlans to allowed list on firewall interfaces
-                print "interface %s" % (fwint1)
-                print " switchport trunk allow vlan add " + ','.join(map(str,vlans))
-                print "!"
-                print "!"
-                print "interface %s" % (fwint2)
-                print " switchport trunk allow vlan add " + ','.join(map(str,vlans))
-                print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
-                print ""
-                vlans = []
+            # got all vlans for district/subzone per N7K - now add the vlans to the FW Int config
+        vlans.sort()
+        print "!"
+        print "!"
+        print "! Allow VLANs on the firewall"
+        # Add vlans to allowed list on firewall interfaces
+        print "interface %s" % (fwint1)
+        print " switchport trunk allow vlan add " + ','.join(map(str,vlans))
+        print "!"
+        print "!"
+        print "interface %s" % (fwint2)
+        print " switchport trunk allow vlan add " + ','.join(map(str,vlans))
+        print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+        print ""
+        vlans = []
                 
 def get_outer_to_pa(wb):
         
@@ -994,7 +974,7 @@ def main(argv):
                         sys.exit(9)
                         
                     # Remove duplicates, if any
-                    lines = list(set(lines))   
+                    lines = list(set(lines))  
                    
                 
         if debug is True and configure is True:
