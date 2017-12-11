@@ -10,6 +10,7 @@ import re
 from xlrd import open_workbook, XLRDError
 import json
 from IPy import IP
+import requests
 
 def inner_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa_data,n7k_fw_int,loopback_data,configure,lines):
    
@@ -19,10 +20,10 @@ def inner_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa
     
     for info in lines:
         i = info.split(",")
-        district = i[0].upper()
-        dc       = i[1].lower()
-        nexusvdc = i[2].upper()
-        n7kip    = i[3]
+        district  = i[0].upper()
+        dc        = i[1].lower()
+        nexusvdc  = i[2].upper()
+        device_ip = i[3]
         
         print "!!! District %s, DC %s, nexusVDC %s" % (district,dc,nexusvdc)
         print "!"
@@ -50,6 +51,7 @@ def inner_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa
             if configure is True:            
                 commands = ";".join(map(str,commands))
                 print "*** sending above config to %s,%s,%s ***"  %(dc,district,nexusvdc)
+                send_to_n7k_api(device_ip,commands,district,dc,nexusvdc)
                 commands = []
                 
             print "!"
@@ -79,6 +81,7 @@ def inner_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa
             if configure is True:
                 commands = ";".join(map(str,commands))
                 print "*** sending above config to %s,%s,%s ***"  %(dc,district,nexusvdc)
+                send_to_n7k_api(device_ip,commands,district,dc,nexusvdc)
                 commands = []
                             
             print "!"
@@ -123,6 +126,7 @@ def inner_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa
                             
             commands = ";".join(map(str,commands))
             print "*** sending above config to %s,%s,%s ***"  %(dc,district,nexusvdc)
+            send_to_n7k_api(device_ip,commands,district,dc,nexusvdc)
             commands = []
                            
             # got all vlans for district/subzone per N7K - now add the vlans to the FW Int config
@@ -131,16 +135,71 @@ def inner_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa
         print "!"
         print "! Allow VLANs on the firewall"
         # Add vlans to allowed list on firewall interfaces
-        print "interface %s" % (fwint1)
-        print " switchport trunk allow vlan add " + ','.join(map(str,vlans))
-        print "!"
-        print "!"
-        print "interface %s" % (fwint2)
-        print " switchport trunk allow vlan add " + ','.join(map(str,vlans))
+        commands.append("interface %s" % (fwint1))
+        commands.append(" switchport trunk allow vlan add " + ','.join(map(str,vlans)))
+        commands.append("interface %s" % (fwint2))
+        commands.append(" switchport trunk allow vlan add " + ','.join(map(str,vlans)))
+       
+        print '\n'.join(map(str,commands))
         print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
         print ""
+        
+        if configure is True:
+                            
+            commands = ";".join(map(str,commands))
+            print "*** sending above config to %s,%s,%s ***"  %(dc,district,nexusvdc)
+            send_to_n7k_api(device_ip,commands,district,dc,nexusvdc)
+            commands = []
+        
         vlans = []
-                
+      
+def send_to_n7k_api (ip,commands,district,dc,nexusvdc):
+    username = "cisco"
+    password = "cisco"    
+    content_type = "json"
+    HTTPS_SERVER_PORT = "8080"
+
+    requests.packages.urllib3.disable_warnings()
+    
+    payload = {
+        "ins_api": {
+            "version": "1.2",
+            "type": "cli_conf",
+            "chunk": "0",               # do not chunk results
+            "sid": "1",
+            "input": commands,
+            "output_format": "json"
+        }
+    }
+    
+    headers={'content-type':'application/%s' % content_type}
+    response = requests.post("https://%s:%s/ins" % (ip, HTTPS_SERVER_PORT),
+                             auth=(username, password),
+                             headers=headers,
+                             data=json.dumps(payload),
+                             verify=False,                      # disable SSH certificate verification
+                             timeout=4)
+    
+    if response.status_code == 200:
+        # verify result if a cli_conf operation was performed
+        if "ins_api" in payload:
+            if "type" in payload['ins_api'].keys():
+                if "cli_conf" in payload['ins_api']['type']:
+                    for result in response.json()['ins_api']['outputs']['output']:
+                        if result['code'] != "200":
+                            print("--> partial configuration failed on %s,%s,%s,%s, please verify your configuration!") % (district,dc,nexusvdc,ip)
+                            break
+    else:
+        msg = "call to %s failed, status code %d (%s).  %s,%s,%s" % (ip,
+                                                          response.status_code,
+                                                          response.content.decode("utf-8"),
+                                                          district,
+                                                          dc,
+                                                          nexusvdc
+                                                          )
+        print(msg)
+        raise Exception(msg)    
+        
 def get_outer_to_pa(wb):
         
         ws = wb.active 
