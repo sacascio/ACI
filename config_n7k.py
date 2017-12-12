@@ -134,11 +134,28 @@ def inner_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa
         print "!"
         print "! Allow VLANs on the firewall"
         # Add vlans to allowed list on firewall interfaces
-        commands.append("interface %s" % (fwint1))
-        commands.append(" switchport trunk allow vlan add " + ','.join(map(str,vlans)))
-        commands.append("interface %s" % (fwint2))
-        commands.append(" switchport trunk allow vlan add " + ','.join(map(str,vlans)))
-       
+        # Check to see if there is an allowed list already defined.  If not, then simply adding will not work
+
+        curr_allowed_list = send_to_n7k_api_show("show int %s switchport" % (fwint1),device_ip,district,dc,nexusvdc)
+        if curr_allowed_list == 'none' or curr_allowed_list == '1-4094':
+            commands.append("interface %s" % (fwint1))
+            commands.append("switchport")
+            commands.append("switchport trunk allow vlan " + ','.join(map(str,vlans)))
+        else:
+            commands.append("interface %s" % (fwint1))
+            commands.append("switchport")
+            commands.append("switchport trunk allow vlan add " + ','.join(map(str,vlans)))
+
+        curr_allowed_list = send_to_n7k_api_show("show int %s switchport" % (fwint2),device_ip,district,dc,nexusvdc)
+        if curr_allowed_list == 'none' or curr_allowed_list == '1-4094':
+            commands.append("interface %s" % (fwint2))
+            commands.append("switchport")
+            commands.append("switchport trunk allow vlan " + ','.join(map(str,vlans)))
+        else:
+            commands.append("interface %s" % (fwint2))
+            commands.append("switchport")
+            commands.append("switchport trunk allow vlan add " + ','.join(map(str,vlans)))
+            
         print '\n'.join(map(str,commands))
         print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
         print ""
@@ -210,7 +227,51 @@ def send_to_n7k_api (ip,commands,district,dc,nexusvdc):
                                                           nexusvdc
                                                           )
         print(msg)
-        raise Exception(msg)    
+        raise Exception(msg) 
+       
+def send_to_n7k_api_show(commands, ip,district,dc,nexusvdc):
+
+    payload = [
+        {
+            "jsonrpc": "2.0",
+            "method": "cli",
+            "params": {
+                "cmd": commands,
+                "version": 1.2
+            },
+            "id": 1
+        }
+    ]
+    username = "cisco"
+    password = "cisco"
+    content_type = "json-rpc"
+    HTTPS_SERVER_PORT = "8080"
+
+    requests.packages.urllib3.disable_warnings()
+
+    if commands.endswith(" ; "):
+        commands = commands[:-3]
+
+    headers={'content-type':'application/%s' % content_type}
+    response = requests.post("https://%s:%s/ins" % (ip, HTTPS_SERVER_PORT),
+                             auth=(username, password),
+                             headers=headers,
+                             data=json.dumps(payload),
+                             verify=False,                      # disable SSH certificate verification
+                             timeout=30)
+
+    if response.status_code == 200:
+        return response.json()['result']['body']['TABLE_interface']['ROW_interface']['trunk_vlans']
+    else:
+        msg = "call to %s failed, status code %d (%s).  %s,%s,%s" % (ip,
+                                                          response.status_code,
+                                                          response.content.decode("utf-8"),
+                                                          district,
+                                                          dc,
+                                                          nexusvdc
+                                                          )
+        print(msg)
+        raise Exception(msg)
         
 def get_outer_to_pa(wb):
         
