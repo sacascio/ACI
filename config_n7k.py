@@ -27,7 +27,7 @@ def inner_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa
         
         print "!!! District %s, DC %s, nexusVDC %s" % (district,dc,nexusvdc)
         print "!"
-                # Get the firewall interfaces
+        # Get the firewall interfaces
         fwint1 =  n7k_fw_int[district]['Inner'][nexusvdc][dc]['int1']
         fwint2 =  n7k_fw_int[district]['Inner'][nexusvdc][dc]['int2']
                 
@@ -39,7 +39,7 @@ def inner_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa
                 commands.append("interface vlan " + str(innervdcvlan))
                 commands.append("  description Layer3_%s_%s" % (vsys,attribs[dc+'vrf']))
                 commands.append("  vrf member %s " % (attribs[dc+'vrf']))
-                commands.append("  ip address %s/30" % (n7kip))
+                commands.append("  ip address %s 255.255.255.252" % (n7kip))
                 commands.append("  ip ospf network point-to-point")
                 commands.append("  ip router ospf %s area 0.0.0.%s" % (vsys.upper(),attribs['ospf' + dc]))
                 commands.append("  no shutdown")
@@ -49,7 +49,7 @@ def inner_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa
             print "!"
                         
             if configure is True:            
-                commands = ";".join(map(str,commands))
+                commands = " ; ".join(map(str,commands))
                 print "*** sending above config to %s,%s,%s ***"  %(dc,district,nexusvdc)
                 send_to_n7k_api(device_ip,commands,district,dc,nexusvdc)
                 commands = []
@@ -79,7 +79,7 @@ def inner_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa
             print "!"
                             
             if configure is True:
-                commands = ";".join(map(str,commands))
+                commands = " ; ".join(map(str,commands))
                 print "*** sending above config to %s,%s,%s ***"  %(dc,district,nexusvdc)
                 send_to_n7k_api(device_ip,commands,district,dc,nexusvdc)
                 commands = []
@@ -124,7 +124,7 @@ def inner_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa
                             
         if configure is True:
                             
-            commands = ";".join(map(str,commands))
+            commands = " ; ".join(map(str,commands))
             print "*** sending above config to %s,%s,%s ***"  %(dc,district,nexusvdc)
             send_to_n7k_api(device_ip,commands,district,dc,nexusvdc)
             commands = []
@@ -146,7 +146,7 @@ def inner_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa
         
         if configure is True:
                             
-            commands = ";".join(map(str,commands))
+            commands = " ; ".join(map(str,commands))
             print "*** sending above config to %s,%s,%s ***"  %(dc,district,nexusvdc)
             send_to_n7k_api(device_ip,commands,district,dc,nexusvdc)
             commands = []
@@ -161,6 +161,9 @@ def send_to_n7k_api (ip,commands,district,dc,nexusvdc):
 
     requests.packages.urllib3.disable_warnings()
     
+    if commands.endswith(" ; "):
+        commands = commands[:-3]
+        
     payload = {
         "ins_api": {
             "version": "1.2",
@@ -178,7 +181,7 @@ def send_to_n7k_api (ip,commands,district,dc,nexusvdc):
                              headers=headers,
                              data=json.dumps(payload),
                              verify=False,                      # disable SSH certificate verification
-                             timeout=4)
+                             timeout=10)
     
     if response.status_code == 200:
         # verify result if a cli_conf operation was performed
