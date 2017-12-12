@@ -6,7 +6,6 @@ import getopt
 import os.path
 import magic
 import re
-#import numbers
 from xlrd import open_workbook, XLRDError
 import json
 from IPy import IP
@@ -152,6 +151,8 @@ def inner_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa
             commands = []
         
         vlans = []
+        
+        print "Successfully applied ALL configs!"
       
 def send_to_n7k_api (ip,commands,district,dc,nexusvdc):
     username = "cisco"
@@ -190,8 +191,16 @@ def send_to_n7k_api (ip,commands,district,dc,nexusvdc):
                 if "cli_conf" in payload['ins_api']['type']:
                     for result in response.json()['ins_api']['outputs']['output']:
                         if result['code'] != "200":
-                            print("--> partial configuration failed on %s,%s,%s,%s, please verify your configuration!") % (district,dc,nexusvdc,ip)
-                            break
+                            message = result['msg']
+                            detail  = result['clierror']
+                            command_number  = response.json()['ins_api']['outputs']['output'].index(result)
+                            allcmds = commands.split(" ; ")
+                            print("ERROR: partial configuration failed on %s,%s,%s,%s, please verify your configuration!") % (district,dc,nexusvdc,ip)
+                            print("ERROR: message is: %s") % (message)
+                            print("ERROR: Detailed message is: %s") % (detail)
+                            print("ERROR: Failed command is: %s") % allcmds[command_number]
+                            sys.exit(10)
+                            
     else:
         msg = "call to %s failed, status code %d (%s).  %s,%s,%s" % (ip,
                                                           response.status_code,
