@@ -616,8 +616,8 @@ def get_inner_to_pa(wb,district):
             # get sub zone name
             cell = 'E'  + str(x)
             value = ws[cell].value
-
-            if value is not None and not bool((re.search('Zone',value,re.IGNORECASE))):
+               
+            if value != 0 and value is not None and not bool((re.search('Zone',value,re.IGNORECASE))):
                 subzone = value
                 subzone = subzone.strip()
                 subzone = subzone.replace(' ',"_")
