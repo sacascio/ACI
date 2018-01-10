@@ -23,6 +23,8 @@ def inner_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa
         dc        = i[1].lower()
         nexusvdc  = i[2].upper()
         device_ip = i[3]
+        device_un = i[4]
+        device_pw = i[5]
         
         print "!!! District %s, DC %s, nexusVDC %s" % (district,dc,nexusvdc)
         print "!"
@@ -50,7 +52,7 @@ def inner_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa
             if configure is True:            
                 commands = " ; ".join(map(str,commands))
                 print "*** sending above config to %s,%s,%s ***"  %(dc,district,nexusvdc)
-                send_to_n7k_api(device_ip,commands,district,dc,nexusvdc)
+                send_to_n7k_api(device_ip,commands,district,dc,nexusvdc,device_un,device_pw)
                 commands = []
                 
             print "!"
@@ -80,7 +82,7 @@ def inner_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa
             if configure is True:
                 commands = " ; ".join(map(str,commands))
                 print "*** sending above config to %s,%s,%s ***"  %(dc,district,nexusvdc)
-                send_to_n7k_api(device_ip,commands,district,dc,nexusvdc)
+                send_to_n7k_api(device_ip,commands,district,dc,nexusvdc,device_un,device_pw)
                 commands = []
                             
             print "!"
@@ -125,7 +127,7 @@ def inner_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa
                             
             commands = " ; ".join(map(str,commands))
             print "*** sending above config to %s,%s,%s ***"  %(dc,district,nexusvdc)
-            send_to_n7k_api(device_ip,commands,district,dc,nexusvdc)
+            send_to_n7k_api(device_ip,commands,district,dc,nexusvdc,device_un,device_pw)
             commands = []
                            
             # got all vlans for district/subzone per N7K - now add the vlans to the FW Int config
@@ -136,7 +138,7 @@ def inner_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa
         # Add vlans to allowed list on firewall interfaces
         # Check to see if there is an allowed list already defined.  If not, then simply adding will not work
 
-        curr_allowed_list = send_to_n7k_api_show("show int %s switchport" % (fwint1),device_ip,district,dc,nexusvdc)
+        curr_allowed_list = send_to_n7k_api_show("show int %s switchport" % (fwint1),device_ip,district,dc,nexusvdc,device_un,device_pw)
         if curr_allowed_list == 'none' or curr_allowed_list == '1-4094':
             commands.append("interface %s" % (fwint1))
             commands.append("switchport")
@@ -146,7 +148,7 @@ def inner_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa
             commands.append("switchport")
             commands.append("switchport trunk allow vlan add " + ','.join(map(str,vlans)))
 
-        curr_allowed_list = send_to_n7k_api_show("show int %s switchport" % (fwint2),device_ip,district,dc,nexusvdc)
+        curr_allowed_list = send_to_n7k_api_show("show int %s switchport" % (fwint2),device_ip,district,dc,nexusvdc,device_un,device_pw)
         if curr_allowed_list == 'none' or curr_allowed_list == '1-4094':
             commands.append("interface %s" % (fwint2))
             commands.append("switchport")
@@ -164,16 +166,15 @@ def inner_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa
                             
             commands = " ; ".join(map(str,commands))
             print "*** sending above config to %s,%s,%s ***"  %(dc,district,nexusvdc)
-            send_to_n7k_api(device_ip,commands,district,dc,nexusvdc)
+            send_to_n7k_api(device_ip,commands,district,dc,nexusvdc,device_un,device_pw)
             commands = []
         
         vlans = []
         
         print "Successfully applied ALL configs!"
       
-def send_to_n7k_api (ip,commands,district,dc,nexusvdc):
-    username = "cisco"
-    password = "cisco"    
+def send_to_n7k_api (ip,commands,district,dc,nexusvdc,username,password):
+   
     content_type = "json"
     HTTPS_SERVER_PORT = "8080"
 
@@ -229,7 +230,7 @@ def send_to_n7k_api (ip,commands,district,dc,nexusvdc):
         print(msg)
         raise Exception(msg) 
        
-def send_to_n7k_api_show(commands, ip,district,dc,nexusvdc):
+def send_to_n7k_api_show(commands, ip,district,dc,nexusvdc,username,password):
 
     payload = [
         {
@@ -242,8 +243,7 @@ def send_to_n7k_api_show(commands, ip,district,dc,nexusvdc):
             "id": 1
         }
     ]
-    username = "cisco"
-    password = "cisco"
+
     content_type = "json-rpc"
     HTTPS_SERVER_PORT = "8080"
 
@@ -1046,10 +1046,12 @@ def main(argv):
     errfound = 0
 
     if len(argv) == 0:
-        print "Usage: " +  sys.argv[0] + " -f|--file <excel file name> -d|--debug.  No arguments given"
+        print "Usage: " +  sys.argv[0] + " -f|--file <excel file name> -d|--debug -e|--execute <n7k list>.  No arguments given"
+        print ""
         print "-d|--debug:  Prints excel data in JSON format (no switch changes made)"
+        print "-f|--file:   Pass input file to use for configuration"
         print "-e|--execute <n7k list>: Invokes N7K API to configure N7K. <n7k list> file must be in this format:"
-        print "        <SOE|GIS|SDE>,<DC1|DC2>,<N7K-A|N7K-B|N7K-C|N7K-D>,<IP>"
+        print "        <SOE|GIS|SDE>,<DC1|DC2>,<N7K-A|N7K-B|N7K-C|N7K-D>,<IP>,<Username>,<Password>"
         sys.exit(1)
 
     try:
@@ -1078,6 +1080,7 @@ def main(argv):
                         f_dc       = d[1]
                         f_dev      = d[2]
                         f_ip       = d[3]
+                       
                         
                         if f_district.upper() not in ('SOE','GIS','SDE'):
                             print "Incorrect district %s, line %s.  Expecting GIS, SOE or SDE." % (f_district,lines.index(data)+1)
@@ -1100,6 +1103,20 @@ def main(argv):
                         except:
                             print "Invalid IP %s, line %s" % (f_ip,lines.index(data)+1)
                             errfound = 1
+                       
+                            
+                        try:
+                            f_un=d[4]
+                        except IndexError:
+                            print "No n7k Username defined in n7k file.  Expecting username in the 5th column, line %s" % (lines.index(data)+1)
+                            errfound = 1
+                        
+                        try:
+                            f_pw=d[5]
+                        except IndexError:
+                            print "No n7k Password passed in n7k file.  Expecting password in the 6th column, line %s" % (lines.index(data)+1)    
+                            errfound = 1
+                        
                             
                     if errfound:
                         print "\nPlease correct N7K device file passed to the -e option and try again"    
@@ -1116,10 +1133,12 @@ def main(argv):
          
         for opt,arg in opts:
             if opt == '-h':
-                print sys.argv[0] + " -f|--file <excel file name> -d|--debug"
+                print sys.argv[0] + " -f|--file <excel file name> -d|--debug -e|--execute <n7k list>"
+                print ""
                 print "-d|--debug:  Prints excel data in JSON format (no switch changes made)"
+                print "-f|--file:   Pass input file to use for configuration"
                 print "-e|--execute <n7k list>: Invokes N7K API to configure N7K. <n7k list> file must be in this format:"
-                print "        <SOE|GIS|SDE>,<DC1|DC2>,<N7K-A|N7K-B|N7K-C|N7K-D>,<IP>"
+                print "        <SOE|GIS|SDE>,<DC1|DC2>,<N7K-A|N7K-B|N7K-C|N7K-D>,<IP>,<Username>,<Password>"
         
                 sys.exit(1)
             elif opt in ( "-f", "--file"):
