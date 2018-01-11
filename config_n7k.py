@@ -137,8 +137,12 @@ def inner_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa
         print "! Allow VLANs on the firewall"
         # Add vlans to allowed list on firewall interfaces
         # Check to see if there is an allowed list already defined.  If not, then simply adding will not work
-
-        curr_allowed_list = send_to_n7k_api_show("show int %s switchport" % (fwint1),device_ip,district,dc,nexusvdc,device_un,device_pw)
+        
+        if configure is True:
+            curr_allowed_list = send_to_n7k_api_show("show int %s switchport" % (fwint1),device_ip,district,dc,nexusvdc,device_un,device_pw)
+        else:
+            curr_allowed_list = 'none'
+            
         if curr_allowed_list == 'none' or curr_allowed_list == '1-4094':
             commands.append("interface %s" % (fwint1))
             commands.append("switchport")
@@ -147,8 +151,13 @@ def inner_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa
             commands.append("interface %s" % (fwint1))
             commands.append("switchport")
             commands.append("switchport trunk allow vlan add " + ','.join(map(str,vlans)))
-
-        curr_allowed_list = send_to_n7k_api_show("show int %s switchport" % (fwint2),device_ip,district,dc,nexusvdc,device_un,device_pw)
+        
+        if configure is True:
+            curr_allowed_list = send_to_n7k_api_show("show int %s switchport" % (fwint2),device_ip,district,dc,nexusvdc,device_un,device_pw)
+        else:
+            curr_allowed_list = 'none'
+            
+            
         if curr_allowed_list == 'none' or curr_allowed_list == '1-4094':
             commands.append("interface %s" % (fwint2))
             commands.append("switchport")
@@ -170,8 +179,8 @@ def inner_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa
             commands = []
         
         vlans = []
-        
-        print "Successfully applied ALL configs!"
+        if configure is True:
+            print "Successfully applied ALL configs!"
       
 def send_to_n7k_api (ip,commands,district,dc,nexusvdc,username,password):
    
@@ -1049,22 +1058,34 @@ def main(argv):
         print "Usage: " +  sys.argv[0] + " -f|--file <excel file name> -d|--debug -e|--execute <n7k list>.  No arguments given"
         print ""
         print "-d|--debug:  Prints excel data in JSON format (no switch changes made)"
-        print "-f|--file:   Pass input file to use for configuration"
-        print "-e|--execute <n7k list>: Invokes N7K API to configure N7K. <n7k list> file must be in this format:"
+        print "-f|--file:   Pass input file to use for configuration.   Must use -e option when using -f"
+        print "-e|--execute <n7k list>: Invokes N7K API to configure N7K. Must use -f option when using -e.  <n7k list> file must be in this format:"
         print "        <SOE|GIS|SDE>,<DC1|DC2>,<N7K-A|N7K-B|N7K-C|N7K-D>,<IP>,<Username>,<Password>"
+        print "-w|--write: Writes the config to the N7k.  If this option is not used, the config is printed to screen. No switch changes made"
         sys.exit(1)
 
     try:
-        opts,args = getopt.getopt(argv,"f:hde:",["file=","help","debug","n7k="])
+        opts,args = getopt.getopt(argv,"f:hde:w",["file=","help","debug","n7k=","write="])
     except getopt.GetoptError as err:
         print str(err)
         sys.exit(2)
     else:
+        if len(opts) == 1 and opts[0][0] == "-f":
+                print "Must pass -e option with -f"
+                sys.exit(9)
+        if len(opts) == 1 and opts[0][0] == "-e":
+                print "Must pass -f option with -e"
+                sys.exit(9)
         for opt,arg in opts:
             if opt in ("-d","--debug"):
                 debug = True
-            if opt in ("-e", "--execute"):
+            if opt in ("-w","--write"):
                 configure = True
+                confirm = raw_input("\n\nSwitch changes are about to be made.  Type N/n to exit or press any key to continue: \n\n")
+                if confirm.upper() == 'N':
+                    print "\n\nExiting script.  No changes made\n\n"
+                    sys.exit(9)
+            if opt in ("-e", "--execute"):
                 vdcfile = arg
                 if not os.path.isfile(vdcfile):
                     print sys.argv[0] + " VDC File list %s NOT found" % vdcfile
@@ -1136,9 +1157,10 @@ def main(argv):
                 print sys.argv[0] + " -f|--file <excel file name> -d|--debug -e|--execute <n7k list>"
                 print ""
                 print "-d|--debug:  Prints excel data in JSON format (no switch changes made)"
-                print "-f|--file:   Pass input file to use for configuration"
-                print "-e|--execute <n7k list>: Invokes N7K API to configure N7K. <n7k list> file must be in this format:"
+                print "-f|--file:   Pass input file to use for configuration.  Must use -e option when using -f"
+                print "-e|--execute <n7k list>: Invokes N7K API to configure N7K. Must use -f option when using -e.  <n7k list> file must be in this format:"
                 print "        <SOE|GIS|SDE>,<DC1|DC2>,<N7K-A|N7K-B|N7K-C|N7K-D>,<IP>,<Username>,<Password>"
+                print "-w|--write: Writes the config to the N7k.  If this option is not used, the config is printed to screen. No switch changes made"
         
                 sys.exit(1)
             elif opt in ( "-f", "--file"):
