@@ -1065,24 +1065,26 @@ def main(argv):
         sys.exit(1)
 
     try:
-        opts,args = getopt.getopt(argv,"f:hde:w",["file=","help","debug","n7k=","write="])
+        opts,args = getopt.getopt(argv,"f:hde:w",["file=","help","debug","execute=","write"])
     except getopt.GetoptError as err:
         print str(err)
         sys.exit(2)
     else:
-        if len(opts) == 1 and opts[0][0] == "-f":
+        if len(opts) == 1 and ( opts[0][0] == "-f" or opts[0][0] == "--file" ):
                 print "Must pass -e option with -f"
                 sys.exit(9)
-        if len(opts) == 1 and opts[0][0] == "-e":
+        if len(opts) == 1 and ( opts[0][0] == "-e" or opts[0][0] == "--execute" ):
                 print "Must pass -f option with -e"
                 sys.exit(9)
-        if len(opts) == 1 and opts[0][0] == "-d":
+        if len(opts) == 1 and ( opts[0][0] == "-d" or opts[0][0] == "--debug" ):
                 print "Must pass only the -f option with -d"
+        if len(opts) == 1 and ( opts[0][0] == "-w" or opts[0][0] == "--write" ):
+                print "Missing options -e and -f"
                 sys.exit(9)
-        if len(opts) == 2 and ( "-f" in opts[0][0] or "-f" in opts[1][0]) and ( "-w" in opts[0][0] or "-w" in opts[1][0]):
+        if len(opts) == 2 and ( "-f" in opts[0][0] or "-f" in opts[1][0] or "--file" in opts[0][0] or "--file" in opts[1][0]) and ( "-w" in opts[0][0] or "-w" in opts[1][0] or "--write" in opts[0][0] or "--write" in opts[1][0] ):
                 print "Missing -e option"
                 sys.exit(9)
-        if len(opts) == 2 and ( "-e" in opts[0][0] or "-e" in opts[1][0]) and ( "-d" in opts[0][0] or "-d" in opts[1][0]):
+        if len(opts) == 2 and ( "-e" in opts[0][0] or "-e" in opts[1][0] or "--execute" in opts[0][0] or "--execute" in opts[1][0]) and ( "-d" in opts[0][0] or "-d" in opts[1][0] or "--debug" in opts[0][0] or "--debug" in opts[1][0]):
                 print "Missing -f option"
                 sys.exit(9)
                         
@@ -1163,7 +1165,7 @@ def main(argv):
          
          
         for opt,arg in opts:
-            if opt == '-h':
+            if opt == '-h' or opt == '--help':
                 print sys.argv[0] + " -f|--file <excel file name> -d|--debug -e|--execute <n7k list> -w"
                 print ""
                 print "-d|--debug:  Prints excel data in JSON format (no switch changes made)"
