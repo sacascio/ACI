@@ -1055,7 +1055,7 @@ def main(argv):
     errfound = 0
 
     if len(argv) == 0:
-        print "Usage: " +  sys.argv[0] + " -f|--file <excel file name> -d|--debug -e|--execute <n7k list>.  No arguments given"
+        print "Usage: " +  sys.argv[0] + " -f|--file <excel file name> -d|--debug -e|--execute <n7k list> -w.  No arguments given"
         print ""
         print "-d|--debug:  Prints excel data in JSON format (no switch changes made)"
         print "-f|--file:   Pass input file to use for configuration.   Must use -e option when using -f"
@@ -1164,7 +1164,7 @@ def main(argv):
          
         for opt,arg in opts:
             if opt == '-h':
-                print sys.argv[0] + " -f|--file <excel file name> -d|--debug -e|--execute <n7k list>"
+                print sys.argv[0] + " -f|--file <excel file name> -d|--debug -e|--execute <n7k list> -w"
                 print ""
                 print "-d|--debug:  Prints excel data in JSON format (no switch changes made)"
                 print "-f|--file:   Pass input file to use for configuration.  Must use -e option when using -f"
