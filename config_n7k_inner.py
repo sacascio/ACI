@@ -809,16 +809,23 @@ def process_xlsx(filename,debug):
                 szone = szone.strip()
                 szone = szone.replace(" ","_")
                 szone = szone.upper()
-
-            # Get VRF #
+            
+            # Get Firewall (Inside Cell, Internal, Mainframe, Money Movement
             cell = 'D' + str(x)
+            value = ws[cell].value 
+            
+            if value is not None and value != 'Physical':
+                    fwtype = value
+            
+            # Get VRF #
+            cell = 'E' + str(x)
             value = ws[cell].value 
             
             if value is not None and value != 'VRF' and value != '#':
                     vrf = value
             
             # Get VRF Name for DC1 - skip entire row if VRF name for DC1 is blank 
-            cell = 'E' + str(x)
+            cell = 'F' + str(x)
             value = ws[cell].value 
             
             if value is None:
@@ -830,7 +837,7 @@ def process_xlsx(filename,debug):
                         vrfnamedc1 = vrfnamedc1.strip()
 
             # Get VRF Name for DC2
-            cell = 'F' + str(x)
+            cell = 'G' + str(x)
             value = ws[cell].value 
             
             if value is not None and not bool(re.search('N7K',value, re.IGNORECASE)) and value != 'DC1' and value != 'DC2':
@@ -838,7 +845,7 @@ def process_xlsx(filename,debug):
                     vrfnamedc2 = vrfnamedc2.strip()
             
             # RT DC1
-            cell = 'G' + str(x)
+            cell = 'H' + str(x)
             value = ws[cell].value 
             
             if value is not None and value != 'RT' and value != 'DC1' and value != 'DC2':
@@ -846,7 +853,7 @@ def process_xlsx(filename,debug):
                     rtdc1 = rtdc1.strip()
 
             # RT DC2
-            cell = 'H' + str(x)
+            cell = 'I' + str(x)
             value = ws[cell].value 
             
             if value is not None and value != 'RT' and value != 'DC1' and value != 'DC2':
@@ -855,21 +862,21 @@ def process_xlsx(filename,debug):
             
             # inner VDC to FW encap
 
-            cell = 'I' + str(x)
+            cell = 'J' + str(x)
             value = ws[cell].value 
             
             if value is not None and not bool(re.search('encapsulation',str(value))) and not bool(re.search('Inner',str(value))):
                     invdcencap = value
             
             # OSPF DC1 
-            cell = 'J' + str(x)
+            cell = 'K' + str(x)
             value = ws[cell].value 
             
             if value is not None and not bool(re.search('OSPF',str(value), re.IGNORECASE)) and not bool(re.search('DC',str(value), re.IGNORECASE)):
                     ospfdc1 = value
             
             # OSPF DC2 
-            cell = 'K' + str(x)
+            cell = 'L' + str(x)
             value = ws[cell].value 
             
             if value is not None and not bool(re.search('OSPF',str(value), re.IGNORECASE)) and not bool(re.search('DC',str(value), re.IGNORECASE)):
@@ -877,7 +884,7 @@ def process_xlsx(filename,debug):
 
 
             # encap - outer VDC to FW
-            cell = 'L' + str(x)
+            cell = 'M' + str(x)
             value = ws[cell].value 
             
             if value is not None and not bool(re.search('encapsulation',str(value), re.IGNORECASE)) and not bool(re.search('Inside',str(value), re.IGNORECASE)):
@@ -893,6 +900,7 @@ def process_xlsx(filename,debug):
                                     {
                                      'vrfnumber'     : vrf,
                                      'subzone'       : szone,
+                                     'firewall'      : fwtype,
                                      'dc1vrf'        : vrfnamedc1,
                                      'dc2vrf'        : vrfnamedc2,
                                      'rtdc1'         : rtdc1,
@@ -908,6 +916,7 @@ def process_xlsx(filename,debug):
                                      
                                       'vrfnumber'     : vrf,
                                       'subzone'       : szone,
+                                      'firewall'      : fwtype,
                                       'dc1vrf'        : vrfnamedc1,
                                       'dc2vrf'        : vrfnamedc2,
                                       'rtdc1'         : rtdc1,
@@ -927,6 +936,7 @@ def process_xlsx(filename,debug):
                                      {
                                       'vrfnumber'     : vrf,
                                       'subzone'       : szone,
+                                      'firewall'      : fwtype,
                                       'dc1vrf'        : vrfnamedc1,
                                       'dc2vrf'        : vrfnamedc2,
                                       'rtdc1'         : rtdc1,
