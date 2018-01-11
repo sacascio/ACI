@@ -1061,7 +1061,7 @@ def main(argv):
         print "-f|--file:   Pass input file to use for configuration.   Must use -e option when using -f"
         print "-e|--execute <n7k list>: Invokes N7K API to configure N7K. Must use -f option when using -e.  <n7k list> file must be in this format:"
         print "        <SOE|GIS|SDE>,<DC1|DC2>,<N7K-A|N7K-B|N7K-C|N7K-D>,<IP>,<Username>,<Password>"
-        print "-w|--write: Writes the config to the N7k.  If this option is not used, the config is printed to screen. No switch changes made"
+        print "-w|--write: Writes the config to the N7k."
         sys.exit(1)
 
     try:
@@ -1076,6 +1076,16 @@ def main(argv):
         if len(opts) == 1 and opts[0][0] == "-e":
                 print "Must pass -f option with -e"
                 sys.exit(9)
+        if len(opts) == 1 and opts[0][0] == "-d":
+                print "Must pass only the -f option with -d"
+                sys.exit(9)
+        if len(opts) == 2 and ( "-f" in opts[0][0] or "-f" in opts[1][0]) and ( "-w" in opts[0][0] or "-w" in opts[1][0]):
+                print "Missing -e option"
+                sys.exit(9)
+        if len(opts) == 2 and ( "-e" in opts[0][0] or "-e" in opts[1][0]) and ( "-d" in opts[0][0] or "-d" in opts[1][0]):
+                print "Missing -f option"
+                sys.exit(9)
+                        
         for opt,arg in opts:
             if opt in ("-d","--debug"):
                 debug = True
@@ -1148,7 +1158,7 @@ def main(argv):
                    
                 
         if debug is True and configure is True:
-            print "Cannot use option d and option e together.  Use option e or option d"
+            print "Cannot use option d and option w together.  Use option w or option d"
             sys.exit(9)
          
          
@@ -1160,7 +1170,7 @@ def main(argv):
                 print "-f|--file:   Pass input file to use for configuration.  Must use -e option when using -f"
                 print "-e|--execute <n7k list>: Invokes N7K API to configure N7K. Must use -f option when using -e.  <n7k list> file must be in this format:"
                 print "        <SOE|GIS|SDE>,<DC1|DC2>,<N7K-A|N7K-B|N7K-C|N7K-D>,<IP>,<Username>,<Password>"
-                print "-w|--write: Writes the config to the N7k.  If this option is not used, the config is printed to screen. No switch changes made"
+                print "-w|--write: Writes the config to the N7k."
         
                 sys.exit(1)
             elif opt in ( "-f", "--file"):
