@@ -110,7 +110,7 @@ def inner_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa
                 else:
                     outervdc = dc + 'dcinxc' + str(n7k_num) + 'dciouter'
                                 
-                tname = vsys + "-" + dc.upper() + "-" + district        
+                tname = vsys + "-" + dc.upper() + "-" + district  
                 neighbor_ip = outer_to_pa_data[district][vsys][nexusvdc][0][dc + 'n7kip']
                 commands.append(" address-family ipv4 unicast")
                 commands.append("  maximum-paths 8")
@@ -312,7 +312,7 @@ def get_outer_to_pa(wb):
                     tenant = value
                     tenant = tenant.upper()
                     tenant = tenant.replace(" ","_")
-
+                    tenant = tenant.replace('_X000D__X000D_','')
             # Get PA IP DC1
             cell = 'B' + str(x)
             value = ws[cell].value 
