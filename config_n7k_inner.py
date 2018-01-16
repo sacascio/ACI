@@ -216,28 +216,42 @@ def send_to_n7k_api (ip,commands,district,dc,nexusvdc,username,password):
         if "ins_api" in payload:
             if "type" in payload['ins_api'].keys():
                 if "cli_conf" in payload['ins_api']['type']:
-                    for result in response.json()['ins_api']['outputs']['output']:
-                        if result['code'] != "200":
-                            message = result['msg']
-                            detail  = result['clierror']
-                            command_number  = response.json()['ins_api']['outputs']['output'].index(result)
-                            allcmds = commands.split(" ; ")
+                    if isinstance(response.json()['ins_api']['outputs']['output'],dict):
+                        code =    response.json()['ins_api']['outputs']['output']['code']
+                        message = response.json()['ins_api']['outputs']['output']['msg']
+                        detail  = response.json()['ins_api']['outputs']['output']['clierror']
+                        allcmds = commands.split(" ; ")
+                        if code != 200:
                             print("ERROR: partial configuration failed on %s,%s,%s,%s, please verify your configuration!") % (district,dc,nexusvdc,ip)
                             print("ERROR: message is: %s") % (message)
                             print("ERROR: Detailed message is: %s") % (detail)
-                            print("ERROR: Failed command is: %s") % allcmds[command_number]
+                            print("ERROR: Failed command is: %s") % allcmds
                             sys.exit(10)
+                    else:
+                        for result in response.json()['ins_api']['outputs']['output']:
+                            if result['code'] != "200":
+                                message = result['msg']
+                                detail  = result['clierror']
+                                command_number  = response.json()['ins_api']['outputs']['output'].index(result)
+                                allcmds = commands.split(" ; ")
+                                print("ERROR: partial configuration failed on %s,%s,%s,%s, please verify your configuration!") % (district,dc,nexusvdc,ip)
+                                print("ERROR: message is: %s") % (message)
+                                print("ERROR: Detailed message is: %s") % (detail)
+                                print("ERROR: Failed command is: %s") % allcmds[command_number]
+                                sys.exit(10)
                             
     else:
-        msg = "call to %s failed, status code %d (%s).  %s,%s,%s" % (ip,
+        msg = "call to %s failed, status code %d (%s).  Command is %s.  %s,%s,%s" % (ip,
                                                           response.status_code,
                                                           response.content.decode("utf-8"),
+                                                          commands,
                                                           district,
                                                           dc,
                                                           nexusvdc
                                                           )
         print(msg)
-        raise Exception(msg) 
+        sys.exit(10)
+        #raise Exception(msg) 
        
 def send_to_n7k_api_show(commands, ip,district,dc,nexusvdc,username,password):
 
@@ -272,15 +286,17 @@ def send_to_n7k_api_show(commands, ip,district,dc,nexusvdc,username,password):
     if response.status_code == 200:
         return response.json()['result']['body']['TABLE_interface']['ROW_interface']['trunk_vlans']
     else:
-        msg = "call to %s failed, status code %d (%s).  %s,%s,%s" % (ip,
+        msg = "call to %s failed, status code %d (%s).  Command is %s.  %s,%s,%s" % (ip,
                                                           response.status_code,
                                                           response.content.decode("utf-8"),
+                                                          commands,
                                                           district,
                                                           dc,
                                                           nexusvdc
                                                           )
         print(msg)
-        raise Exception(msg)
+        sys.exit(10)
+        #raise Exception(msg)
         
 def get_outer_to_pa(wb):
         
