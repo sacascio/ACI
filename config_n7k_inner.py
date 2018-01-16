@@ -10,6 +10,7 @@ from xlrd import open_workbook, XLRDError
 import json
 from IPy import IP
 import requests
+from fileinput import filename
 
 def inner_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa_data,n7k_fw_int,loopback_data,configure,lines):
    
@@ -759,7 +760,84 @@ def get_inner_to_pa(wb,district):
 
         return data
 
-def process_xlsx(filename,debug):
+def getfwint(wb,dc):
+    ws = wb.active 
+    row_start = ws.min_row
+    row_end   = ws.max_row
+    data = {}
+    loc = ('Inner', 'Outer')
+    
+    for cells in ws.iter_rows(min_row=row_start, min_col=1, max_col=24):
+        for vals in cells:
+            
+            if vals.value == 'A':
+                n7k = 'N7K-A'
+                
+            if vals.value == 'B':
+                n7k = 'N7K-B'
+            
+            if vals.value == 'C':
+                n7k = 'N7K-C'
+                
+            if vals.value == 'D':
+                n7k = 'N7K-D'
+                
+            if vals.value == 'E':
+                n7k = 'N7K-E'
+                
+            if vals.value == 'F':
+                n7k = 'N7K-F'
+            
+            for dloc in loc:
+                
+            # Loop through Inner and Outer config
+                if bool(re.search('firewall',str(vals.value), re.IGNORECASE)) and bool(re.search(dloc,str(vals.value), re.IGNORECASE))  :
+                    district = vals.value[:3].upper()
+                
+                    if bool(re.search('firewall', ws[vals.column + str(vals.row-1)].value, re.IGNORECASE)):
+                        interface = ws[vals.column + str(vals.row+1)].value
+                    else:
+                        interface = ws[vals.column + str(vals.row-1)].value
+                    
+                    interface = "E" + interface
+                    interface = interface.replace("-","/")
+                            
+               
+                    if district in data:
+                        if dloc in data[district]:
+                            if n7k in data[district][dloc]:
+                                if dc in data[district][dloc][n7k]:
+                                    data[district][dloc][n7k][dc].append({'int'  : interface })
+                                else:
+                                    data[district][dloc][n7k][dc] = [{'int' : interface}]
+                            else:
+                                data[district][dloc][n7k] = {}
+                                data[district][dloc][n7k][dc] = [{ 'int' : interface}]
+                        else:
+                            data[district][dloc] = {}
+                            data[district][dloc][n7k] = {}
+                            data[district][dloc][n7k][dc] = [{ 'int' : interface}]                 
+                                    
+                    else:
+                        data.update({  
+                              district :  
+                               { 
+                                dloc :  
+                                {   
+                                     n7k :
+                                     {
+                                        dc : 
+                                                [ 
+                                                 {
+                                                  'int'     : interface
+                                                 }
+                                                ] 
+                                             
+                                    }}}})
+                
+    return data
+
+def process_xlsx(filename,dc1portmap,dc2portmap,debug):
     worksheets = []
     ws_definition_data = {}
 
@@ -1051,7 +1129,57 @@ def process_xlsx(filename,debug):
     ##############################################################################################
     
     # Interfaces to PA Firewall - hardcoded - this will most likely not change
+    pm = openpyxl.load_workbook(dc1portmap, data_only=True)
+    sheetname = '7706'
+    wsheets = []
+    n7k_fw_int = {}
+    n7k_fw_int_dc1 = {}
+    n7k_fw_int_dc2 = {}
+
+    # Get all worksheets
+    for sheet in pm:
+        wsheets.append(sheet.title) 
+    pm.close()
+
+    try:
+        pm.active = wsheets.index(sheetname)
+    except:
+        print "Worksheet %s not found in workbook %s" % (sheetname,dc1portmap)
+    else:
+        n7k_fw_int_dc1 = getfwint(pm,'dc1')
     
+    pm.close()
+    
+    # DC2  
+    pm = openpyxl.load_workbook(dc2portmap, data_only=True)
+    
+
+    # Get all worksheets
+    for sheet in pm:
+        wsheets.append(sheet.title) 
+    pm.close()
+
+    try:
+        pm.active = wsheets.index(sheetname)
+    except:
+        print "Worksheet %s not found in workbook %s" % (sheetname,dc2portmap)
+    else:
+        n7k_fw_int_dc2 = getfwint(pm,'dc2')
+    
+    pm.close()  
+    
+    #n7k_fw_int_dc1.update(n7k_fw_int_dc2)
+    #n7k_fw_int.update(n7k_fw_int_dc2)
+    #print json.dumps(n7k_fw_int_dc1)
+    #print json.dumps(n7k_fw_int_dc2)
+    n7k_fw_int = n7k_fw_int_dc1.items() + n7k_fw_int_dc2.items()
+  
+       
+    
+    
+    pm.close()
+      
+    '''
     n7k_fw_int = {}
 
     n7k_fw_int =  { 'SOE' : { 'Outer' : { 'N7K-A' :  { 'dc1'  : { 'int1' : 'E2/21', 'int2' : 'E2/29' }, 'dc2' : { 'int1' : 'E2/21', 'int2' : 'E2/29'} }, 'N7K-B' : { 'dc1'  : { 'int1' : 'E2/21', 'int2' : 'E2/29' }, 'dc2' : { 'int1' : 'E2/21', 'int2' : 'E2/29'} }, 'N7K-C' : { 'dc1'  : { 'int1' : 'E2/21', 'int2' : 'E2/29' }, 'dc2' : { 'int1' : 'E2/21', 'int2' : 'E2/29'}  }, 'N7K-D' : { 'dc1'  : { 'int1' : 'E2/21', 'int2' : 'E2/29' }, 'dc2' : { 'int1' : 'E2/21', 'int2' : 'E2/29'} } }  } }
@@ -1063,6 +1191,8 @@ def process_xlsx(filename,debug):
     n7k_fw_int.update({'SDE' : { 'Outer' : { 'N7K-E' :  { 'dc1'  : { 'int1' : 'E2/21', 'int2' : 'E2/29' }, 'dc2' : { 'int1' : 'E2/21', 'int2' : 'E2/29'} }, 'N7K-F' : { 'dc1'  : { 'int1' : 'E2/21', 'int2' : 'E2/29' }, 'dc2' : { 'int1' : 'E2/21', 'int2' : 'E2/29'} }  } } })
     n7k_fw_int['SDE'].update({'Inner' : { 'N7K-E' :  { 'dc1'  : { 'int1' : 'E2/5', 'int2' : 'E2/13' }, 'dc2' : { 'int1' : 'E2/5', 'int2' : 'E2/13'} }, 'N7K-F' : { 'dc1'  : { 'int1' : 'E2/5', 'int2' : 'E2/13' }, 'dc2' : { 'int1' : 'E2/5', 'int2' : 'E2/13'} } }   })
     
+    '''
+        
     
     if debug == True:
         print json.dumps(n7k_fw_int)
@@ -1074,6 +1204,17 @@ def process_xlsx(filename,debug):
     
     return ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa_data,n7k_fw_int,loopback_data
 
+def usage():
+    print "Usage: " +  sys.argv[0] + " -f|--file <excel file name> -d|--debug -e|--execute <n7k list> -w."
+    print ""
+    print "-d|--debug:  Prints excel data in JSON format (no switch changes made)"
+    print "-f|--file:   Pass input file to use for configuration.   Must use -e option when using -f"
+    print "-e|--execute <n7k list>: Invokes N7K API to configure N7K. Must use -f option when using -e.  <n7k list> file must be in this format:"
+    print "        <SOE|GIS|SDE>,<DC1|DC2>,<N7K-A|N7K-B|N7K-C|N7K-D>,<IP>,<Username>,<Password>"
+    print "-w|--write: Writes the config to the N7k."
+    sys.exit(1)
+    
+
 def main(argv):
 
     debug  = False
@@ -1081,17 +1222,10 @@ def main(argv):
     errfound = 0
 
     if len(argv) == 0:
-        print "Usage: " +  sys.argv[0] + " -f|--file <excel file name> -d|--debug -e|--execute <n7k list> -w.  No arguments given"
-        print ""
-        print "-d|--debug:  Prints excel data in JSON format (no switch changes made)"
-        print "-f|--file:   Pass input file to use for configuration.   Must use -e option when using -f"
-        print "-e|--execute <n7k list>: Invokes N7K API to configure N7K. Must use -f option when using -e.  <n7k list> file must be in this format:"
-        print "        <SOE|GIS|SDE>,<DC1|DC2>,<N7K-A|N7K-B|N7K-C|N7K-D>,<IP>,<Username>,<Password>"
-        print "-w|--write: Writes the config to the N7k."
-        sys.exit(1)
+        usage()
 
     try:
-        opts,args = getopt.getopt(argv,"f:hde:w",["file=","help","debug","execute=","write"])
+        opts,args = getopt.getopt(argv,"f:hde:wp:",["file=","help","debug","execute=","write","portmap"])
     except getopt.GetoptError as err:
         print str(err)
         sys.exit(2)
@@ -1105,6 +1239,9 @@ def main(argv):
         if len(opts) == 1 and ( opts[0][0] == "-d" or opts[0][0] == "--debug" ):
                 print "Must pass only the -f option with -d"
         if len(opts) == 1 and ( opts[0][0] == "-w" or opts[0][0] == "--write" ):
+                print "Missing options -e, -p and -f"
+                sys.exit(9)
+        if len(opts) == 1 and ( opts[0][0] == "-p" or opts[0][0] == "--portmap" ):
                 print "Missing options -e and -f"
                 sys.exit(9)
         if len(opts) == 2 and ( "-f" in opts[0][0] or "-f" in opts[1][0] or "--file" in opts[0][0] or "--file" in opts[1][0]) and ( "-w" in opts[0][0] or "-w" in opts[1][0] or "--write" in opts[0][0] or "--write" in opts[1][0] ):
@@ -1113,16 +1250,13 @@ def main(argv):
         if len(opts) == 2 and ( "-e" in opts[0][0] or "-e" in opts[1][0] or "--execute" in opts[0][0] or "--execute" in opts[1][0]) and ( "-d" in opts[0][0] or "-d" in opts[1][0] or "--debug" in opts[0][0] or "--debug" in opts[1][0]):
                 print "Missing -f option"
                 sys.exit(9)
+        
                         
         for opt,arg in opts:
             if opt in ("-d","--debug"):
                 debug = True
             if opt in ("-w","--write"):
                 configure = True
-                confirm = raw_input("\n\nSwitch changes are about to be made.  Type N/n to exit or press any key to continue: \n\n")
-                if confirm.upper() == 'N':
-                    print "\n\nExiting script.  No changes made\n\n"
-                    sys.exit(9)
             if opt in ("-e", "--execute"):
                 vdcfile = arg
                 if not os.path.isfile(vdcfile):
@@ -1182,25 +1316,61 @@ def main(argv):
                         sys.exit(9)
                         
                     # Remove duplicates, if any
-                    lines = list(set(lines))  
-                   
+                    lines = list(set(lines)) 
+                     
+            # Get Portmap file for DC1 and DC2.  The characters 'DC1' and 'DC2' must exist in the filename
+            # If multiple DC1 or multiple DC2 filenames are passed, only the first one that matches DC1 or DC2 is used.
+            # Files must be passed comma seperated, with no spaces before and after the comma
+            # Firewall names in the excel sheet must have the word 'firewall' in it and begin with SOE, GIS or SDE
+            
+            if opt in ("-p", "--portmap"):
+                dc1 = False
+                dc2 = False
+                portmapfile = arg
+                xportmapfile = portmapfile.split(",")
+                xportmapfile = list(set(xportmapfile))
                 
+                if len(xportmapfile) != 2:
+                    print "The number of portmap files should be only 2. %s Files passed %s" % (len(xportmapfile),xportmapfile)
+                    sys.exit(10)
+                
+                for x in xportmapfile:
+                    if not os.path.isfile(x):
+                        print sys.argv[0] + " Port map file list %s NOT found" % x
+                        sys.exit(1)
+                    
+                    if dc1 is False:
+                        if bool(re.search('dc1',str(x), re.IGNORECASE)):
+                            dc1 = True
+                            dc1portmap = x
+                    
+                    if dc2 is False:
+                        if bool(re.search('dc2',str(x), re.IGNORECASE)):
+                            dc2 = True
+                            dc2portmap = x
+                            
+                if dc1 is False:
+                    print "Port Map File for DC1 is missing"
+                    sys.exit(10)
+                if dc2 is False:
+                    print "Port Map File for DC2 is missing"
+                    sys.exit(10)
+                   
         if debug is True and configure is True:
             print "Cannot use option d and option w together.  Use option w or option d"
             sys.exit(9)
-         
+            
+        try:
+            portmapfile
+        except NameError:
+            print "Port Map file required with -p|--portmap"
+            sys.exit(9)
+   
+      
          
         for opt,arg in opts:
             if opt == '-h' or opt == '--help':
-                print sys.argv[0] + " -f|--file <excel file name> -d|--debug -e|--execute <n7k list> -w"
-                print ""
-                print "-d|--debug:  Prints excel data in JSON format (no switch changes made)"
-                print "-f|--file:   Pass input file to use for configuration.  Must use -e option when using -f"
-                print "-e|--execute <n7k list>: Invokes N7K API to configure N7K. Must use -f option when using -e.  <n7k list> file must be in this format:"
-                print "        <SOE|GIS|SDE>,<DC1|DC2>,<N7K-A|N7K-B|N7K-C|N7K-D>,<IP>,<Username>,<Password>"
-                print "-w|--write: Writes the config to the N7k."
-        
-                sys.exit(1)
+                usage()
             elif opt in ( "-f", "--file"):
                 filename = arg
                 if not os.path.isfile(filename):
@@ -1213,15 +1383,25 @@ def main(argv):
                         print sys.argv[0] + " file %s is not an Excel file" % filename
                     else:
                         if magic.from_file(filename) == 'Microsoft Excel 2007+':
-                            (ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa_data,n7k_fw_int,loopback_data) = process_xlsx(filename,debug)
+                            (ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa_data,n7k_fw_int,loopback_data) = process_xlsx(filename,dc1portmap,dc2portmap,debug)
                             if debug is False:
+                                if configure is True:
+                                    confirm = raw_input("\n\nSwitch changes are about to be made.  Type N/n to exit or press any key to continue: \n\n")
+                                    if confirm.upper() == 'N':
+                                        print "\n\nExiting script.  No changes made\n\n"
+                                        sys.exit(9)
                                 inner_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa_data,n7k_fw_int,loopback_data,configure,lines)
                         else:
                             print "File must be in .xlsx format"
                             sys.exit(10)
                             
              
-                 
+        try:
+            filename
+        except NameError:
+            print "Input file not passed with -f|--file.  Exiting"
+            sys.exit(10)
+                    
 
 if __name__ == '__main__':
     main(sys.argv[1:])
