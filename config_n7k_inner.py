@@ -29,10 +29,7 @@ def inner_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa
         
         print "!!! District %s, DC %s, nexusVDC %s" % (district,dc,nexusvdc)
         print "!"
-        # Get the firewall interfaces
-        fwint1 =  n7k_fw_int[district]['Inner'][nexusvdc][dc]['int1']
-        fwint2 =  n7k_fw_int[district]['Inner'][nexusvdc][dc]['int2']
-                
+          
         for vsys in ws_definition_data[district]:
             for attribs in ws_definition_data[district][vsys]:
                 innervdcvlan =  attribs['innervdcencap']
@@ -54,7 +51,7 @@ def inner_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa
                 commands = " ; ".join(map(str,commands))
                 print "*** sending above config to %s,%s,%s ***"  %(dc,district,nexusvdc)
                 send_to_n7k_api(device_ip,commands,district,dc,nexusvdc,device_un,device_pw)
-                commands = []
+            commands = []
                 
             print "!"
             
@@ -84,7 +81,7 @@ def inner_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa
                 commands = " ; ".join(map(str,commands))
                 print "*** sending above config to %s,%s,%s ***"  %(dc,district,nexusvdc)
                 send_to_n7k_api(device_ip,commands,district,dc,nexusvdc,device_un,device_pw)
-                commands = []
+            commands = []
                             
             print "!"
             print "!"
@@ -129,7 +126,7 @@ def inner_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa
             commands = " ; ".join(map(str,commands))
             print "*** sending above config to %s,%s,%s ***"  %(dc,district,nexusvdc)
             send_to_n7k_api(device_ip,commands,district,dc,nexusvdc,device_un,device_pw)
-            commands = []
+        commands = []
                            
             # got all vlans for district/subzone per N7K - now add the vlans to the FW Int config
         vlans.sort()
@@ -138,35 +135,26 @@ def inner_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa
         print "! Allow VLANs on the firewall"
         # Add vlans to allowed list on firewall interfaces
         # Check to see if there is an allowed list already defined.  If not, then simply adding will not work
+
+        # Get the firewall interfaces
+        for interfaces in n7k_fw_int[district]['Inner'][nexusvdc][dc]:
+            fwint =  interfaces['int']
+            
+            if configure is True:
+                curr_allowed_list = send_to_n7k_api_show("show int %s switchport" % (fwint),device_ip,district,dc,nexusvdc,device_un,device_pw)
+            else:
+                curr_allowed_list = 'none'
+       
+            if curr_allowed_list == 'none' or curr_allowed_list == '1-4094':
+                commands.append("interface %s" % (fwint))
+                commands.append("switchport")
+                commands.append("switchport trunk allow vlan " + ','.join(map(str,vlans)))
+            else:
+                commands.append("interface %s" % (fwint))
+                commands.append("switchport")
+                commands.append("switchport trunk allow vlan add " + ','.join(map(str,vlans)))
         
-        if configure is True:
-            curr_allowed_list = send_to_n7k_api_show("show int %s switchport" % (fwint1),device_ip,district,dc,nexusvdc,device_un,device_pw)
-        else:
-            curr_allowed_list = 'none'
-            
-        if curr_allowed_list == 'none' or curr_allowed_list == '1-4094':
-            commands.append("interface %s" % (fwint1))
-            commands.append("switchport")
-            commands.append("switchport trunk allow vlan " + ','.join(map(str,vlans)))
-        else:
-            commands.append("interface %s" % (fwint1))
-            commands.append("switchport")
-            commands.append("switchport trunk allow vlan add " + ','.join(map(str,vlans)))
         
-        if configure is True:
-            curr_allowed_list = send_to_n7k_api_show("show int %s switchport" % (fwint2),device_ip,district,dc,nexusvdc,device_un,device_pw)
-        else:
-            curr_allowed_list = 'none'
-            
-            
-        if curr_allowed_list == 'none' or curr_allowed_list == '1-4094':
-            commands.append("interface %s" % (fwint2))
-            commands.append("switchport")
-            commands.append("switchport trunk allow vlan " + ','.join(map(str,vlans)))
-        else:
-            commands.append("interface %s" % (fwint2))
-            commands.append("switchport")
-            commands.append("switchport trunk allow vlan add " + ','.join(map(str,vlans)))
             
         print '\n'.join(map(str,commands))
         print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
@@ -177,7 +165,7 @@ def inner_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa
             commands = " ; ".join(map(str,commands))
             print "*** sending above config to %s,%s,%s ***"  %(dc,district,nexusvdc)
             send_to_n7k_api(device_ip,commands,district,dc,nexusvdc,device_un,device_pw)
-            commands = []
+        commands = []
         
         vlans = []
         if configure is True:
@@ -760,11 +748,10 @@ def get_inner_to_pa(wb,district):
 
         return data
 
-def getfwint(wb,dc):
+def getfwint(wb,dc,data):
     ws = wb.active 
     row_start = ws.min_row
     row_end   = ws.max_row
-    data = {}
     loc = ('Inner', 'Outer')
     
     for cells in ws.iter_rows(min_row=row_start, min_col=1, max_col=24):
@@ -1133,8 +1120,6 @@ def process_xlsx(filename,dc1portmap,dc2portmap,debug):
     sheetname = '7706'
     wsheets = []
     n7k_fw_int = {}
-    n7k_fw_int_dc1 = {}
-    n7k_fw_int_dc2 = {}
 
     # Get all worksheets
     for sheet in pm:
@@ -1146,7 +1131,7 @@ def process_xlsx(filename,dc1portmap,dc2portmap,debug):
     except:
         print "Worksheet %s not found in workbook %s" % (sheetname,dc1portmap)
     else:
-        n7k_fw_int_dc1 = getfwint(pm,'dc1')
+        n7k_fw_int = getfwint(pm,'dc1',n7k_fw_int)
     
     pm.close()
     
@@ -1164,20 +1149,10 @@ def process_xlsx(filename,dc1portmap,dc2portmap,debug):
     except:
         print "Worksheet %s not found in workbook %s" % (sheetname,dc2portmap)
     else:
-        n7k_fw_int_dc2 = getfwint(pm,'dc2')
+        n7k_fw_int = getfwint(pm,'dc2',n7k_fw_int)
     
     pm.close()  
     
-    #n7k_fw_int_dc1.update(n7k_fw_int_dc2)
-    #n7k_fw_int.update(n7k_fw_int_dc2)
-    #print json.dumps(n7k_fw_int_dc1)
-    #print json.dumps(n7k_fw_int_dc2)
-    n7k_fw_int = n7k_fw_int_dc1.items() + n7k_fw_int_dc2.items()
-  
-       
-    
-    
-    pm.close()
       
     '''
     n7k_fw_int = {}
