@@ -1187,6 +1187,8 @@ def usage():
     print "-e|--execute <n7k list>: Invokes N7K API to configure N7K. Must use -f option when using -e.  <n7k list> file must be in this format:"
     print "        <SOE|GIS|SDE>,<DC1|DC2>,<N7K-A|N7K-B|N7K-C|N7K-D>,<IP>,<Username>,<Password>"
     print "-w|--write: Writes the config to the N7k."
+    print "-p|--portmap: Pass portmap file to the script, 1 per DC, separated by comma.  NO spaces between commas.  Ex: -p Vanguard\ DC1\ -\ Port\ Map\ v1.23.xlsx,Vanguard\ DC2\ -\ Port\ Map\ v1.19.xlsx"
+    print "      Each file passed to the -p option must have DC1 or DC2 in the name to identify the respective data center"
     sys.exit(1)
     
 
