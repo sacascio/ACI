@@ -103,7 +103,6 @@ def inner_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa
                 commands.append(" address-family ipv4 unicast")
                 commands.append("  maximum-paths 8")
                 
-                n7k_num = loopback_position[nexusvdc]
                 
                 if district == 'SDE':
                     n7k_range = [(1,'E'),(2,'F')]
