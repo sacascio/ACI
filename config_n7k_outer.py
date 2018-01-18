@@ -90,44 +90,45 @@ def outer_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa
         # BGP Configuration
         inner_as   = bgp_asn[district]['Inner'][dc]
         outer_as   = bgp_asn[district]['Outer'][dc]
-        n7k_num = loopback_position[nexusvdc]
-
-        commands.append("router bgp %s" % (outer_as))
+        loopback_address = loopback_address
+        
+        commands.append("router bgp %s" % (inner_as))
         commands.append(" router-id %s" % (loopback_address))
         commands.append(" log-neighbor-changes")
         commands.append(" address-family ipv4 unicast")
-        commands.append("  maximum-paths 8")
+        commands.append("    maximum-paths 8")
                 
-        for vsys in ws_definition_data[district]:
-       
-                #n7k_num = loopback_position[nexusvdc]
-                            
+        for vsys in final_all_inner_data[district]:
+            for n7k in sorted(final_all_inner_data[district][vsys]):
+                n7kinneraddress = final_all_inner_data[district][vsys][n7k][0][dc + 'n7kip']
+                vrfname         = final_all_inner_data[district][vsys][n7k][0]['n7kvrf' + dc]
+                n7k_num         = loopback_position[n7k]
+                
                 if district == 'SDE':
-                    innervdc = dc + district.lower() + 'nxc' + str(n7k_num) + district.lower() + 'inner'
+                        innervdc = dc + district.lower() + 'nxc' + str(n7k_num) + district.lower() + 'inner' 
                 else:
-                    innervdc = dc + 'dcinxc' + str(n7k_num) + district.lower() + 'inner'
-                                
-                tname = vsys + "-" + dc.upper() + "-" + district  
-                neighbor_ip = outer_to_pa_data[district][vsys][nexusvdc][0][dc + 'n7kip']
-                commands.append(" address-family ipv4 unicast")
-                commands.append("  maximum-paths 8")
-                commands.append(" neighbor %s remote-as %s" % (neighbor_ip,inner_as))
-                commands.append(" description TO_%s_%s" % (innervdc,tname))
-                commands.append("    ebgp-multihop 4")
+                        innervdc = dc + 'dcinxc' + str(n7k_num) + district.lower() + 'inner' 
+                
+                
+                commands.append("neighbor %s remote-as %s" % (n7kinneraddress,inner_as ))
+                commands.append("    description TO_%s_%s" % (innervdc,vrfname) )
+                commands.append("    ebpg-multihop 4" )
                 commands.append("    address-family ipv4 unicast")
-                commands.append("      send-community both")
-                       
-        print '\n'.join(map(str,commands))
-        print "!"
-                            
+                commands.append("       send-community both")
+                commands.append("       route-map PERMIT_DEFAULT_ONLY out")
+                commands.append("       default-originate")
+                
+        print '\n'.join(map(str,commands))    
+                          
         if configure is True:
                             
             commands = " ; ".join(map(str,commands))
             print "*** sending above config to %s,%s,%s ***"  %(dc,district,nexusvdc)
             send_to_n7k_api(device_ip,commands,district,dc,nexusvdc,device_un,device_pw)
         commands = []
-"""                           
-            # got all vlans for district/subzone per N7K - now add the vlans to the FW Int config
+        
+                         
+        # got all vlans for district/subzone per N7K - now add the vlans to the FW Int config
         vlans.sort()
         print "!"
         print "!"
@@ -136,7 +137,7 @@ def outer_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa
         # Check to see if there is an allowed list already defined.  If not, then simply adding will not work
 
         # Get the firewall interfaces
-        for interfaces in n7k_fw_int[district]['Inner'][nexusvdc][dc]:
+        for interfaces in n7k_fw_int[district]['Outer'][nexusvdc][dc]:
             fwint =  interfaces['int']
             
             if configure is True:
@@ -169,7 +170,7 @@ def outer_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa
         vlans = []
         if configure is True:
             print "Successfully applied ALL configs!"
-"""      
+ 
 def send_to_n7k_api (ip,commands,district,dc,nexusvdc,username,password):
    
     content_type = "json"
