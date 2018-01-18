@@ -100,23 +100,34 @@ def inner_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa
             for attribs in ws_definition_data[district][vsys]:
                 vrf = attribs[dc+'vrf']
                 commands.append("vrf %s" % (vrf))
-
-                n7k_num = loopback_position[nexusvdc]
-                            
-                if district == 'SDE':
-                    outervdc = dc + district.lower() + 'nxc' + str(n7k_num) + district.lower() + 'outer'
-                else:
-                    outervdc = dc + 'dcinxc' + str(n7k_num) + 'dciouter'
-                                
-                tname = vsys + "-" + dc.upper() + "-" + district  
-                neighbor_ip = outer_to_pa_data[district][vsys][nexusvdc][0][dc + 'n7kip']
                 commands.append(" address-family ipv4 unicast")
                 commands.append("  maximum-paths 8")
-                commands.append(" neighbor %s remote-as %s" % (neighbor_ip,outer_as))
-                commands.append(" description TO_%s_%s" % (outervdc,tname))
-                commands.append("    ebgp-multihop 4")
-                commands.append("    address-family ipv4 unicast")
-                commands.append("      send-community both")
+                
+                n7k_num = loopback_position[nexusvdc]
+                
+                if district == 'SDE':
+                    n7k_range = [(1,'E'),(2,'F')]
+                    
+                else:
+                    n7k_range = [(1,'A'),(2,'B'),(3,'C'),(4,'D')]
+                    
+                
+                for n in n7k_range:
+                    n7k_n = n[0]
+                    n7k_l = n[1]
+                    
+                    if district == 'SDE':
+                        outervdc = dc + 'dcinxc' + str(n7k_n) + 'dciouter'
+                    else:
+                        outervdc = dc + district.lower() + 'nxc' + str(n7k_n) + district.lower() + 'outer'                
+                    tname = vsys + "-" + dc.upper() + "-" + district  
+                    neighbor_ip = outer_to_pa_data[district][vsys]['N7K-' + str(n7k_l)][0][dc + 'n7kip']
+                
+                    commands.append(" neighbor %s remote-as %s" % (neighbor_ip,outer_as))
+                    commands.append(" description TO_%s_%s" % (outervdc,tname))
+                    commands.append("    ebgp-multihop 4")
+                    commands.append("    address-family ipv4 unicast")
+                    commands.append("      send-community both")
                        
         print '\n'.join(map(str,commands))
         print "!"
