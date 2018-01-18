@@ -160,10 +160,12 @@ def inner_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa
                 commands.append("interface %s" % (fwint))
                 commands.append("switchport")
                 commands.append("switchport trunk allow vlan " + ','.join(map(str,vlans)))
+                commands.append("no shutdown")
             else:
                 commands.append("interface %s" % (fwint))
                 commands.append("switchport")
                 commands.append("switchport trunk allow vlan add " + ','.join(map(str,vlans)))
+                commands.append("no shutdown")
         
         
             
