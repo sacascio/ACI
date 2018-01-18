@@ -1210,6 +1210,11 @@ def main(argv):
     debug  = False
     configure = False
     errfound = 0
+    procpm = False
+    procexec = False
+    procfile = False
+    procdebug = False
+    procwrite = False
 
     if len(argv) == 0:
         usage()
@@ -1220,26 +1225,33 @@ def main(argv):
         print str(err)
         sys.exit(2)
     else:
-        if len(opts) == 1 and ( opts[0][0] == "-f" or opts[0][0] == "--file" ):
-                print "Must pass -e option with -f"
-                sys.exit(9)
-        if len(opts) == 1 and ( opts[0][0] == "-e" or opts[0][0] == "--execute" ):
-                print "Must pass -f option with -e"
-                sys.exit(9)
-        if len(opts) == 1 and ( opts[0][0] == "-d" or opts[0][0] == "--debug" ):
-                print "Must pass only the -f option with -d"
-        if len(opts) == 1 and ( opts[0][0] == "-w" or opts[0][0] == "--write" ):
-                print "Missing options -e, -p and -f"
-                sys.exit(9)
-        if len(opts) == 1 and ( opts[0][0] == "-p" or opts[0][0] == "--portmap" ):
-                print "Missing options -e and -f"
-                sys.exit(9)
-        if len(opts) == 2 and ( "-f" in opts[0][0] or "-f" in opts[1][0] or "--file" in opts[0][0] or "--file" in opts[1][0]) and ( "-w" in opts[0][0] or "-w" in opts[1][0] or "--write" in opts[0][0] or "--write" in opts[1][0] ):
-                print "Missing -e option"
-                sys.exit(9)
-        if len(opts) == 2 and ( "-e" in opts[0][0] or "-e" in opts[1][0] or "--execute" in opts[0][0] or "--execute" in opts[1][0]) and ( "-d" in opts[0][0] or "-d" in opts[1][0] or "--debug" in opts[0][0] or "--debug" in opts[1][0]):
-                print "Missing -f option"
-                sys.exit(9)
+        for opt,arg in opts:
+            if opt in ("-f","--file"):
+                procfile = True
+            if opt in ("-d","--debug"):
+                procdebug = True
+            if opt in ("-w","--write"):
+                procwrite = True
+            if opt in ("-p","--portmap"):
+                procpm = True
+            if opt in ("-e","--execute"):
+                procexec = True
+                
+        if procfile is True and procpm is True and procexec is not True:
+            print "Missing -e option"
+            sys.exit(9)
+        
+        if procfile is False:
+            print "Missing -f option"
+            sys.exit(9)
+        
+        if procpm is False:
+            print "Missing -p option"
+            sys.exit(9)
+        
+        if procdebug is True and procwrite is True:
+            print "Cannot use option d and option w together.  Use option w or option d"
+            sys.exit(9)  
         
                         
         for opt,arg in opts:
@@ -1346,18 +1358,6 @@ def main(argv):
                     print "Port Map File for DC2 is missing"
                     sys.exit(10)
                    
-        if debug is True and configure is True:
-            print "Cannot use option d and option w together.  Use option w or option d"
-            sys.exit(9)
-            
-        try:
-            portmapfile
-        except NameError:
-            print "Port Map file required with -p|--portmap"
-            sys.exit(9)
-   
-      
-         
         for opt,arg in opts:
             if opt == '-h' or opt == '--help':
                 usage()
