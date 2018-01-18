@@ -117,9 +117,10 @@ def inner_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa
                     n7k_l = n[1]
                     
                     if district == 'SDE':
-                        outervdc = dc + 'dcinxc' + str(n7k_n) + 'dciouter'
+                        outervdc = dc + district.lower() + 'nxc' + str(n7k_n) + district.lower() + 'outer' 
                     else:
-                        outervdc = dc + district.lower() + 'nxc' + str(n7k_n) + district.lower() + 'outer'                
+                        outervdc = dc + 'dcinxc' + str(n7k_n) + 'dciouter'                
+                    
                     tname = vsys + "-" + dc.upper() + "-" + district  
                     neighbor_ip = outer_to_pa_data[district][vsys]['N7K-' + str(n7k_l)][0][dc + 'n7kip']
                 
