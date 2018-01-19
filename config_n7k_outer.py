@@ -10,7 +10,6 @@ from xlrd import open_workbook, XLRDError
 import json
 from IPy import IP
 import requests
-from fileinput import filename
 import warnings
 
 warnings.filterwarnings("ignore")
