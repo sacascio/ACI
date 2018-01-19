@@ -11,10 +11,13 @@ import json
 from IPy import IP
 import requests
 from fileinput import filename
+import warnings
+
+warnings.filterwarnings("ignore")
 
 def getValueWithMergeLookup(sheet, cell):
-    for range_ in sheet.merged_cell_ranges:
-        merged_cells = list(openpyxl.utils.rows_from_range(range_))
+    for m_range in sheet.merged_cell_ranges:
+        merged_cells = list(openpyxl.utils.rows_from_range(m_range))
         for row in merged_cells:
             if cell in row:
                 return sheet.cell(merged_cells[0][0]).value
