@@ -12,6 +12,14 @@ from IPy import IP
 import requests
 from fileinput import filename
 
+def getValueWithMergeLookup(sheet, cell):
+    for range_ in sheet.merged_cell_ranges:
+        merged_cells = list(openpyxl.utils.rows_from_range(range_))
+        for row in merged_cells:
+            if cell in row:
+                return sheet.cell(merged_cells[0][0]).value
+
+
 def outer_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa_data,n7k_fw_int,loopback_data,outer_jnp_data,configure,lines):
        
     vlans = []
@@ -1144,8 +1152,9 @@ def process_xlsx(filename,dc1portmap,dc2portmap,debug):
             cell = 'M' + str(x)
             value = ws[cell].value 
             
-            if value is not None and not bool(re.search('encapsulation',str(value), re.IGNORECASE)) and not bool(re.search('Inside',str(value), re.IGNORECASE)):
-                    outvdcencap = value
+            if not bool(re.search('encapsulation',str(value), re.IGNORECASE)) and not bool(re.search('Inside',str(value), re.IGNORECASE)):
+                     outvdcencap = getValueWithMergeLookup(ws, cell)
+
                      
            # Push data into dictionary
            # Use Debug option to print data
