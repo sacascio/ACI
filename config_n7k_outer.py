@@ -146,7 +146,7 @@ def outer_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa
         for jnp in outer_jnp_data[district][nexusvdc]:
             jnpip = outer_jnp_data[district][nexusvdc][jnp][0][dc + 'jnpip']
             
-            commands.append("neighbor %s remote-as XXXXX" % (jnpip))
+            commands.append("neighbor %s remote-as 64710" % (jnpip))
             commands.append("    description to %s" % (jnp))
             commands.append("    address-family ipv4 unicast")
             commands.append("       send-community both")
