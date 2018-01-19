@@ -12,8 +12,8 @@ from IPy import IP
 import requests
 from fileinput import filename
 
-def outer_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa_data,n7k_fw_int,loopback_data,configure,lines):
-   
+def outer_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa_data,n7k_fw_int,loopback_data,outer_jnp_data,configure,lines):
+       
     vlans = []
     commands = []
     loopback_position  = {'N7K-A' : 1, 'N7K-B' : 2, 'N7K-C' : 3, 'N7K-D' : 4, 'N7K-E' : 1, 'N7K-F' : 2}
@@ -92,7 +92,7 @@ def outer_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa
         outer_as   = bgp_asn[district]['Outer'][dc]
         loopback_address = loopback_address
         
-        commands.append("router bgp %s" % (inner_as))
+        commands.append("router bgp %s" % (outer_as))
         commands.append(" router-id %s" % (loopback_address))
         commands.append(" log-neighbor-changes")
         commands.append(" address-family ipv4 unicast")
@@ -127,6 +127,29 @@ def outer_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa
             send_to_n7k_api(device_ip,commands,district,dc,nexusvdc,device_un,device_pw)
         commands = []
         
+        print "!"
+        print "!"
+        
+        # Connection to Juniper Router
+        commands.append("router bgp %s" % (outer_as))
+        
+        for jnp in outer_jnp_data[district][nexusvdc]:
+            jnpip = outer_jnp_data[district][nexusvdc][jnp][0][dc + 'jnpip']
+            
+            commands.append("neighbor %s remote-as XXXXX" % (jnpip))
+            commands.append("    description to %s" % (jnp))
+            commands.append("    address-family ipv4 unicast")
+            commands.append("       send-community both")
+        
+        print '\n'.join(map(str,commands))    
+                          
+        if configure is True:
+                            
+            commands = " ; ".join(map(str,commands))
+            print "*** sending above config to %s,%s,%s ***"  %(dc,district,nexusvdc)
+            send_to_n7k_api(device_ip,commands,district,dc,nexusvdc,device_un,device_pw)
+        
+        commands = []
                          
         # got all vlans for district/subzone per N7K - now add the vlans to the FW Int config
         vlans.sort()
@@ -568,6 +591,159 @@ def get_loopback(wb):
                                  }
                             ] 
                            } )
+        return data
+    
+def get_outer_jnp(wb):
+        
+        ws = wb.active 
+        row_start = ws.min_row
+        row_end   = ws.max_row
+        data = {}
+        
+        # Process Loopback assignments
+
+        for x in range(row_start,row_end):
+            # Get N7K or district
+            cell = 'A' + str(x)
+            value = ws[cell].value 
+            
+            if value is not None:
+                if bool((re.search('SOE/GIS',value,re.IGNORECASE))):
+                    district = ['SOE','GIS']
+            
+                elif bool((re.search('N7K-',value,re.IGNORECASE))):
+                    n7kname = value
+            
+                elif bool((re.search('SDE',value,re.IGNORECASE))):
+                    district = ['SDE']
+                    
+                else:
+                    continue
+            
+            else:
+                try:
+                    n7kname
+                except:
+                    continue
+                
+                
+            # Get n7k IP address
+            cell = 'B' + str(x)
+            value = ws[cell].value 
+            
+            if value is not None:
+                
+                try:
+                    IP(value)
+                except:
+                    pass
+                else:
+                    dc1n7kip = value
+                    
+            else:
+                continue      
+                
+            cell = 'C' + str(x)
+            value = ws[cell].value 
+            
+            if value is not None:
+                
+                try:
+                    IP(value)
+                except:
+                    pass
+                else:
+                    dc1jnpip = value
+                    
+            cell = 'D' + str(x)
+            value = ws[cell].value 
+            
+            if value is not None and bool((re.search('JNP',value,re.IGNORECASE))):
+                desc = value
+                desc = desc.strip()
+            
+            cell = 'E' + str(x)
+            value = ws[cell].value 
+            
+            if value is not None:
+                
+                try:
+                    IP(value)
+                except:
+                    pass
+                else:
+                    dc2n7kip = value
+                    
+            cell = 'F' + str(x)
+            value = ws[cell].value 
+            
+            if value is not None:
+                
+                try:
+                    IP(value)
+                except:
+                    pass
+                else:
+                    dc2jnpip = value
+                    
+
+            # Push all data to dictionary
+            # Use Debug option to print data
+
+            
+            for d in district: 
+                # If district exist, append attributes as a list
+                if d in data:
+                    if n7kname in data[d]:
+                        if desc in data[d][n7kname]:
+                            data[d][n7kname][desc].append(
+                                     {
+                                      'dc1n7kip'       : dc1n7kip,
+                                      'dc1jnpip'       : dc1jnpip,
+                                      'dc2n7kip'       : dc2n7kip,
+                                      'dc2jnpip'       : dc2jnpip
+                                     })
+                        else:
+                            data[d][n7kname][desc] = {}
+                            data[d][n7kname][desc] = [ {
+                                    
+                                      'dc1n7kip'       : dc1n7kip,
+                                      'dc1jnpip'       : dc1jnpip,
+                                      'dc2n7kip'       : dc2n7kip,
+                                      'dc2jnpip'       : dc2jnpip
+                            
+                                        }]
+                    else:
+                        data[d][n7kname] = {}
+                        data[d][n7kname][desc] = {}
+                        data[d][n7kname][desc] = [ {
+                                    
+                                      'dc1n7kip'       : dc1n7kip,
+                                      'dc1jnpip'       : dc1jnpip,
+                                      'dc2n7kip'       : dc2n7kip,
+                                      'dc2jnpip'       : dc2jnpip
+                            
+                                        }]
+            
+                # Initial key/value assignment
+                else:
+                 data.update({  
+                      d :  
+                            {
+                               n7kname : 
+                               { 
+                                   desc:
+                                 [ 
+                                  {
+                                      'dc1n7kip'       : dc1n7kip,
+                                      'dc1jnpip'       : dc1jnpip,
+                                      'dc2n7kip'       : dc2n7kip,
+                                      'dc2jnpip'       : dc2jnpip
+                                 }
+                                ] 
+                               }
+                            }
+                        } )
         return data
             
 def get_inner_to_pa(wb,district):
@@ -1173,11 +1349,24 @@ def process_xlsx(filename,dc1portmap,dc2portmap,debug):
         print json.dumps(n7k_fw_int)
     
     
-    
-    
+    ##############################################################################################
+    # Outer Interfaces to Juniper Routers
+    ws_outer_juniper = "P2P JNP"
+    outer_jnp_data = {}
+
+    try:
+            wb.active = worksheets.index(ws_outer_juniper)
+    except:
+            print "Worksheet %s not found" % ws_outer_juniper
+            sys.exit(9)
+    else:
+            outer_jnp_data = get_outer_jnp(wb)
+      
+    if debug == True :
+       print json.dumps(outer_jnp_data)
     ##############################################################################################
     
-    return ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa_data,n7k_fw_int,loopback_data
+    return ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa_data,n7k_fw_int,loopback_data,outer_jnp_data
 
 def usage():
     print "Usage: " +  sys.argv[0] + " -f|--file <excel file name> -d|--debug -e|--execute <n7k list> -w."
@@ -1360,14 +1549,14 @@ def main(argv):
                         print sys.argv[0] + " file %s is not an Excel file" % filename
                     else:
                         if magic.from_file(filename) == 'Microsoft Excel 2007+':
-                            (ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa_data,n7k_fw_int,loopback_data) = process_xlsx(filename,dc1portmap,dc2portmap,debug)
+                            (ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa_data,n7k_fw_int,loopback_data,outer_jnp_data) = process_xlsx(filename,dc1portmap,dc2portmap,debug)
                             if debug is False:
                                 if configure is True:
                                     confirm = raw_input("\n\nSwitch changes are about to be made.  Type N/n to exit or press any key to continue: \n\n")
                                     if confirm.upper() == 'N':
                                         print "\n\nExiting script.  No changes made\n\n"
                                         sys.exit(9)
-                                outer_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa_data,n7k_fw_int,loopback_data,configure,lines)
+                                outer_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa_data,n7k_fw_int,loopback_data,outer_jnp_data,configure,lines)
                         else:
                             print "File must be in .xlsx format"
                             sys.exit(10)
