@@ -1406,7 +1406,8 @@ def process_xlsx(filename,dc1portmap,dc2portmap,debug):
             outer_jnp_data = get_outer_jnp(wb)
       
     if debug == True :
-       print json.dumps(outer_jnp_data)
+       print '{ ' +  'outer_to_juniper' + ':'  + json.dumps(outer_jnp_data) + ' } '
+       
     ##############################################################################################
     
     return ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa_data,n7k_fw_int,loopback_data,outer_jnp_data
