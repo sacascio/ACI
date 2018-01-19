@@ -122,7 +122,7 @@ def outer_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa
                 
                 commands.append("neighbor %s remote-as %s" % (n7kinneraddress,inner_as ))
                 commands.append("    description TO_%s_%s" % (innervdc,vrfname) )
-                commands.append("    ebpg-multihop 4" )
+                commands.append("    ebgp-multihop 4" )
                 commands.append("    address-family ipv4 unicast")
                 commands.append("       send-community both")
                 commands.append("       route-map PERMIT_DEFAULT_ONLY out")
