@@ -1251,7 +1251,7 @@ def process_xlsx(filename,dc1portmap,dc2portmap,debug):
                          })
        
         if debug == True :
-            print json.dumps(ws_definition_data)
+            print '{ ' +  'SOE_SDE_GIS_VRF_RT_Definition' + ':'  + json.dumps(ws_definition_data) + ' } '
             
 
     ##############################################################################################
@@ -1278,7 +1278,7 @@ def process_xlsx(filename,dc1portmap,dc2portmap,debug):
                     final_all_inner_data.update(inner_data)
         
         if debug == True :
-           print json.dumps(final_all_inner_data)
+           print '{ ' +  'inner_to_pa' + ':'  + json.dumps(final_all_inner_data) + ' } '
             
     
     ############################################################################################## 
@@ -1296,7 +1296,7 @@ def process_xlsx(filename,dc1portmap,dc2portmap,debug):
     bgp_asn['SDE'].update(  { 'Outer' : { 'dc1' :  65505, 'dc2' : 65515 } } )
    
     if debug == True:
-        print json.dumps(bgp_asn)
+        print '{ ' +  'bgp_asn' + ':'  + json.dumps(bgp_asn) + ' } '
 
     #############################################################################################
 
@@ -1313,7 +1313,7 @@ def process_xlsx(filename,dc1portmap,dc2portmap,debug):
             loopback_data = get_loopback(wb)
       
     if debug == True :
-       print json.dumps(loopback_data)
+       print '{ ' +  'loopback' + ':'  + json.dumps(loopback_data) + ' } '
 
 
     ##############################################################################################
@@ -1330,7 +1330,7 @@ def process_xlsx(filename,dc1portmap,dc2portmap,debug):
             outer_to_pa_data = get_outer_to_pa(wb)
       
     if debug == True :
-       print json.dumps(outer_to_pa_data)
+       print '{ ' +  'outer_to_pa' + ':'  + json.dumps(outer_to_pa_data) + ' } '
 
     ##############################################################################################
     
@@ -1389,7 +1389,7 @@ def process_xlsx(filename,dc1portmap,dc2portmap,debug):
         
     
     if debug == True:
-        print json.dumps(n7k_fw_int)
+        print '{ ' +  'portmap' + ':'  + json.dumps(n7k_fw_int) + ' } '
     
     
     ##############################################################################################
