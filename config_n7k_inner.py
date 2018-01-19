@@ -211,7 +211,7 @@ def send_to_n7k_api (ip,commands,district,dc,nexusvdc,username,password):
                              headers=headers,
                              data=json.dumps(payload),
                              verify=False,                      # disable SSH certificate verification
-                             timeout=10)
+                             timeout=30)
     
     if response.status_code == 200:
         # verify result if a cli_conf operation was performed
