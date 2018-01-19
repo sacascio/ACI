@@ -1084,15 +1084,35 @@ def process_xlsx(filename,dc1portmap,dc2portmap,debug):
             if value is not None and value != 'Physical':
                     fwtype = value
             
-            # Get VRF #
+            # Get firewall names - dc1 names listed.  Assume dc2 fw names are the same, except they start with dc2
             cell = 'E' + str(x)
+            value = ws[cell].value 
+            
+            if value is not None and not bool(re.search('Pri',value, re.IGNORECASE)):
+                    dc1prifwname = value
+                    dc1prifwname = dc1prifwname.strip()
+                    
+                    dc2prifwname = dc1prifwname.replace("dc1","dc2")
+                    
+            # Get firewall names - dc1 names listed.  Assume dc2 fw names are the same, except they start with dc2
+            cell = 'F' + str(x)
+            value = ws[cell].value 
+            
+            if value is not None and not bool(re.search('Sby',value, re.IGNORECASE)):
+                    dc1sbyfwname = value
+                    dc1sbyfwname = dc1sbyfwname.strip()
+                    
+                    dc2sbyfwname = dc1sbyfwname.replace("dc1","dc2")     
+            
+            # Get VRF #
+            cell = 'G' + str(x)
             value = ws[cell].value 
             
             if value is not None and value != 'VRF' and value != '#':
                     vrf = value
             
             # Get VRF Name for DC1 - skip entire row if VRF name for DC1 is blank 
-            cell = 'F' + str(x)
+            cell = 'H' + str(x)
             value = ws[cell].value 
             
             if value is None:
@@ -1104,7 +1124,7 @@ def process_xlsx(filename,dc1portmap,dc2portmap,debug):
                         vrfnamedc1 = vrfnamedc1.strip()
 
             # Get VRF Name for DC2
-            cell = 'G' + str(x)
+            cell = 'I' + str(x)
             value = ws[cell].value 
             
             if value is not None and not bool(re.search('N7K',value, re.IGNORECASE)) and value != 'DC1' and value != 'DC2':
@@ -1112,7 +1132,7 @@ def process_xlsx(filename,dc1portmap,dc2portmap,debug):
                     vrfnamedc2 = vrfnamedc2.strip()
             
             # RT DC1
-            cell = 'H' + str(x)
+            cell = 'J' + str(x)
             value = ws[cell].value 
             
             if value is not None and value != 'RT' and value != 'DC1' and value != 'DC2':
@@ -1120,7 +1140,7 @@ def process_xlsx(filename,dc1portmap,dc2portmap,debug):
                     rtdc1 = rtdc1.strip()
 
             # RT DC2
-            cell = 'I' + str(x)
+            cell = 'K' + str(x)
             value = ws[cell].value 
             
             if value is not None and value != 'RT' and value != 'DC1' and value != 'DC2':
@@ -1129,21 +1149,21 @@ def process_xlsx(filename,dc1portmap,dc2portmap,debug):
             
             # inner VDC to FW encap
 
-            cell = 'J' + str(x)
+            cell = 'L' + str(x)
             value = ws[cell].value 
             
             if value is not None and not bool(re.search('encapsulation',str(value))) and not bool(re.search('Inner',str(value))):
                     invdcencap = value
             
             # OSPF DC1 
-            cell = 'K' + str(x)
+            cell = 'M' + str(x)
             value = ws[cell].value 
             
             if value is not None and not bool(re.search('OSPF',str(value), re.IGNORECASE)) and not bool(re.search('DC',str(value), re.IGNORECASE)):
                     ospfdc1 = value
             
             # OSPF DC2 
-            cell = 'L' + str(x)
+            cell = 'N' + str(x)
             value = ws[cell].value 
             
             if value is not None and not bool(re.search('OSPF',str(value), re.IGNORECASE)) and not bool(re.search('DC',str(value), re.IGNORECASE)):
@@ -1151,7 +1171,7 @@ def process_xlsx(filename,dc1portmap,dc2portmap,debug):
 
 
             # encap - outer VDC to FW
-            cell = 'M' + str(x)
+            cell = 'O' + str(x)
             value = ws[cell].value 
             
             if not bool(re.search('encapsulation',str(value), re.IGNORECASE)) and not bool(re.search('Inside',str(value), re.IGNORECASE)):
@@ -1176,7 +1196,11 @@ def process_xlsx(filename,dc1portmap,dc2portmap,debug):
                                      'innervdcencap' : invdcencap,
                                      'ospfdc1'       : ospfdc1,
                                      'ospfdc2'       : ospfdc2,
-                                     'outervdcencap' : outvdcencap
+                                     'outervdcencap' : outvdcencap,
+                                     'dc1prifwname'  : dc1prifwname,
+                                     'dc1sbyfwname'  : dc1sbyfwname,
+                                     'dc2prifwname'  : dc2prifwname,
+                                     'dc2sbyfwname'  : dc2sbyfwname
                                    })
                 # If district exists, but not tenant, add new key (tenant) and initial attributes
                 else:
@@ -1192,7 +1216,11 @@ def process_xlsx(filename,dc1portmap,dc2portmap,debug):
                                       'innervdcencap' : invdcencap,
                                       'ospfdc1'       : ospfdc1,
                                       'ospfdc2'       : ospfdc2,
-                                      'outervdcencap' : outvdcencap
+                                      'outervdcencap' : outvdcencap,
+                                      'dc1prifwname'  : dc1prifwname,
+                                      'dc1sbyfwname'  : dc1sbyfwname,
+                                      'dc2prifwname'  : dc2prifwname,
+                                      'dc2sbyfwname'  : dc2sbyfwname
                                      } ]
 
             # Initial key/value assignment
@@ -1212,7 +1240,11 @@ def process_xlsx(filename,dc1portmap,dc2portmap,debug):
                                       'innervdcencap' : invdcencap,
                                       'ospfdc1'       : ospfdc1,
                                       'ospfdc2'       : ospfdc2,
-                                      'outervdcencap' : outvdcencap
+                                      'outervdcencap' : outvdcencap,
+                                      'dc1prifwname'  : dc1prifwname,
+                                      'dc1sbyfwname'  : dc1sbyfwname,
+                                      'dc2prifwname'  : dc2prifwname,
+                                      'dc2sbyfwname'  : dc2sbyfwname
                                     }
                                 ] 
                               } 
