@@ -46,11 +46,12 @@ def inner_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa
                 commands.append("  ip router ospf %s area 0.0.0.%s" % (vsys.upper(),attribs['ospf' + dc]))
                 commands.append("  no shutdown")
                 vlans.append(str(innervdcvlan))
-                    
-            print '\n'.join(map(str,commands))
-            print "!"
+            
+            if len(commands) > 1 :       
+                print '\n'.join(map(str,commands))
+                print "!"
                         
-            if configure is True:            
+            if configure is True and len(commands) > 1:            
                 commands = " ; ".join(map(str,commands))
                 print "*** sending above config to %s,%s,%s ***"  %(dc,district,nexusvdc)
                 send_to_n7k_api(device_ip,commands,district,dc,nexusvdc,device_un,device_pw)
@@ -80,18 +81,19 @@ def inner_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa
                 commands.append(" vrf %s" % (attribs[dc+'vrf']))
                 commands.append("   router-id %s" % (loopback_address))
                 commands.append("   log-adjacency-changes")
-                     
-            print '\n'.join(map(str,commands))
-            print "!"
+            
+            if len(commands) > 1:         
+                print '\n'.join(map(str,commands))
+                print "!"
+                print "!"
                             
-            if configure is True:
+            if configure is True and len(commands) > 1:
                 commands = " ; ".join(map(str,commands))
                 print "*** sending above config to %s,%s,%s ***"  %(dc,district,nexusvdc)
                 send_to_n7k_api(device_ip,commands,district,dc,nexusvdc,device_un,device_pw)
             commands = []
                             
-            print "!"
-            print "!"
+            
 
 
         # BGP Configuration

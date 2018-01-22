@@ -41,17 +41,23 @@ def outer_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa
         print "!"
           
         for vsys in ws_definition_data[district]:
+            gen_int_config = 0
+            # If there's at least 1 VRF to config per vSYS, write interface config
+            for attrib in ws_definition_data[district][vsys]:
+                if attrib['config'] == 'yes':
+                    gen_int_config = gen_int_config + 1
             
-            outervdcvlan =  ws_definition_data[district][vsys][0]['outervdcencap']
-            ospfarea     =  ws_definition_data[district][vsys][0]['ospf' + dc]
-            n7kip        =  outer_to_pa_data[district][vsys][nexusvdc][0][dc + 'n7kip']
-            commands.append("interface vlan " + str(outervdcvlan))
-            commands.append("  description Layer3_%s" % (vsys))
-            commands.append("  ip address %s 255.255.255.252" % (n7kip))
-            commands.append("  ip ospf network point-to-point")
-            commands.append("  ip router ospf %s area 0.0.0.%s" % (district,ospfarea))
-            commands.append("  no shutdown")
-            vlans.append(str(outervdcvlan))
+            if gen_int_config > 0:
+                outervdcvlan =  ws_definition_data[district][vsys][0]['outervdcencap']
+                ospfarea     =  ws_definition_data[district][vsys][0]['ospf' + dc]
+                n7kip        =  outer_to_pa_data[district][vsys][nexusvdc][0][dc + 'n7kip']
+                commands.append("interface vlan " + str(outervdcvlan))
+                commands.append("  description Layer3_%s" % (vsys))
+                commands.append("  ip address %s 255.255.255.252" % (n7kip))
+                commands.append("  ip ospf network point-to-point")
+                commands.append("  ip router ospf %s area 0.0.0.%s" % (district,ospfarea))
+                commands.append("  no shutdown")
+                vlans.append(str(outervdcvlan))
                     
         print '\n'.join(map(str,commands))
         print "!"
