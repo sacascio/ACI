@@ -120,8 +120,8 @@ def outer_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa
                         innervdc = dc + 'dcinxc' + str(n7k_num) + district.lower() + 'inner' 
                 
                 
-                commands.append("neighbor %s remote-as %s" % (n7kinneraddress,inner_as ))
-                commands.append("    description TO_%s_%s" % (innervdc,vrfname) )
+                commands.append(" neighbor %s remote-as %s" % (n7kinneraddress,inner_as ))
+                commands.append(" description TO_%s_%s" % (innervdc,vrfname) )
                 commands.append("    ebgp-multihop 4" )
                 commands.append("    address-family ipv4 unicast")
                 commands.append("       send-community both")
@@ -146,10 +146,10 @@ def outer_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa
         for jnp in outer_jnp_data[district][nexusvdc]:
             jnpip = outer_jnp_data[district][nexusvdc][jnp][0][dc + 'jnpip']
             
-            commands.append("neighbor %s remote-as 64710" % (jnpip))
-            commands.append("    description to %s" % (jnp))
+            commands.append(" neighbor %s remote-as 64710" % (jnpip))
+            commands.append(" description to %s" % (jnp))
             commands.append("    address-family ipv4 unicast")
-            commands.append("       send-community both")
+            commands.append("      send-community both")
         
         print '\n'.join(map(str,commands))    
                           
