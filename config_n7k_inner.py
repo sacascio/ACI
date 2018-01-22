@@ -32,6 +32,9 @@ def inner_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa
           
         for vsys in ws_definition_data[district]:
             for attribs in ws_definition_data[district][vsys]:
+                if attribs['config'] == 'no':
+                    continue
+                
                 innervdcvlan =  attribs['innervdcencap']
                 subzone      =  attribs['subzone']
                 n7kip        =  final_all_inner_data[district][subzone][nexusvdc][0][dc + 'n7kip']
@@ -58,7 +61,11 @@ def inner_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa
             # Begin OSPF config
             commands.append("router ospf %s" % (vsys))
                   
-            for attribs in ws_definition_data[district][vsys]:    
+            for attribs in ws_definition_data[district][vsys]: 
+                
+                if attribs['config'] == 'no':
+                    continue
+                   
                 n7k_num = loopback_position[nexusvdc]
                 for vals in loopback_data[district]:
                    
@@ -98,6 +105,10 @@ def inner_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa
                 
         for vsys in ws_definition_data[district]:
             for attribs in ws_definition_data[district][vsys]:
+                
+                if attribs['config'] == 'no':
+                    continue
+                
                 vrf = attribs[dc+'vrf']
                 commands.append("vrf %s" % (vrf))
                 commands.append(" address-family ipv4 unicast")
@@ -866,6 +877,9 @@ def process_xlsx(filename,dc1portmap,dc2portmap,debug):
 
         # Process ws_definition tab 
         for x in range(row_start,row_end):
+          
+            
+            
             # Get District
             cell = 'A' + str(x)
             value = ws[cell].value 
@@ -938,8 +952,18 @@ def process_xlsx(filename,dc1portmap,dc2portmap,debug):
             if value is not None and value != 'VRF' and value != '#':
                     vrf = value
             
-            # Get VRF Name for DC1 - skip entire row if VRF name for DC1 is blank 
+            ## If config is NO, skip the entire row. We are not configuring that VRF
             cell = 'H' + str(x)
+            value = ws[cell].value 
+            
+            if value is not None and bool((re.search('no',value,re.IGNORECASE))):
+                config = 'no'
+            else:
+                config = 'yes'
+            
+            
+            # Get VRF Name for DC1 - skip entire row if VRF name for DC1 is blank 
+            cell = 'I' + str(x)
             value = ws[cell].value 
             
             if value is None:
@@ -951,7 +975,7 @@ def process_xlsx(filename,dc1portmap,dc2portmap,debug):
                         vrfnamedc1 = vrfnamedc1.strip()
 
             # Get VRF Name for DC2
-            cell = 'I' + str(x)
+            cell = 'J' + str(x)
             value = ws[cell].value 
             
             if value is not None and not bool(re.search('N7K',value, re.IGNORECASE)) and value != 'DC1' and value != 'DC2':
@@ -959,7 +983,7 @@ def process_xlsx(filename,dc1portmap,dc2portmap,debug):
                     vrfnamedc2 = vrfnamedc2.strip()
             
             # RT DC1
-            cell = 'J' + str(x)
+            cell = 'K' + str(x)
             value = ws[cell].value 
             
             if value is not None and value != 'RT' and value != 'DC1' and value != 'DC2':
@@ -967,7 +991,7 @@ def process_xlsx(filename,dc1portmap,dc2portmap,debug):
                     rtdc1 = rtdc1.strip()
 
             # RT DC2
-            cell = 'K' + str(x)
+            cell = 'L' + str(x)
             value = ws[cell].value 
             
             if value is not None and value != 'RT' and value != 'DC1' and value != 'DC2':
@@ -976,21 +1000,21 @@ def process_xlsx(filename,dc1portmap,dc2portmap,debug):
             
             # inner VDC to FW encap
 
-            cell = 'L' + str(x)
+            cell = 'M' + str(x)
             value = ws[cell].value 
             
             if value is not None and not bool(re.search('encapsulation',str(value))) and not bool(re.search('Inner',str(value))):
                     invdcencap = value
             
             # OSPF DC1 
-            cell = 'M' + str(x)
+            cell = 'N' + str(x)
             value = ws[cell].value 
             
             if value is not None and not bool(re.search('OSPF',str(value), re.IGNORECASE)) and not bool(re.search('DC',str(value), re.IGNORECASE)):
                     ospfdc1 = value
             
             # OSPF DC2 
-            cell = 'N' + str(x)
+            cell = 'O' + str(x)
             value = ws[cell].value 
             
             if value is not None and not bool(re.search('OSPF',str(value), re.IGNORECASE)) and not bool(re.search('DC',str(value), re.IGNORECASE)):
@@ -998,7 +1022,7 @@ def process_xlsx(filename,dc1portmap,dc2portmap,debug):
 
 
             # encap - outer VDC to FW
-            cell = 'O' + str(x)
+            cell = 'P' + str(x)
             value = ws[cell].value 
             
             if value is not None and not bool(re.search('encapsulation',str(value), re.IGNORECASE)) and not bool(re.search('Inside',str(value), re.IGNORECASE)):
@@ -1022,6 +1046,7 @@ def process_xlsx(filename,dc1portmap,dc2portmap,debug):
                                      'innervdcencap' : invdcencap,
                                      'ospfdc1'       : ospfdc1,
                                      'ospfdc2'       : ospfdc2,
+                                     'config'        : config,
                                      'outervdcencap' : outvdcencap,
                                      'dc1prifwname'  : dc1prifwname,
                                      'dc1sbyfwname'  : dc1sbyfwname,
@@ -1042,6 +1067,7 @@ def process_xlsx(filename,dc1portmap,dc2portmap,debug):
                                       'innervdcencap' : invdcencap,
                                       'ospfdc1'       : ospfdc1,
                                       'ospfdc2'       : ospfdc2,
+                                      'config'        : config,
                                       'outervdcencap' : outvdcencap,
                                       'dc1prifwname'  : dc1prifwname,
                                       'dc1sbyfwname'  : dc1sbyfwname,
@@ -1066,6 +1092,7 @@ def process_xlsx(filename,dc1portmap,dc2portmap,debug):
                                       'innervdcencap' : invdcencap,
                                       'ospfdc1'       : ospfdc1,
                                       'ospfdc2'       : ospfdc2,
+                                      'config'        : config,
                                       'outervdcencap' : outvdcencap,
                                       'dc1prifwname'  : dc1prifwname,
                                       'dc1sbyfwname'  : dc1sbyfwname,
