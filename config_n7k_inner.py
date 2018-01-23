@@ -12,10 +12,13 @@ from IPy import IP
 import requests
 from fileinput import filename
 
+# MUST USE CUSTOM PORT MAP FILE
+# ZONES VLAN AND IP FILE MUST HAVE yes/no in column H
+
 def inner_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa_data,n7k_fw_int,loopback_data,configure,lines):
    
-    vlans = []
     commands = []
+
     loopback_position  = {'N7K-A' : 1, 'N7K-B' : 2, 'N7K-C' : 3, 'N7K-D' : 4, 'N7K-E' : 1, 'N7K-F' : 2}
     
     for info in lines:
@@ -26,6 +29,7 @@ def inner_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa
         device_ip = i[3]
         device_un = i[4]
         device_pw = i[5]
+        fw_to_vlan = {}
         
         print "!!! District %s, DC %s, nexusVDC %s" % (district,dc,nexusvdc)
         print "!"
@@ -37,6 +41,8 @@ def inner_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa
                 
                 innervdcvlan =  attribs['innervdcencap']
                 subzone      =  attribs['subzone']
+                prifw        =  attribs[dc + 'prifwname']
+                sbyfw        =  attribs[dc + 'sbyfwname']
                 n7kip        =  final_all_inner_data[district][subzone][nexusvdc][0][dc + 'n7kip']
                 commands.append("vlan " + str(innervdcvlan) )
                 commands.append("interface vlan " + str(innervdcvlan))
@@ -46,7 +52,17 @@ def inner_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa
                 commands.append("  ip ospf network point-to-point")
                 commands.append("  ip router ospf %s area 0.0.0.%s" % (vsys.upper(),attribs['ospf' + dc]))
                 commands.append("  no shutdown")
-                vlans.append(str(innervdcvlan))
+                
+                if prifw in fw_to_vlan:
+                    fw_to_vlan[prifw].append({ 'vlan' : innervdcvlan })
+                else:
+                    fw_to_vlan[prifw] = [{ 'vlan' : innervdcvlan}]
+                    
+                if sbyfw in fw_to_vlan:
+                    fw_to_vlan[sbyfw].append({ 'vlan' : innervdcvlan })
+                else:
+                    fw_to_vlan[sbyfw] = [{ 'vlan' : innervdcvlan}]
+                
             
             if len(commands) > 1 :       
                 print '\n'.join(map(str,commands))
@@ -153,37 +169,48 @@ def inner_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa
             send_to_n7k_api(device_ip,commands,district,dc,nexusvdc,device_un,device_pw)
         commands = []
                            
-            # got all vlans for district/subzone per N7K - now add the vlans to the FW Int config
-        vlans.sort()
+        # got all FW to vlans for district/subzone per N7K - now add the vlans to the FW Int config
+        
         print "!"
         print "!"
         print "! Allow VLANs on the firewall"
         # Add vlans to allowed list on firewall interfaces
         # Check to see if there is an allowed list already defined.  If not, then simply adding will not work
-
+        
         # Get the firewall interfaces
-        for interfaces in n7k_fw_int[district]['Inner'][nexusvdc][dc]:
-            fwint =  interfaces['int']
+        for fw in fw_to_vlan:
+            vlans = []
+            for vl in fw_to_vlan[fw]:
+                vlans.append(str(vl['vlan']))
+                
+            vlans.sort()
+         
+            for interfaces in n7k_fw_int[district]['INNER'][nexusvdc][dc][fw]:
+                fwint = interfaces['int']
+                
             
-            if configure is True:
-                curr_allowed_list = send_to_n7k_api_show("show int %s switchport" % (fwint),device_ip,district,dc,nexusvdc,device_un,device_pw)
-            else:
-                curr_allowed_list = 'none'
+                if configure is True:
+                    curr_allowed_list = send_to_n7k_api_show("show int %s switchport" % (fwint),device_ip,district,dc,nexusvdc,device_un,device_pw)
+                else:
+                    curr_allowed_list = 'none'
        
-            if curr_allowed_list == 'none' or curr_allowed_list == '1-4094':
-                commands.append("interface %s" % (fwint))
-                commands.append("switchport")
-                commands.append("switchport mode trunk")
-                commands.append("switchport trunk allow vlan " + ','.join(map(str,vlans)))
-                commands.append("no shutdown")
-            else:
-                commands.append("interface %s" % (fwint))
-                commands.append("switchport")
-                commands.append("switchport mode trunk")
-                commands.append("switchport trunk allow vlan add " + ','.join(map(str,vlans)))
-                commands.append("no shutdown")
-        
-        
+                if curr_allowed_list == 'none' or curr_allowed_list == '1-4094':
+                    commands.append("interface %s" % (fwint))
+                    commands.append("description TO_%s" % (fw) )
+                    commands.append("switchport")
+                    commands.append("switchport mode trunk")
+                    commands.append("switchport trunk allow vlan " + ','.join(map(str,vlans)))
+                    commands.append("no shutdown")
+                    commands.append("!")
+                else:
+                    commands.append("interface %s" % (fwint))
+                    commands.append("switchport")
+                    commands.append("switchport mode trunk")
+                    commands.append("switchport trunk allow vlan add " + ','.join(map(str,vlans)))
+                    commands.append("no shutdown")
+                    commands.append("!")
+                    
+           
             
         print '\n'.join(map(str,commands))
         print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
@@ -196,7 +223,6 @@ def inner_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa
             send_to_n7k_api(device_ip,commands,district,dc,nexusvdc,device_un,device_pw)
         commands = []
         
-        vlans = []
         if configure is True:
             print "Successfully applied ALL configs!"
       
@@ -781,7 +807,6 @@ def getfwint(wb,dc,data):
     ws = wb.active 
     row_start = ws.min_row
     row_end   = ws.max_row
-    loc = ('Inner', 'Outer')
     
     for cells in ws.iter_rows(min_row=row_start, min_col=1, max_col=24):
         for vals in cells:
@@ -804,53 +829,64 @@ def getfwint(wb,dc,data):
             if vals.value == 'F':
                 n7k = 'N7K-F'
             
-            for dloc in loc:
+            
+            
+            if bool(re.search(dc,str(vals.value), re.IGNORECASE)):
+                vals.value = vals.value.replace(" ","")
+                fwname   = vals.value[:-6].lower()
+                district = vals.value[3:6].upper()
+                dloc     = vals.value[-5:].upper()
                 
-            # Loop through Inner and Outer config
-                if bool(re.search('firewall',str(vals.value), re.IGNORECASE)) and bool(re.search(dloc,str(vals.value), re.IGNORECASE))  :
-                    district = vals.value[:3].upper()
-                
-                    if bool(re.search('firewall', ws[vals.column + str(vals.row-1)].value, re.IGNORECASE)):
-                        interface = ws[vals.column + str(vals.row+1)].value
-                    else:
-                        interface = ws[vals.column + str(vals.row-1)].value
+                if bool(re.search(dc, ws[vals.column + str(vals.row-1)].value, re.IGNORECASE)):
+                    interface = ws[vals.column + str(vals.row+1)].value
+                else:
+                    interface = ws[vals.column + str(vals.row-1)].value
                     
-                    interface = "E" + interface
-                    interface = interface.replace("-","/")
+                interface = "E" + interface
+                interface = interface.replace("-","/")
                             
                
-                    if district in data:
-                        if dloc in data[district]:
-                            if n7k in data[district][dloc]:
-                                if dc in data[district][dloc][n7k]:
-                                    data[district][dloc][n7k][dc].append({'int'  : interface })
+                if district in data:
+                    if dloc in data[district]:
+                        if n7k in data[district][dloc]:
+                            if dc in data[district][dloc][n7k]:
+                                if fwname in data[district][dloc][n7k][dc]:
+                                    data[district][dloc][n7k][dc][fwname].append({'int'  : interface })
                                 else:
-                                    data[district][dloc][n7k][dc] = [{'int' : interface}]
+                                    data[district][dloc][n7k][dc][fwname] = [{'int' : interface}]
                             else:
-                                data[district][dloc][n7k] = {}
-                                data[district][dloc][n7k][dc] = [{ 'int' : interface}]
+                                data[district][dloc][n7k][dc] = {}
+                                data[district][dloc][n7k][dc][fwname] = [{ 'int' : interface}]
                         else:
-                            data[district][dloc] = {}
                             data[district][dloc][n7k] = {}
-                            data[district][dloc][n7k][dc] = [{ 'int' : interface}]                 
-                                    
+                            data[district][dloc][n7k][dc] = {}
+                            data[district][dloc][n7k][dc][fwname] = [{ 'int' : interface}]
                     else:
-                        data.update({  
-                              district :  
-                               { 
-                                dloc :  
-                                {   
-                                     n7k :
-                                     {
-                                        dc : 
-                                                [ 
-                                                 {
-                                                  'int'     : interface
-                                                 }
-                                                ] 
+                        data[district][dloc] = {}
+                        data[district][dloc][n7k] = {}
+                        data[district][dloc][n7k][dc] = {}
+                        data[district][dloc][n7k][dc][fwname] = [{ 'int' : interface}]                 
+                                    
+                else:
+                    data.update({  
+                            district :  
+                            { 
+                            dloc :  
+                            {   
+                                    n7k :
+                                    {
+                                     dc : 
+                                        {
+                                            fwname :
+                                            [ 
+                                                {
+                                                'int'     : interface
+                                                }
+                                            ] 
+                                         }
                                              
-                                    }}}})
-                
+                                }}}})
+               
     return data
 
 def process_xlsx(filename,dc1portmap,dc2portmap,debug):
@@ -1244,8 +1280,7 @@ def process_xlsx(filename,dc1portmap,dc2portmap,debug):
     n7k_fw_int['SDE'].update({'Inner' : { 'N7K-E' :  { 'dc1'  : { 'int1' : 'E2/5', 'int2' : 'E2/13' }, 'dc2' : { 'int1' : 'E2/5', 'int2' : 'E2/13'} }, 'N7K-F' : { 'dc1'  : { 'int1' : 'E2/5', 'int2' : 'E2/13' }, 'dc2' : { 'int1' : 'E2/5', 'int2' : 'E2/13'} } }   })
     
     '''
-        
-    
+   
     if debug == True:
         print '{ ' +  'portmap' + ':'  + json.dumps(n7k_fw_int) + ' } '
     
