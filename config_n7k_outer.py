@@ -51,6 +51,7 @@ def outer_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa
                 outervdcvlan =  ws_definition_data[district][vsys][0]['outervdcencap']
                 ospfarea     =  ws_definition_data[district][vsys][0]['ospf' + dc]
                 n7kip        =  outer_to_pa_data[district][vsys][nexusvdc][0][dc + 'n7kip']
+                commands.append("vlan " + str(outervdcvlan) )
                 commands.append("interface vlan " + str(outervdcvlan))
                 commands.append("  description Layer3_%s" % (vsys))
                 commands.append("  ip address %s 255.255.255.252" % (n7kip))
@@ -194,10 +195,12 @@ def outer_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa
             if curr_allowed_list == 'none' or curr_allowed_list == '1-4094':
                 commands.append("interface %s" % (fwint))
                 commands.append("switchport")
+                commands.append("switchport mode trunk")
                 commands.append("switchport trunk allow vlan " + ','.join(map(str,vlans)))
             else:
                 commands.append("interface %s" % (fwint))
                 commands.append("switchport")
+                commands.append("switchport mode trunk")
                 commands.append("switchport trunk allow vlan add " + ','.join(map(str,vlans)))
         
         

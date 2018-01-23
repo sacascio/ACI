@@ -38,6 +38,7 @@ def inner_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa
                 innervdcvlan =  attribs['innervdcencap']
                 subzone      =  attribs['subzone']
                 n7kip        =  final_all_inner_data[district][subzone][nexusvdc][0][dc + 'n7kip']
+                commands.append("vlan " + str(innervdcvlan) )
                 commands.append("interface vlan " + str(innervdcvlan))
                 commands.append("  description Layer3_%s_%s" % (vsys,attribs[dc+'vrf']))
                 commands.append("  vrf member %s " % (attribs[dc+'vrf']))
@@ -172,11 +173,13 @@ def inner_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa
             if curr_allowed_list == 'none' or curr_allowed_list == '1-4094':
                 commands.append("interface %s" % (fwint))
                 commands.append("switchport")
+                commands.append("switchport mode trunk")
                 commands.append("switchport trunk allow vlan " + ','.join(map(str,vlans)))
                 commands.append("no shutdown")
             else:
                 commands.append("interface %s" % (fwint))
                 commands.append("switchport")
+                commands.append("switchport mode trunk")
                 commands.append("switchport trunk allow vlan add " + ','.join(map(str,vlans)))
                 commands.append("no shutdown")
         
