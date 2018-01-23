@@ -197,11 +197,14 @@ def outer_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa
                 commands.append("switchport")
                 commands.append("switchport mode trunk")
                 commands.append("switchport trunk allow vlan " + ','.join(map(str,vlans)))
+                commands.append("no shutdown")
+                commands.append("!")
             else:
                 commands.append("interface %s" % (fwint))
                 commands.append("switchport")
                 commands.append("switchport mode trunk")
-                commands.append("switchport trunk allow vlan add " + ','.join(map(str,vlans)))
+                commands.append("switchport trunk allow vlan add " + ','.join(map(str,vlans)))commands.append("no shutdown")
+                commands.append("!")
         
         
             
@@ -954,7 +957,6 @@ def getfwint(wb,dc,data):
     ws = wb.active 
     row_start = ws.min_row
     row_end   = ws.max_row
-    loc = ('Inner', 'Outer')
     
     for cells in ws.iter_rows(min_row=row_start, min_col=1, max_col=24):
         for vals in cells:
@@ -977,54 +979,66 @@ def getfwint(wb,dc,data):
             if vals.value == 'F':
                 n7k = 'N7K-F'
             
-            for dloc in loc:
+            
+            
+            if bool(re.search(dc,str(vals.value), re.IGNORECASE)):
+                vals.value = vals.value.replace(" ","")
+                fwname   = vals.value[:-6].lower()
+                district = vals.value[3:6].upper()
+                dloc     = vals.value[-5:].upper()
                 
-            # Loop through Inner and Outer config
-                if bool(re.search('firewall',str(vals.value), re.IGNORECASE)) and bool(re.search(dloc,str(vals.value), re.IGNORECASE))  :
-                    district = vals.value[:3].upper()
-                
-                    if bool(re.search('firewall', ws[vals.column + str(vals.row-1)].value, re.IGNORECASE)):
-                        interface = ws[vals.column + str(vals.row+1)].value
-                    else:
-                        interface = ws[vals.column + str(vals.row-1)].value
+                if bool(re.search(dc, ws[vals.column + str(vals.row-1)].value, re.IGNORECASE)):
+                    interface = ws[vals.column + str(vals.row+1)].value
+                else:
+                    interface = ws[vals.column + str(vals.row-1)].value
                     
-                    interface = "E" + interface
-                    interface = interface.replace("-","/")
+                interface = "E" + interface
+                interface = interface.replace("-","/")
                             
                
-                    if district in data:
-                        if dloc in data[district]:
-                            if n7k in data[district][dloc]:
-                                if dc in data[district][dloc][n7k]:
-                                    data[district][dloc][n7k][dc].append({'int'  : interface })
+                if district in data:
+                    if dloc in data[district]:
+                        if n7k in data[district][dloc]:
+                            if dc in data[district][dloc][n7k]:
+                                if fwname in data[district][dloc][n7k][dc]:
+                                    data[district][dloc][n7k][dc][fwname].append({'int'  : interface })
                                 else:
-                                    data[district][dloc][n7k][dc] = [{'int' : interface}]
+                                    data[district][dloc][n7k][dc][fwname] = [{'int' : interface}]
                             else:
-                                data[district][dloc][n7k] = {}
-                                data[district][dloc][n7k][dc] = [{ 'int' : interface}]
+                                data[district][dloc][n7k][dc] = {}
+                                data[district][dloc][n7k][dc][fwname] = [{ 'int' : interface}]
                         else:
-                            data[district][dloc] = {}
                             data[district][dloc][n7k] = {}
-                            data[district][dloc][n7k][dc] = [{ 'int' : interface}]                 
-                                    
+                            data[district][dloc][n7k][dc] = {}
+                            data[district][dloc][n7k][dc][fwname] = [{ 'int' : interface}]
                     else:
-                        data.update({  
-                              district :  
-                               { 
-                                dloc :  
-                                {   
-                                     n7k :
-                                     {
-                                        dc : 
-                                                [ 
-                                                 {
-                                                  'int'     : interface
-                                                 }
-                                                ] 
+                        data[district][dloc] = {}
+                        data[district][dloc][n7k] = {}
+                        data[district][dloc][n7k][dc] = {}
+                        data[district][dloc][n7k][dc][fwname] = [{ 'int' : interface}]                 
+                                    
+                else:
+                    data.update({  
+                            district :  
+                            { 
+                            dloc :  
+                            {   
+                                    n7k :
+                                    {
+                                     dc : 
+                                        {
+                                            fwname :
+                                            [ 
+                                                {
+                                                'int'     : interface
+                                                }
+                                            ] 
+                                         }
                                              
-                                    }}}})
-                
+                                }}}})
+               
     return data
+
 
 def process_xlsx(filename,dc1portmap,dc2portmap,debug):
     worksheets = []
