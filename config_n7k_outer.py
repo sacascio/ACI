@@ -215,7 +215,8 @@ def outer_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa
         print "! Allow VLANs on the firewall"
         # Add vlans to allowed list on firewall interfaces
         # Check to see if there is an allowed list already defined.  If not, then simply adding will not work
-
+        curr_allowed_list = send_to_n7k_api_show("show int %s switchport" % ('e2/5'),device_ip,district,dc,nexusvdc,device_un,device_pw)
+        sys.exit(9)
         # Get the firewall interfaces
         for interfaces in n7k_fw_int[district]['OUTER'][nexusvdc][dc]:
             fwint =  interfaces['int']
@@ -357,9 +358,9 @@ def send_to_n7k_api_show(commands, ip,district,dc,nexusvdc,username,password):
                              data=json.dumps(payload),
                              verify=False,                      # disable SSH certificate verification
                              timeout=30)
-
+    
     if response.status_code == 200:
-        if  bool((re.search('switchport',commands[0],re.IGNORECASE))) :
+        if  bool((re.search('switchport',commands,re.IGNORECASE))) :
             return response.json()['result']['body']['TABLE_interface']['ROW_interface']['trunk_vlans']
         else:
             return response.json()['result']

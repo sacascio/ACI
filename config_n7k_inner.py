@@ -187,7 +187,7 @@ def inner_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa
             vlans.sort()
             
             if fw not in n7k_fw_int[district]['INNER'][nexusvdc][dc]:
-                print "Firewall " + fw + " does NOT exist in " + dc + " port-map file.  Vlans " + ",".join(map(str,vlans)) + " will NOT be configured on the FW interface allowed list"
+                print " WARNING: Firewall " + fw + " does NOT exist in " + dc + " port-map file.  Vlans " + ",".join(map(str,vlans)) + " will NOT be configured on the FW interface allowed list"
                 continue
          
             for interfaces in n7k_fw_int[district]['INNER'][nexusvdc][dc][fw]:
