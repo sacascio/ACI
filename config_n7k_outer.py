@@ -22,7 +22,7 @@ def getValueWithMergeLookup(sheet, cell):
                 return sheet.cell(merged_cells[0][0]).value
 
 
-def outer_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa_data,n7k_fw_int,loopback_data,outer_jnp_data,configure,lines,detailops):
+def outer_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa_data,n7k_fw_int,loopback_data,outer_jnp_data,configure,lines,detailops,out_to_jnp_fw_int):
   
     commands = []
     loopback_position  = {'N7K-A' : 1, 'N7K-B' : 2, 'N7K-C' : 3, 'N7K-D' : 4, 'N7K-E' : 1, 'N7K-F' : 2}
@@ -237,9 +237,11 @@ def outer_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa
         
         for jnp in outer_jnp_data[district][nexusvdc]:
             jnpip = outer_jnp_data[district][nexusvdc][jnp][0][dc + 'jnpip']
-            
+            outfwint = out_to_jnp_fw_int[district][nexusvdc][dc.upper()][jnp]['localint']
+            jnpfwint = out_to_jnp_fw_int[district][nexusvdc][dc.upper()][jnp]['remint']
+            jnpname  = out_to_jnp_fw_int[district][nexusvdc][dc.upper()][jnp]['devname']
             commands.append(" neighbor %s remote-as 64710" % (jnpip))
-            commands.append(" description to %s" % (jnp))
+            commands.append(" description TO %s_%s" % (jnpname,jnpfwint))
             commands.append("    address-family ipv4 unicast")
             commands.append("      send-community both")
         
@@ -613,7 +615,7 @@ def get_loopback(wb):
         
         # Process Loopback assignments
 
-        for x in range(row_start,row_end):
+        for x in range(row_start,row_end+1):
 
             # Get IP DC1
             cell = 'B' + str(x)
@@ -731,9 +733,9 @@ def get_outer_jnp(wb):
         row_end   = ws.max_row
         data = {}
         
-        # Process Loopback assignments
+        # Process outer to PA
 
-        for x in range(row_start,row_end):
+        for x in range(row_start,row_end+1):
             # Get N7K or district
             cell = 'A' + str(x)
             value = ws[cell].value 
@@ -747,6 +749,7 @@ def get_outer_jnp(wb):
             
                 elif bool((re.search('SDE',value,re.IGNORECASE))):
                     district = ['SDE']
+                    del n7kname
                     
                 else:
                     continue
@@ -890,7 +893,7 @@ def get_inner_to_pa(wb,district):
             max_n7k = 2
 
         # Process ws_soe_inner_to_pa
-        for x in range(row_start,row_end):
+        for x in range(row_start,row_end+1):
             # Get VRF#
             cell = 'A' + str(x)
             value = ws[cell].value 
@@ -1170,7 +1173,7 @@ def process_xlsx(filename,dc1portmap,dc2portmap,debug):
         row_end   = ws.max_row
 
         # Process ws_definition tab 
-        for x in range(row_start,row_end):
+        for x in range(row_start,row_end+1):
            
             # Get District
             cell = 'A' + str(x)
@@ -1560,7 +1563,16 @@ def process_xlsx(filename,dc1portmap,dc2portmap,debug):
        
     ##############################################################################################
     
-    return ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa_data,n7k_fw_int,loopback_data,outer_jnp_data
+    ##############################################################################################
+    # Get interfaces Outer -> Juniper
+    
+    out_to_jnp_fw_int = {"SOE": {"N7K-D": {"DC2": {"JNP-2": {"remint": "XE-0/1/7", "devname": "dc2mx480-pe2", "localint": "E2/18"}, "JNP-3": {"remint": "XE-0/1/7", "devname": "dc2mx480-pe3", "localint": "E2/25"}, "JNP-1": {"remint": "XE-0/1/7", "devname": "dc2mx480-pe1", "localint": "E2/17"}, "JNP-4": {"remint": "XE-0/1/7", "devname": "dc2mx480-pe4", "localint": "E2/26"}}, "DC1": {"JNP-2": {"remint": "XE-0/1/7", "devname": "dc1mx480-pe2", "localint": "E2/18"}, "JNP-3": {"remint": "XE-0/1/7", "devname": "dc1mx480-pe3", "localint": "E2/25"}, "JNP-1": {"remint": "XE-0/1/7", "devname": "dc1mx480-pe1", "localint": "E2/17"}, "JNP-4": {"remint": "XE-0/1/7", "devname": "dc1mx480-pe4", "localint": "E2/26"}}}, "N7K-B": {"DC2": {"JNP-2": {"remint": "XE-0/1/6", "devname": "dc2mx480-pe2", "localint": "E2/18"}, "JNP-3": {"remint": "XE-0/1/6", "devname": "dc2mx480-pe3", "localint": "E2/25"}, "JNP-1": {"remint": "XE-0/1/6", "devname": "dc2mx480-pe1", "localint": "E2/17"}, "JNP-4": {"remint": "XE-0/1/6", "devname": "dc2mx480-pe4", "localint": "E2/26"}}, "DC1": {"JNP-2": {"remint": "XE-0/1/6", "devname": "dc1mx480-pe2", "localint": "E2/18"}, "JNP-3": {"remint": "XE-0/1/6", "devname": "dc1mx480-pe3", "localint": "E2/25"}, "JNP-1": {"remint": "XE-0/1/6", "devname": "dc1mx480-pe1", "localint": "E2/17"}, "JNP-4": {"remint": "XE-0/1/6", "devname": "dc1mx480-pe4", "localint": "E2/26"}}}, "N7K-C": {"DC2": {"JNP-2": {"remint": "XE-0/0/7", "devname": "dc2mx480-pe2", "localint": "E2/18"}, "JNP-3": {"remint": "XE-0/0/7", "devname": "dc2mx480-pe3", "localint": "E2/25"}, "JNP-1": {"remint": "XE-0/0/7", "devname": "dc2mx480-pe1", "localint": "E2/17"}, "JNP-4": {"remint": "XE-0/0/7", "devname": "dc2mx480-pe4", "localint": "E2/26"}}, "DC1": {"JNP-2": {"remint": "XE-0/0/7", "devname": "dc1mx480-pe2", "localint": "E2/18"}, "JNP-3": {"remint": "XE-0/0/7", "devname": "dc1mx480-pe3", "localint": "E2/25"}, "JNP-1": {"remint": "XE-0/0/7", "devname": "dc1mx480-pe1", "localint": "E2/17"}, "JNP-4": {"remint": "XE-0/0/7", "devname": "dc1mx480-pe4", "localint": "E2/26"}}}, "N7K-A": {"DC2": {"JNP-2": {"remint": "XE-0/0/6", "devname": "dc2mx480-pe2", "localint": "E2/18"}, "JNP-3": {"remint": "XE-0/0/6", "devname": "dc2mx480-pe3", "localint": "E2/25"}, "JNP-1": {"remint": "XE-0/0/6", "devname": "dc2mx480-pe1", "localint": "E2/17"}, "JNP-4": {"remint": "XE-0/0/6", "devname": "dc2mx480-pe4", "localint": "E2/26"}}, "DC1": {"JNP-2": {"remint": "XE-0/0/6", "devname": "dc1mx480-pe2", "localint": "E2/18"}, "JNP-3": {"remint": "XE-0/0/6", "devname": "dc1mx480-pe3", "localint": "E2/25"}, "JNP-1": {"remint": "XE-0/0/6", "devname": "dc1mx480-pe1", "localint": "E2/17"}, "JNP-4": {"remint": "XE-0/0/6", "devname": "dc1mx480-pe4", "localint": "E2/26"}}}}, "GIS": {"N7K-D": {"DC2": {"JNP-2": {"remint": "XE-0/1/7", "devname": "dc2mx480-pe2", "localint": "E2/18"}, "JNP-3": {"remint": "XE-0/1/7", "devname": "dc2mx480-pe3", "localint": "E2/25"}, "JNP-1": {"remint": "XE-0/1/7", "devname": "dc2mx480-pe1", "localint": "E2/17"}, "JNP-4": {"remint": "XE-0/1/7", "devname": "dc2mx480-pe4", "localint": "E2/26"}}, "DC1": {"JNP-2": {"remint": "XE-0/1/7", "devname": "dc1mx480-pe2", "localint": "E2/18"}, "JNP-3": {"remint": "XE-0/1/7", "devname": "dc1mx480-pe3", "localint": "E2/25"}, "JNP-1": {"remint": "XE-0/1/7", "devname": "dc1mx480-pe1", "localint": "E2/17"}, "JNP-4": {"remint": "XE-0/1/7", "devname": "dc1mx480-pe4", "localint": "E2/26"}}}, "N7K-B": {"DC2": {"JNP-2": {"remint": "XE-0/1/6", "devname": "dc2mx480-pe2", "localint": "E2/18"}, "JNP-3": {"remint": "XE-0/1/6", "devname": "dc2mx480-pe3", "localint": "E2/25"}, "JNP-1": {"remint": "XE-0/1/6", "devname": "dc2mx480-pe1", "localint": "E2/17"}, "JNP-4": {"remint": "XE-0/1/6", "devname": "dc2mx480-pe4", "localint": "E2/26"}}, "DC1": {"JNP-2": {"remint": "XE-0/1/6", "devname": "dc1mx480-pe2", "localint": "E2/18"}, "JNP-3": {"remint": "XE-0/1/6", "devname": "dc1mx480-pe3", "localint": "E2/25"}, "JNP-1": {"remint": "XE-0/1/6", "devname": "dc1mx480-pe1", "localint": "E2/17"}, "JNP-4": {"remint": "XE-0/1/6", "devname": "dc1mx480-pe4", "localint": "E2/26"}}}, "N7K-C": {"DC2": {"JNP-2": {"remint": "XE-0/0/7", "devname": "dc2mx480-pe2", "localint": "E2/18"}, "JNP-3": {"remint": "XE-0/0/7", "devname": "dc2mx480-pe3", "localint": "E2/25"}, "JNP-1": {"remint": "XE-0/0/7", "devname": "dc2mx480-pe1", "localint": "E2/17"}, "JNP-4": {"remint": "XE-0/0/7", "devname": "dc2mx480-pe4", "localint": "E2/26"}}, "DC1": {"JNP-2": {"remint": "XE-0/0/7", "devname": "dc1mx480-pe2", "localint": "E2/18"}, "JNP-3": {"remint": "XE-0/0/7", "devname": "dc1mx480-pe3", "localint": "E2/25"}, "JNP-1": {"remint": "XE-0/0/7", "devname": "dc1mx480-pe1", "localint": "E2/17"}, "JNP-4": {"remint": "XE-0/0/7", "devname": "dc1mx480-pe4", "localint": "E2/26"}}}, "N7K-A": {"DC2": {"JNP-2": {"remint": "XE-0/0/6", "devname": "dc2mx480-pe2", "localint": "E2/18"}, "JNP-3": {"remint": "XE-0/0/6", "devname": "dc2mx480-pe3", "localint": "E2/25"}, "JNP-1": {"remint": "XE-0/0/6", "devname": "dc2mx480-pe1", "localint": "E2/17"}, "JNP-4": {"remint": "XE-0/0/6", "devname": "dc2mx480-pe4", "localint": "E2/26"}}, "DC1": {"JNP-2": {"remint": "XE-0/0/6", "devname": "dc1mx480-pe2", "localint": "E2/18"}, "JNP-3": {"remint": "XE-0/0/6", "devname": "dc1mx480-pe3", "localint": "E2/25"}, "JNP-1": {"remint": "XE-0/0/6", "devname": "dc1mx480-pe1", "localint": "E2/17"}, "JNP-4": {"remint": "XE-0/0/6", "devname": "dc1mx480-pe4", "localint": "E2/26"}}}}, "SDE": {"N7K-F": {"DC2": {"JNP-2": {"remint": "XE-0/1/8", "devname": "dc2mx480-pe2", "localint": "E2/18"}, "JNP-3": {"remint": "XE-0/1/8", "devname": "dc2mx480-pe3", "localint": "E2/25"}, "JNP-1": {"remint": "XE-0/1/8", "devname": "dc2mx480-pe1", "localint": "E2/17"}, "JNP-4": {"remint": "XE-0/1/8", "devname": "dc2mx480-pe4", "localint": "E2/26"}}, "DC1": {"JNP-2": {"remint": "XE-0/1/8", "devname": "dc1mx480-pe2", "localint": "E2/18"}, "JNP-3": {"remint": "XE-0/1/8", "devname": "dc1mx480-pe3", "localint": "E2/25"}, "JNP-1": {"remint": "XE-0/1/8", "devname": "dc1mx480-pe1", "localint": "E2/17"}, "JNP-4": {"remint": "XE-0/1/8", "devname": "dc1mx480-pe4", "localint": "E2/26"}}}, "N7K-E": {"DC2": {"JNP-2": {"remint": "XE-0/0/8", "devname": "dc2mx480-pe2", "localint": "E2/18"}, "JNP-3": {"remint": "XE-0/0/8", "devname": "dc2mx480-pe3", "localint": "E2/25"}, "JNP-1": {"remint": "XE-0/0/8", "devname": "dc2mx480-pe1", "localint": "E2/17"}, "JNP-4": {"remint": "XE-0/0/8", "devname": "dc2mx480-pe4", "localint": "E2/26"}}, "DC1": {"JNP-2": {"remint": "XE-0/0/8", "devname": "dc1mx480-pe2", "localint": "E2/18"}, "JNP-3": {"remint": "XE-0/0/8", "devname": "dc1mx480-pe3", "localint": "E2/25"}, "JNP-1": {"remint": "XE-0/0/8", "devname": "dc1mx480-pe1", "localint": "E2/17"}, "JNP-4": {"remint": "XE-0/0/8", "devname": "dc1mx480-pe4", "localint": "E2/26"}}}}}
+    
+    if debug == True :
+       print '{ ' +  'outer_to_juniper_fw_int' + ':'  + json.dumps(out_to_jnp_fw_int) + ' } '
+    
+    
+    return ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa_data,n7k_fw_int,loopback_data,outer_jnp_data,out_to_jnp_fw_int
 
 def usage():
     print "Usage: " +  sys.argv[0] + " -f|--file <excel file name> -d|--debug -e|--execute <n7k list> -w."
@@ -1772,14 +1784,14 @@ def main(argv):
                         print sys.argv[0] + " file %s is not an Excel file" % filename
                     else:
                         if magic.from_file(filename) == 'Microsoft Excel 2007+':
-                            (ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa_data,n7k_fw_int,loopback_data,outer_jnp_data) = process_xlsx(filename,dc1portmap,dc2portmap,debug)
+                            (ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa_data,n7k_fw_int,loopback_data,outer_jnp_data,out_to_jnp_fw_int) = process_xlsx(filename,dc1portmap,dc2portmap,debug)
                             if debug is False:
                                 if configure is True:
                                     confirm = raw_input("\n\nSwitch changes are about to be made.  Type N/n to exit or press any key to continue: \n\n")
                                     if confirm.upper() == 'N':
                                         print "\n\nExiting script.  No changes made\n\n"
                                         sys.exit(9)
-                                outer_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa_data,n7k_fw_int,loopback_data,outer_jnp_data,configure,lines,detailops)
+                                outer_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa_data,n7k_fw_int,loopback_data,outer_jnp_data,configure,lines,detailops,out_to_jnp_fw_int)
                         else:
                             print "File must be in .xlsx format"
                             sys.exit(10)
