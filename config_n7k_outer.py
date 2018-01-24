@@ -39,7 +39,38 @@ def outer_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa
         
         print "!!! District %s, DC %s, nexusVDC %s -- Outer Config" % (district,dc,nexusvdc)
         print "!"
-          
+        
+        if configure is not True:
+                print "!! If prefix-list and route-map commands are already configured on the N7K, they will not be executed"
+                commands.append("ip prefix-list DEFAULT_ROUTE seq 5 permit 0.0.0.0/0")
+                commands.append("!")
+                commands.append("route-map PERMIT_DEFAULT_ONLY permit 10")
+                commands.append("   match ip address prefix-list DEFAULT_ROUTE")
+                commands.append("route-map PERMIT_DEFAULT_ONLY deny 20")
+                print '\n'.join(map(str,commands))
+                print "!"
+                commands = []
+
+        if configure is True:
+            prefix_list = send_to_n7k_api_show("show ip prefix-list DEFAULT_ROUTE",device_ip,district,dc,nexusvdc,device_un,device_pw)
+            if prefix_list is None:
+                commands.append("ip prefix-list DEFAULT_ROUTE seq 5 permit 0.0.0.0/0")
+
+            route_map_output = send_to_n7k_api_show("show route-map PERMIT_DEFAULT_ONLY",device_ip,district,dc,nexusvdc,device_un,device_pw)
+            if route_map_output is None:
+                commands.append("route-map PERMIT_DEFAULT_ONLY permit 10")
+                commands.append("   match ip address prefix-list DEFAULT_ROUTE")
+                commands.append("route-map PERMIT_DEFAULT_ONLY deny 20")
+
+            if len(commands) > 0:
+                print '\n'.join(map(str,commands))
+                print "!"
+                print "*** sending above config to %s,%s,%s ***"  %(dc,district,nexusvdc)
+                commands = " ; ".join(map(str,commands))
+                send_to_n7k_api(device_ip,commands,district,dc,nexusvdc,device_un,device_pw)
+
+        commands = []
+  
         for vsys in ws_definition_data[district]:
             gen_int_config = 0
             # If there's at least 1 VRF to config per vSYS, write interface config
@@ -51,7 +82,9 @@ def outer_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa
                 outervdcvlan =  ws_definition_data[district][vsys][0]['outervdcencap']
                 ospfarea     =  ws_definition_data[district][vsys][0]['ospf' + dc]
                 n7kip        =  outer_to_pa_data[district][vsys][nexusvdc][0][dc + 'n7kip']
+                commands.append("! Create L2 VLAN")
                 commands.append("vlan " + str(outervdcvlan) )
+                commands.append("!")
                 commands.append("interface vlan " + str(outervdcvlan))
                 commands.append("  description Layer3_%s" % (vsys))
                 commands.append("  ip address %s 255.255.255.252" % (n7kip))
@@ -184,7 +217,7 @@ def outer_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa
         # Check to see if there is an allowed list already defined.  If not, then simply adding will not work
 
         # Get the firewall interfaces
-        for interfaces in n7k_fw_int[district]['Outer'][nexusvdc][dc]:
+        for interfaces in n7k_fw_int[district]['OUTER'][nexusvdc][dc]:
             fwint =  interfaces['int']
             
             if configure is True:
@@ -203,7 +236,8 @@ def outer_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa
                 commands.append("interface %s" % (fwint))
                 commands.append("switchport")
                 commands.append("switchport mode trunk")
-                commands.append("switchport trunk allow vlan add " + ','.join(map(str,vlans)))commands.append("no shutdown")
+                commands.append("switchport trunk allow vlan add " + ','.join(map(str,vlans)))
+                commands.append("no shutdown")
                 commands.append("!")
         
         
@@ -325,7 +359,10 @@ def send_to_n7k_api_show(commands, ip,district,dc,nexusvdc,username,password):
                              timeout=30)
 
     if response.status_code == 200:
-        return response.json()['result']['body']['TABLE_interface']['ROW_interface']['trunk_vlans']
+        if  bool((re.search('switchport',commands,re.IGNORECASE))) :
+            return response.json()['result']['body']['TABLE_interface']['ROW_interface']['trunk_vlans']
+        else:
+            return response.json()['result']
     else:
         msg = "call to %s failed, status code %d (%s).  Command is %s.  %s,%s,%s" % (ip,
                                                           response.status_code,
