@@ -359,7 +359,7 @@ def send_to_n7k_api_show(commands, ip,district,dc,nexusvdc,username,password):
                              timeout=30)
 
     if response.status_code == 200:
-        if  bool((re.search('switchport',commands,re.IGNORECASE))) :
+        if  bool((re.search('switchport',commands[0],re.IGNORECASE))) :
             return response.json()['result']['body']['TABLE_interface']['ROW_interface']['trunk_vlans']
         else:
             return response.json()['result']
