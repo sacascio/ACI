@@ -16,10 +16,9 @@ from fileinput import filename
 # MUST USE CUSTOM PORT MAP FILE
 # ZONES VLAN AND IP FILE MUST HAVE yes/no in column H
 
-def inner_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa_data,n7k_fw_int,loopback_data,configure,lines):
+def inner_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa_data,n7k_fw_int,loopback_data,configure,lines,detailops):
    
     commands = []
-
     loopback_position  = {'N7K-A' : 1, 'N7K-B' : 2, 'N7K-C' : 3, 'N7K-D' : 4, 'N7K-E' : 1, 'N7K-F' : 2}
     
     for info in lines:
@@ -45,11 +44,14 @@ def inner_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa
                 prifw        =  attribs[dc + 'prifwname']
                 sbyfw        =  attribs[dc + 'sbyfwname']
                 n7kip        =  final_all_inner_data[district][subzone][nexusvdc][0][dc + 'n7kip']
+                commands.append("! Create L2 VLAN")
                 commands.append("vlan " + str(innervdcvlan) )
+                commands.append("!")
                 commands.append("interface vlan " + str(innervdcvlan))
-                commands.append("  description Layer3_%s_%s" % (vsys,attribs[dc+'vrf']))
+                commands.append("  description L3_%s_%s_%s" % (district,vsys,attribs[dc+'vrf']))
                 commands.append("  vrf member %s " % (attribs[dc+'vrf']))
                 commands.append("  ip address %s 255.255.255.252" % (n7kip))
+                commands.append("  mtu 9192")
                 commands.append("  ip ospf network point-to-point")
                 commands.append("  ip router ospf %s area 0.0.0.%s" % (vsys.upper(),attribs['ospf' + dc]))
                 commands.append("  no shutdown")
@@ -65,11 +67,11 @@ def inner_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa
                     fw_to_vlan[sbyfw] = [{ 'vlan' : innervdcvlan}]
                 
             
-            if len(commands) > 1 :       
+            if len(commands) > 1 and ( 'vlan' in detailops or 'NONE' in detailops ) :       
                 print '\n'.join(map(str,commands))
                 print "!"
                         
-            if configure is True and len(commands) > 1:            
+            if configure is True and len(commands) > 1 and ( 'vlan' in detailops or 'NONE' in detailops ):            
                 commands = " ; ".join(map(str,commands))
                 print "*** sending above config to %s,%s,%s ***"  %(dc,district,nexusvdc)
                 send_to_n7k_api(device_ip,commands,district,dc,nexusvdc,device_un,device_pw)
@@ -100,20 +102,18 @@ def inner_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa
                 commands.append("   router-id %s" % (loopback_address))
                 commands.append("   log-adjacency-changes")
             
-            if len(commands) > 1:         
+            if len(commands) > 1 and ( 'ospf' in detailops or 'NONE' in detailops ):         
                 print '\n'.join(map(str,commands))
                 print "!"
                 print "!"
                             
-            if configure is True and len(commands) > 1:
+            if configure is True and len(commands) > 1 and ( 'ospf' in detailops or 'NONE' in detailops ):
                 commands = " ; ".join(map(str,commands))
                 print "*** sending above config to %s,%s,%s ***"  %(dc,district,nexusvdc)
                 send_to_n7k_api(device_ip,commands,district,dc,nexusvdc,device_un,device_pw)
             commands = []
                             
-            
-
-
+       
         # BGP Configuration
         inner_as   = bgp_asn[district]['Inner'][dc]
         outer_as   = bgp_asn[district]['Outer'][dc]
@@ -159,11 +159,12 @@ def inner_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa
                     commands.append("    ebgp-multihop 4")
                     commands.append("    address-family ipv4 unicast")
                     commands.append("      send-community both")
-                       
-        print '\n'.join(map(str,commands))
-        print "!"
+        
+        if 'bgp' in detailops or 'NONE' in detailops:               
+            print '\n'.join(map(str,commands))
+            print "!"
                             
-        if configure is True:
+        if configure is True and ( 'bgp' in detailops or 'NONE' in detailops) :
                             
             commands = " ; ".join(map(str,commands))
             print "*** sending above config to %s,%s,%s ***"  %(dc,district,nexusvdc)
@@ -172,9 +173,7 @@ def inner_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa
                            
         # got all FW to vlans for district/subzone per N7K - now add the vlans to the FW Int config
         
-        print "!"
-        print "!"
-        print "! Allow VLANs on the firewall"
+        
         # Add vlans to allowed list on firewall interfaces
         # Check to see if there is an allowed list already defined.  If not, then simply adding will not work
         
@@ -186,50 +185,54 @@ def inner_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa
                 
             vlans.sort()
             
-            if fw not in n7k_fw_int[district]['INNER'][nexusvdc][dc]:
+            if fw not in n7k_fw_int[district]['INNER'][nexusvdc][dc] and ( 'fw' in detailops or 'NONE' in detailops):
                 print " WARNING: Firewall " + fw + " does NOT exist in " + dc + " port-map file.  Vlans " + ",".join(map(str,vlans)) + " will NOT be configured on the FW interface allowed list"
                 continue
-         
-            for interfaces in n7k_fw_int[district]['INNER'][nexusvdc][dc][fw]:
-                fwint = interfaces['int']
+            
+            if 'fw' in detailops or 'NONE' in detailops:  
+                for interfaces in n7k_fw_int[district]['INNER'][nexusvdc][dc][fw]:
+                    fwint = interfaces['int']
                 
             
-                if configure is True:
-                    curr_allowed_list = send_to_n7k_api_show("show int %s switchport" % (fwint),device_ip,district,dc,nexusvdc,device_un,device_pw)
-                else:
-                    curr_allowed_list = 'none'
+                    if configure is True and ( 'fw' in detailops or 'NONE' in detailops) :
+                        curr_allowed_list = send_to_n7k_api_show("show int %s switchport" % (fwint),device_ip,district,dc,nexusvdc,device_un,device_pw)
+                    else:
+                        curr_allowed_list = 'none'
        
-                if curr_allowed_list == 'none' or curr_allowed_list == '1-4094':
-                    commands.append("interface %s" % (fwint))
-                    commands.append("description TO_%s" % (fw) )
-                    commands.append("switchport")
-                    commands.append("switchport mode trunk")
-                    commands.append("switchport trunk allow vlan " + ','.join(map(str,vlans)))
-                    commands.append("no shutdown")
-                    commands.append("!")
-                else:
-                    commands.append("interface %s" % (fwint))
-                    commands.append("switchport")
-                    commands.append("switchport mode trunk")
-                    commands.append("switchport trunk allow vlan add " + ','.join(map(str,vlans)))
-                    commands.append("no shutdown")
-                    commands.append("!")
+                    if curr_allowed_list == 'none' or curr_allowed_list == '1-4094':
+                        commands.append("interface %s" % (fwint))
+                        commands.append("description TO_%s" % (fw) )
+                        commands.append("switchport")
+                        commands.append("switchport mode trunk")
+                        commands.append("switchport trunk allow vlan " + ','.join(map(str,vlans)))
+                        commands.append("no shutdown")
+                        commands.append("!")
+                    else:
+                        commands.append("interface %s" % (fwint))
+                        commands.append("switchport")
+                        commands.append("switchport mode trunk")
+                        commands.append("switchport trunk allow vlan add " + ','.join(map(str,vlans)))
+                        commands.append("no shutdown")
+                        commands.append("!")
                     
-           
-            
-        print '\n'.join(map(str,commands))
-        print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
-        print ""
+        if 'fw' in detailops or 'NONE' in detailops:   
+            print "!"
+            print "!"
+            print "! Allow VLANs on the firewall"
+            print "!"    
+            print '\n'.join(map(str,commands))
+            print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+            print ""
         
-        if configure is True:
+            if configure is True and ('fw' in detailops or 'NONE' in detailops ):
                             
-            commands = " ; ".join(map(str,commands))
-            print "*** sending above config to %s,%s,%s ***"  %(dc,district,nexusvdc)
-            send_to_n7k_api(device_ip,commands,district,dc,nexusvdc,device_un,device_pw)
-        commands = []
+                commands = " ; ".join(map(str,commands))
+                print "*** sending above config to %s,%s,%s ***"  %(dc,district,nexusvdc)
+                send_to_n7k_api(device_ip,commands,district,dc,nexusvdc,device_un,device_pw)
+            commands = []
         
-        if configure is True:
-            print "Successfully applied ALL configs!"
+            if configure is True:
+                print "DONE!"
       
 def send_to_n7k_api (ip,commands,district,dc,nexusvdc,username,password):
    
@@ -965,11 +968,15 @@ def process_xlsx(filename,dc1portmap,dc2portmap,debug):
                 szone = szone.upper()
             
             # Get Firewall (Inside Cell, Internal, Mainframe, Money Movement
+            # 01-24-2018: Only get Internal FW
             cell = 'D' + str(x)
             value = ws[cell].value 
             
-            if value is not None and value != 'Physical':
-                    fwtype = value
+            if value is not None and bool(re.search('Internal',value, re.IGNORECASE)):
+                fwtype = value
+            else:
+                continue
+            
                     
             # Get firewall names - dc1 names listed.  Assume dc2 fw names are the same, except they start with dc2
             cell = 'E' + str(x)
@@ -1304,6 +1311,7 @@ def usage():
     print "-w|--write: Writes the config to the N7k."
     print "-p|--portmap: Pass portmap file to the script, 1 per DC, separated by comma.  NO spaces between commas.  Ex: -p Vanguard\ DC1\ -\ Port\ Map\ v1.23.xlsx,Vanguard\ DC2\ -\ Port\ Map\ v1.19.xlsx"
     print "      Each file passed to the -p option must have DC1 or DC2 in the name to identify the respective data center"
+    print "-t|--type : Print parts of the config.  Valid options are bgp,vlan,fw,ospf"
     sys.exit(1)
     
 
@@ -1317,12 +1325,13 @@ def main(argv):
     procfile = False
     procdebug = False
     procwrite = False
-
+    detailops = []
+    
     if len(argv) == 0:
         usage()
 
     try:
-        opts,args = getopt.getopt(argv,"f:hde:wp:",["file=","help","debug","execute=","write","portmap"])
+        opts,args = getopt.getopt(argv,"f:hde:wp:t:",["file=","help","debug","execute=","write","portmap","type"])
     except getopt.GetoptError as err:
         print str(err)
         sys.exit(2)
@@ -1338,6 +1347,20 @@ def main(argv):
                 procpm = True
             if opt in ("-e","--execute"):
                 procexec = True
+            if opt in ("-t", "--type"):
+                t = arg.split(",")
+                for tt in t:
+                    tt = tt.lower()
+                    if tt not in ('bgp','ospf','vlan','fw'):
+                        print "invalid option passed to -t|--type: " + tt
+                        print "Valid options are: bgp,ospf,vlan,fw"
+                        sys.exit(9)
+                    detailops.append(tt)
+        
+        if len(detailops) == 0:
+            detailops.append('NONE')
+        else:
+            detailops = list(set(detailops))
                 
         if procfile is True and procpm is True and procexec is not True:
             print "Missing -e option"
@@ -1482,7 +1505,7 @@ def main(argv):
                                     if confirm.upper() == 'N':
                                         print "\n\nExiting script.  No changes made\n\n"
                                         sys.exit(9)
-                                inner_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa_data,n7k_fw_int,loopback_data,configure,lines)
+                                inner_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa_data,n7k_fw_int,loopback_data,configure,lines,detailops)
                         else:
                             print "File must be in .xlsx format"
                             sys.exit(10)
