@@ -51,7 +51,7 @@ def outer_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa
                 print "!"
                 commands = []
 
-        if configure is True:
+        else:
             prefix_list = send_to_n7k_api_show("show ip prefix-list DEFAULT_ROUTE",device_ip,district,dc,nexusvdc,device_un,device_pw)
             if prefix_list is None:
                 commands.append("ip prefix-list DEFAULT_ROUTE seq 5 permit 0.0.0.0/0")
