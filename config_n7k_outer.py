@@ -1228,6 +1228,9 @@ def process_xlsx(filename,dc1portmap,dc2portmap,debug):
             cell = 'E' + str(x)
             value = ws[cell].value 
             
+            if value is None:
+                continue
+            
             if value is not None and not bool(re.search('Pri',value, re.IGNORECASE)):
                     dc1prifwname = value
                     dc1prifwname = dc1prifwname.strip()
@@ -1237,6 +1240,9 @@ def process_xlsx(filename,dc1portmap,dc2portmap,debug):
             # Get firewall names - dc1 names listed.  Assume dc2 fw names are the same, except they start with dc2
             cell = 'F' + str(x)
             value = ws[cell].value 
+            
+            if value is None:
+                continue
             
             if value is not None and not bool(re.search('Sby',value, re.IGNORECASE)):
                     dc1sbyfwname = value
@@ -1620,6 +1626,8 @@ def main(argv):
         sys.exit(2)
     else:
         for opt,arg in opts:
+            if opt in ("-h","--help"):
+                usage()
             if opt in ("-f","--file"):
                 procfile = True
             if opt in ("-d","--debug"):
