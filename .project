@@ -14,4 +14,11 @@
 	<natures>
 		<nature>org.python.pydev.pythonNature</nature>
 	</natures>
+	<linkedResources>
+		<link>
+			<name>create_json_fw_jn_int.py</name>
+			<type>1</type>
+			<location>/Users/sacascio/git/ACI/create_json_fw_jn_int.py</location>
+		</link>
+	</linkedResources>
 </projectDescription>
