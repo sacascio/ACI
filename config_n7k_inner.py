@@ -970,10 +970,11 @@ def process_xlsx(filename,dc1portmap,dc2portmap,debug):
             
             # Get Firewall (Inside Cell, Internal, Mainframe, Money Movement
             # 01-24-2018: Only get Internal FW
+            # 01-30-2018: Get Internal FW and Inside Cell FW
             cell = 'D' + str(x)
             value = ws[cell].value 
             
-            if value is not None and bool(re.search('Internal',value, re.IGNORECASE)):
+            if value is not None and ( bool(re.search('Internal',value, re.IGNORECASE)) or bool(re.search('Inside',value, re.IGNORECASE)) ):
                 fwtype = value
             else:
                 continue
