@@ -365,23 +365,30 @@ def get_outer_to_pa(wb):
             cell = 'A' + str(x)
             value = ws[cell].value 
             
-            if value is not None and  \
-            not bool((re.search('Addressing',value,re.IGNORECASE))) and \
-            not bool((re.search('Mask',value,re.IGNORECASE))) and \
-            value != "vSYS":
-                value = value.strip()
+            if isinstance(value,(int, long)):
+                outervl = value
+            
+            else:
+                if value is not None and  \
+                    not bool((re.search('Addressing',value,re.IGNORECASE))) and \
+                    not bool((re.search('Mask',value,re.IGNORECASE))) and \
+                    value != "vSYS":
+                
+                    value = value.strip()
 
-                if value == 'SDE':
-                    district = value
-                elif value == 'SOE':
-                    district = value
-                elif value == 'GIS':
-                    district = value
-                else:
-                    tenant = value
-                    tenant = tenant.upper()
-                    tenant = tenant.replace(" ","_")
-                    tenant = tenant.replace('_X000D__X000D_','')
+                    if value == 'SDE':
+                        district = value
+                    elif value == 'SOE':
+                        district = value
+                    elif value == 'GIS':
+                        district = value
+                    else:
+                        tenant = value
+                        tenant = tenant.upper()
+                        tenant = tenant.replace(" ","_")
+                        tenant = tenant.replace('_X000D__X000D_','')
+                        outervl = ws['A' + str((x+1))].value
+                        
             # Get PA IP DC1
             cell = 'B' + str(x)
             value = ws[cell].value 
@@ -470,7 +477,8 @@ def get_outer_to_pa(wb):
                                      'dc1paip'     : dc1paip,
                                      'dc1n7kip'    : dc1n7kip,
                                      'dc2paip'     : dc2paip,
-                                     'dc2n7kip'    : dc2n7kip
+                                     'dc2n7kip'    : dc2n7kip,
+                                     'outervl'     : outervl
                                    })
                             # If district exists, but not tenant, add new key (tenant) and initial attributes
                     else:
@@ -479,7 +487,8 @@ def get_outer_to_pa(wb):
                                      'dc1paip'     : dc1paip,
                                      'dc1n7kip'    : dc1n7kip,
                                      'dc2paip'     : dc2paip,
-                                     'dc2n7kip'    : dc2n7kip
+                                     'dc2n7kip'    : dc2n7kip,
+                                     'outervl'     : outervl
                                      
                                      } ]
                             
@@ -489,7 +498,8 @@ def get_outer_to_pa(wb):
                                   'dc1paip'     : dc1paip,
                                   'dc1n7kip'    : dc1n7kip,
                                   'dc2paip'     : dc2paip,
-                                   'dc2n7kip'    : dc2n7kip
+                                  'dc2n7kip'    : dc2n7kip,
+                                  'outervl'     : outervl
                                 } ]
 
             # Initial key/value assignment
@@ -504,7 +514,8 @@ def get_outer_to_pa(wb):
                                      'dc1paip'     : dc1paip,
                                      'dc1n7kip'    : dc1n7kip,
                                      'dc2paip'     : dc2paip,
-                                     'dc2n7kip'    : dc2n7kip
+                                     'dc2n7kip'    : dc2n7kip,
+                                     'outervl'     : outervl
                                     }
                                     ] 
                                 }
@@ -584,6 +595,9 @@ def get_loopback(wb):
             # Get Description
             cell = 'G' + str(x)
             value = ws[cell].value 
+            
+            if value is None:
+                continue
             
             if value is not None and not bool((re.search('Description',value,re.IGNORECASE))) and value != 'DC2':
                 dc2desc = value
@@ -901,6 +915,8 @@ def getfwint(wb,dc,data):
 def process_xlsx(filename,dc1portmap,dc2portmap,debug):
     worksheets = []
     ws_definition_data = {}
+    szonelist = []
+    
 
     # Important worksheets
     ws_definition = "SOE_SDE_GIS_VRF_RT_Definition"
@@ -955,18 +971,6 @@ def process_xlsx(filename,dc1portmap,dc2portmap,debug):
                 tenant = tenant.replace(" ","_")
                 tenant = tenant.upper()
          
-            # Get Sub Zone
-            cell = 'C' + str(x)
-            value = ws[cell].value 
-           
-            # Skip row if there is no value (empty row)
-            if value is None:
-               continue
-            if value is not None and not bool(re.search('Sub Zone',value, re.IGNORECASE)):
-                szone = value
-                szone = szone.strip()
-                szone = szone.replace(" ","_")
-                szone = szone.upper()
             
             # Get Firewall (Inside Cell, Internal, Mainframe, Money Movement
             # 01-24-2018: Only get Internal FW
@@ -1008,7 +1012,7 @@ def process_xlsx(filename,dc1portmap,dc2portmap,debug):
                     
             # Get VRF #
             cell = 'G' + str(x)
-            value = ws[cell].value 
+            value = ws[cell].value
             
             if value is not None and value != 'VRF' and value != '#':
                     vrf = value
@@ -1042,6 +1046,39 @@ def process_xlsx(filename,dc1portmap,dc2portmap,debug):
             if value is not None and not bool(re.search('N7K',value, re.IGNORECASE)) and value != 'DC1' and value != 'DC2':
                     vrfnamedc2 = value
                     vrfnamedc2 = vrfnamedc2.strip()
+            
+            
+            # Get Sub Zone - moved to after column J to accomodate for different cells
+            cell = 'C' + str(x)
+            value = ws[cell].value 
+           
+            # Skip row if there is no value (empty row)
+            if value is None:
+               continue
+            if value is not None and not bool(re.search('Sub Zone',value, re.IGNORECASE)) and not bool(re.search('Cell',value, re.IGNORECASE))  :
+                szone = value
+                szone = szone.strip()
+                szone = szone.replace(" ","_")
+                szone = szone.upper()
+                szonelist.append(szone)
+                
+            else:
+                dc1cellszone = value
+                dc1cellszone = dc1cellszone.strip()
+                dc1cellszone = dc1cellszone.replace(" ","_")
+                dc1cellszone = dc1cellszone.upper()
+                dc1cellnum = vrfnamedc1[-1:]
+                dc1cellszone = dc1cellszone.replace("<CELL_#>",dc1cellnum)
+            
+                dc2cellszone = value
+                dc2cellszone = dc2cellszone.strip()
+                dc2cellszone = dc2cellszone.replace(" ","_")
+                dc2cellszone = dc2cellszone.upper()
+                dc2cellnum = vrfnamedc2[-1:]
+                dc2cellszone = dc2cellszone.replace("<CELL_#>",dc2cellnum)
+                
+                szonelist.append(dc1cellszone)
+                szonelist.append(dc2cellszone)
             
             # RT DC1
             cell = 'K' + str(x)
@@ -1093,9 +1130,10 @@ def process_xlsx(filename,dc1portmap,dc2portmap,debug):
            # Use Debug option to print data
 
             # If tenant and district exist, append attributes as a list
-            if district in ws_definition_data:
-                if tenant in ws_definition_data[district]:
-                  ws_definition_data[district][tenant].append(
+            for szone in szonelist:
+                if district in ws_definition_data:
+                    if tenant in ws_definition_data[district]:
+                        ws_definition_data[district][tenant].append(
                                     {
                                      'vrfnumber'     : vrf,
                                      'subzone'       : szone,
@@ -1114,9 +1152,9 @@ def process_xlsx(filename,dc1portmap,dc2portmap,debug):
                                      'dc2prifwname'  : dc2prifwname,
                                      'dc2sbyfwname'  : dc2sbyfwname
                                    })
-                # If district exists, but not tenant, add new key (tenant) and initial attributes
-                else:
-                    ws_definition_data[district][tenant] = [ {  
+                        # If district exists, but not tenant, add new key (tenant) and initial attributes
+                    else:
+                        ws_definition_data[district][tenant] = [ {  
                                      
                                       'vrfnumber'     : vrf,
                                       'subzone'       : szone,
@@ -1137,7 +1175,7 @@ def process_xlsx(filename,dc1portmap,dc2portmap,debug):
                                      } ]
 
             # Initial key/value assignment
-            else:
+                else:
                     ws_definition_data.update({  
                               district :  
                               { 
@@ -1163,7 +1201,9 @@ def process_xlsx(filename,dc1portmap,dc2portmap,debug):
                                 ] 
                               } 
                          })
-       
+                
+            szonelist = []
+                
         if debug == True :
             print '{ ' +  'SOE_SDE_GIS_VRF_RT_Definition' + ':'  + json.dumps(ws_definition_data) + ' } '
             
