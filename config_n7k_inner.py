@@ -125,6 +125,7 @@ def inner_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa
                 
         for vsys in ws_definition_data[district]:
             for attribs in ws_definition_data[district][vsys]:
+               
                 
                 if attribs['config'] == 'no':
                     continue
@@ -152,7 +153,8 @@ def inner_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa
                         outervdc = dc + 'dcinxc' + str(n7k_n) + 'dciouter'                
                     
                     tname = vsys + "-" + dc.upper() + "-" + district  
-                    neighbor_ip = outer_to_pa_data[district][vsys]['N7K-' + str(n7k_l)][0][dc + 'n7kip']
+                    outervl = attribs['outervdcencap']
+                    neighbor_ip = outer_to_pa_data[district][vsys][outervl]['N7K-' + str(n7k_l)][0][dc + 'n7kip']
                 
                     commands.append(" neighbor %s remote-as %s" % (neighbor_ip,outer_as))
                     commands.append(" description TO_%s_%s" % (outervdc,tname))
@@ -471,35 +473,43 @@ def get_outer_to_pa(wb):
             
             if district in data:
                 if tenant in data[district]:
-                    if n7k in data[district][tenant]:
-                            data[district][tenant][n7k].append(
+                    if outervl in data[district][tenant]:
+                        if n7k in data[district][tenant][outervl]:
+                            data[district][tenant][outervl][n7k].append(
                                     {
                                      'dc1paip'     : dc1paip,
                                      'dc1n7kip'    : dc1n7kip,
                                      'dc2paip'     : dc2paip,
-                                     'dc2n7kip'    : dc2n7kip,
-                                     'outervl'     : outervl
+                                     'dc2n7kip'    : dc2n7kip
                                    })
-                            # If district exists, but not tenant, add new key (tenant) and initial attributes
-                    else:
-                            data[district][tenant][n7k] = [ {  
+                        else:
+                            data[district][tenant][outervl][n7k] = [ {  
                                      
                                      'dc1paip'     : dc1paip,
                                      'dc1n7kip'    : dc1n7kip,
                                      'dc2paip'     : dc2paip,
-                                     'dc2n7kip'    : dc2n7kip,
-                                     'outervl'     : outervl
+                                     'dc2n7kip'    : dc2n7kip
+                            } ]
+                            # If district exists, but not tenant, add new key (tenant) and initial attributes
+                    else:
+                            data[district][tenant][outervl] = {}
+                            data[district][tenant][outervl][n7k] = [ {  
                                      
+                                     'dc1paip'     : dc1paip,
+                                     'dc1n7kip'    : dc1n7kip,
+                                     'dc2paip'     : dc2paip,
+                                     'dc2n7kip'    : dc2n7kip
                                      } ]
                             
                 else:
                     data[district][tenant] = {}        
-                    data[district][tenant][n7k] = [ {  
+                    data[district][tenant][outervl] = {}
+                    data[district][tenant][outervl][n7k] = [ { 
+                         
                                   'dc1paip'     : dc1paip,
                                   'dc1n7kip'    : dc1n7kip,
                                   'dc2paip'     : dc2paip,
-                                  'dc2n7kip'    : dc2n7kip,
-                                  'outervl'     : outervl
+                                   'dc2n7kip'    : dc2n7kip
                                 } ]
 
             # Initial key/value assignment
@@ -509,15 +519,17 @@ def get_outer_to_pa(wb):
                               { 
                                 tenant :  
                                     { 
+                                    outervl : {
+                                        
                                       n7k : [ 
-                                     {
-                                     'dc1paip'     : dc1paip,
-                                     'dc1n7kip'    : dc1n7kip,
-                                     'dc2paip'     : dc2paip,
-                                     'dc2n7kip'    : dc2n7kip,
-                                     'outervl'     : outervl
-                                    }
+                                      {
+                                      'dc1paip'     : dc1paip,
+                                      'dc1n7kip'    : dc1n7kip,
+                                      'dc2paip'     : dc2paip,
+                                      'dc2n7kip'    : dc2n7kip
+                                     }
                                     ] 
+                                    }
                                 }
                               } 
                          })
@@ -654,6 +666,7 @@ def get_inner_to_pa(wb,district):
         row_start = ws.min_row
         row_end   = ws.max_row
         data = {}
+        szonelist = []
         
         if district in ("SOE","GIS"):
             max_n7k = 4
@@ -705,17 +718,7 @@ def get_inner_to_pa(wb,district):
                 else:
                     dc1pafwip = value
             
-            # get sub zone name
-            cell = 'E'  + str(x)
-            value = ws[cell].value
-               
-            if value != 0 and value is not None and not bool((re.search('Zone',value,re.IGNORECASE))):
-                subzone = value
-                subzone = subzone.strip()
-                subzone = subzone.replace(' ',"_")
-                subzone = subzone.upper()
-                
-                
+            
             # get N7K VRF Name DC1
             cell = 'F'  + str(x)
             value = ws[cell].value
@@ -731,7 +734,39 @@ def get_inner_to_pa(wb,district):
             if value != 0 and value is not None and value != 'DC1 ' and value != 'DC2' and not bool((re.search('N7K',value,re.IGNORECASE))) :
                 n7kvrfdc2 = value
                 n7kvrfdc2 = n7kvrfdc2.strip()
-
+            
+            # get sub zone name
+            cell = 'E'  + str(x)
+            value = ws[cell].value
+            
+            if value is not None and value != 0 and not bool(re.search('Cell',value, re.IGNORECASE)) and not bool((re.search('Zone',value,re.IGNORECASE))) :
+                szonelist = []
+                szone = value
+                szone = szone.strip()
+                szone = szone.replace(" ","_")
+                szone = szone.upper()
+                szonelist.append(szone)
+                
+            if value is not None and value != 0 and bool(re.search('Cell',value, re.IGNORECASE))  :
+                szonelist = []
+                dc1cellszone = value
+                dc1cellszone = dc1cellszone.strip()
+                dc1cellszone = dc1cellszone.replace(" ","_")
+                dc1cellszone = dc1cellszone.upper()
+                dc1cellnum = n7kvrfdc1[-1:]
+                dc1cellszone = dc1cellszone.replace("<CELL_#>",dc1cellnum)
+            
+                dc2cellszone = value
+                dc2cellszone = dc2cellszone.strip()
+                dc2cellszone = dc2cellszone.replace(" ","_")
+                dc2cellszone = dc2cellszone.upper()
+                dc2cellnum = n7kvrfdc2[-1:]
+                dc2cellszone = dc2cellszone.replace("<CELL_#>",dc2cellnum)
+                
+                szonelist.append(dc1cellszone)
+                szonelist.append(dc2cellszone)   
+            
+            
             # get N7K IP DC2
             cell = 'H'  + str(x)
             value = ws[cell].value
@@ -762,11 +797,12 @@ def get_inner_to_pa(wb,district):
             # Use Debug option to print data
                 
             # If subzone and connection exist, append attributes as a list
-                if district in data:
-                    if subzone in data[district]:
-                        if connectdesc in data[district][subzone]:
-                            if len(data[district][subzone]) < max_n7k:
-                                data[district][subzone][connectdesc].append(
+            for subzone in szonelist:
+                    if district in data:
+                        if subzone in data[district]:
+                            if connectdesc in data[district][subzone]:
+                                if len(data[district][subzone]) < max_n7k:
+                                    data[district][subzone][connectdesc].append(
                                         {
                                          'vrfnumber'     : vrfnumber,
                                          'dc1n7kip'      : dc1n7kip,
@@ -776,8 +812,10 @@ def get_inner_to_pa(wb,district):
                                          'dc2n7kip'      : dc2n7kip,
                                          'dc2pafwip'     : dc2pafwip
                                         })
+                                
+                                
                 # If district exists, but not tenant, add new key (tenant) and initial attributes
-                        else:
+                            else:
                                 data[district][subzone][connectdesc] = [ {  
                                   'vrfnumber'     : vrfnumber,
                                   'dc1n7kip'      : dc1n7kip,
@@ -787,9 +825,9 @@ def get_inner_to_pa(wb,district):
                                   'dc2n7kip'      : dc2n7kip,
                                   'dc2pafwip'     : dc2pafwip
                                 } ]
-                    else:
-                        data[district][subzone] = {}        
-                        data[district][subzone][connectdesc] = [ {  
+                        else:
+                            data[district][subzone] = {}        
+                            data[district][subzone][connectdesc] = [ {  
                                   'vrfnumber'     : vrfnumber,
                                   'dc1n7kip'      : dc1n7kip,
                                   'dc1pafwip'     : dc1pafwip,
@@ -801,8 +839,8 @@ def get_inner_to_pa(wb,district):
                         
 
                 # Initial key/value assignment
-                else:
-                    data.update({  
+                    else:
+                        data.update({  
                          district :  
                                  { 
                                       subzone : 
@@ -822,8 +860,7 @@ def get_inner_to_pa(wb,district):
                                               }
                                  } 
                     })
-   
-
+        
         return data
 
 def getfwint(wb,dc,data):
@@ -978,7 +1015,7 @@ def process_xlsx(filename,dc1portmap,dc2portmap,debug):
             cell = 'D' + str(x)
             value = ws[cell].value 
             
-            if value is not None and ( bool(re.search('Internal',value, re.IGNORECASE)) or bool(re.search('Inside',value, re.IGNORECASE)) ):
+            if value is not None and not ( bool(re.search('Mainframe',value, re.IGNORECASE)) ):
                 fwtype = value
             else:
                 continue
