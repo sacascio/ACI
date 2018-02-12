@@ -12,11 +12,21 @@ from IPy import IP
 import requests
 import time
 from fileinput import filename
+import warnings
+
+warnings.filterwarnings("ignore")
 
 # MUST USE CUSTOM PORT MAP FILE
 # ZONES VLAN AND IP FILE MUST HAVE yes/no in column H
 
-def inner_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa_data,n7k_fw_int,loopback_data,configure,lines,detailops,sandwich_fw):
+def getValueWithMergeLookup(sheet, cell):
+    for m_range in sheet.merged_cell_ranges:
+        merged_cells = list(openpyxl.utils.rows_from_range(m_range))
+        for row in merged_cells:
+            if cell in row:
+                return sheet.cell(merged_cells[0][0]).value
+
+def inner_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa_data,n7k_fw_int,loopback_data,configure,lines,detailops):
    
     commands = []
     loopback_position  = {'N7K-A' : 1, 'N7K-B' : 2, 'N7K-C' : 3, 'N7K-D' : 4, 'N7K-E' : 1, 'N7K-F' : 2}
@@ -43,7 +53,14 @@ def inner_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa
                 subzone      =  attribs['subzone']
                 prifw        =  attribs[dc + 'prifwname']
                 sbyfw        =  attribs[dc + 'sbyfwname']
+                
+                if bool(re.search('CELL',subzone, re.IGNORECASE)):
+                    if subzone[:3] != dc:
+                        continue
+                    subzone = subzone.replace(dc,"")
+                
                 n7kip        =  final_all_inner_data[district][subzone][nexusvdc][0][dc + 'n7kip']
+                
                 commands.append("! Create L2 VLAN")
                 commands.append("vlan " + str(innervdcvlan) )
                 commands.append("!")
@@ -125,7 +142,7 @@ def inner_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa
                 
         for vsys in ws_definition_data[district]:
             for attribs in ws_definition_data[district][vsys]:
-               
+                outervl = int(attribs['outervdcencap'])
                 
                 if attribs['config'] == 'no':
                     continue
@@ -153,7 +170,6 @@ def inner_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa
                         outervdc = dc + 'dcinxc' + str(n7k_n) + 'dciouter'                
                     
                     tname = vsys + "-" + dc.upper() + "-" + district  
-                    outervl = attribs['outervdcencap']
                     neighbor_ip = outer_to_pa_data[district][vsys][outervl]['N7K-' + str(n7k_l)][0][dc + 'n7kip']
                 
                     commands.append(" neighbor %s remote-as %s" % (neighbor_ip,outer_as))
@@ -194,8 +210,7 @@ def inner_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa
             if 'fw' in detailops or 'NONE' in detailops:  
                 for interfaces in n7k_fw_int[district]['INNER'][nexusvdc][dc][fw]:
                     fwint = interfaces['int']
-                
-                    remfwint = sandwich_fw[district]['INNER'][nexusvdc][dc.upper()][fw][fwint]
+                    remfwint = interfaces['ext']
                     
                     if configure is True and ( 'fw' in detailops or 'NONE' in detailops) :
                         curr_allowed_list = send_to_n7k_api_show("show int %s switchport" % (fwint),device_ip,district,dc,nexusvdc,device_un,device_pw)
@@ -893,9 +908,16 @@ def getfwint(wb,dc,data):
             
             if bool(re.search(dc,str(vals.value), re.IGNORECASE)):
                 vals.value = vals.value.replace(" ","")
-                fwname   = vals.value[:-6].lower()
                 district = vals.value[3:6].upper()
                 dloc     = vals.value[-5:].upper()
+                
+                raw_d = vals.value.split("-")
+                fwname   = raw_d[0]
+                extint   = raw_d[1]
+                extint   = 'E' + extint
+                extint   = extint.replace(":","/")
+                extint   = extint.replace("E0","E")
+                
                 
                 if bool(re.search(dc, ws[vals.column + str(vals.row-1)].value, re.IGNORECASE)):
                     interface = ws[vals.column + str(vals.row+1)].value
@@ -911,21 +933,21 @@ def getfwint(wb,dc,data):
                         if n7k in data[district][dloc]:
                             if dc in data[district][dloc][n7k]:
                                 if fwname in data[district][dloc][n7k][dc]:
-                                    data[district][dloc][n7k][dc][fwname].append({'int'  : interface })
+                                    data[district][dloc][n7k][dc][fwname].append({'int'  : interface, 'ext' : extint })
                                 else:
-                                    data[district][dloc][n7k][dc][fwname] = [{'int' : interface}]
+                                    data[district][dloc][n7k][dc][fwname] = [{'int' : interface, 'ext' : extint}]
                             else:
                                 data[district][dloc][n7k][dc] = {}
-                                data[district][dloc][n7k][dc][fwname] = [{ 'int' : interface}]
+                                data[district][dloc][n7k][dc][fwname] = [{ 'int' : interface, 'ext' : extint}]
                         else:
                             data[district][dloc][n7k] = {}
                             data[district][dloc][n7k][dc] = {}
-                            data[district][dloc][n7k][dc][fwname] = [{ 'int' : interface}]
+                            data[district][dloc][n7k][dc][fwname] = [{ 'int' : interface, 'ext' : extint}]
                     else:
                         data[district][dloc] = {}
                         data[district][dloc][n7k] = {}
                         data[district][dloc][n7k][dc] = {}
-                        data[district][dloc][n7k][dc][fwname] = [{ 'int' : interface}]                 
+                        data[district][dloc][n7k][dc][fwname] = [{ 'int' : interface, 'ext' : extint}]                 
                                     
                 else:
                     data.update({  
@@ -940,7 +962,7 @@ def getfwint(wb,dc,data):
                                             fwname :
                                             [ 
                                                 {
-                                                'int'     : interface
+                                                'int'     : interface, 'ext' : extint
                                                 }
                                             ] 
                                          }
@@ -1106,13 +1128,15 @@ def process_xlsx(filename,dc1portmap,dc2portmap,debug):
                 dc1cellszone = dc1cellszone.upper()
                 dc1cellnum = vrfnamedc1[-1:]
                 dc1cellszone = dc1cellszone.replace("<CELL_#>",dc1cellnum)
-            
+                dc1cellszone = 'dc1' + dc1cellszone 
+                
                 dc2cellszone = value
                 dc2cellszone = dc2cellszone.strip()
                 dc2cellszone = dc2cellszone.replace(" ","_")
                 dc2cellszone = dc2cellszone.upper()
                 dc2cellnum = vrfnamedc2[-1:]
                 dc2cellszone = dc2cellszone.replace("<CELL_#>",dc2cellnum)
+                dc2cellszone = 'dc2' + dc2cellszone
                 
                 szonelist.append(dc1cellszone)
                 szonelist.append(dc2cellszone)
@@ -1160,8 +1184,11 @@ def process_xlsx(filename,dc1portmap,dc2portmap,debug):
             cell = 'P' + str(x)
             value = ws[cell].value 
             
-            if value is not None and not bool(re.search('encapsulation',str(value), re.IGNORECASE)) and not bool(re.search('Inside',str(value), re.IGNORECASE)):
-                    outvdcencap = value
+            if not bool(re.search('encapsulation',str(value), re.IGNORECASE)) and not bool(re.search('Inside',str(value), re.IGNORECASE)):
+                     outvdcencap = getValueWithMergeLookup(ws, cell)
+                     
+                     if outvdcencap is None:
+                         outvdcencap = value
                      
            # Push data into dictionary
            # Use Debug option to print data
@@ -1362,36 +1389,13 @@ def process_xlsx(filename,dc1portmap,dc2portmap,debug):
         n7k_fw_int = getfwint(pm,'dc2',n7k_fw_int)
     
     pm.close()  
-    
-      
-    '''
-    n7k_fw_int = {}
-
-    n7k_fw_int =  { 'SOE' : { 'Outer' : { 'N7K-A' :  { 'dc1'  : { 'int1' : 'E2/21', 'int2' : 'E2/29' }, 'dc2' : { 'int1' : 'E2/21', 'int2' : 'E2/29'} }, 'N7K-B' : { 'dc1'  : { 'int1' : 'E2/21', 'int2' : 'E2/29' }, 'dc2' : { 'int1' : 'E2/21', 'int2' : 'E2/29'} }, 'N7K-C' : { 'dc1'  : { 'int1' : 'E2/21', 'int2' : 'E2/29' }, 'dc2' : { 'int1' : 'E2/21', 'int2' : 'E2/29'}  }, 'N7K-D' : { 'dc1'  : { 'int1' : 'E2/21', 'int2' : 'E2/29' }, 'dc2' : { 'int1' : 'E2/21', 'int2' : 'E2/29'} } }  } }
-    n7k_fw_int['SOE'].update({'Inner' : { 'N7K-A' :  { 'dc1'  : { 'int1' : 'E2/21', 'int2' : 'E2/29' }, 'dc2' : { 'int1' : 'E2/21', 'int2' : 'E2/29'} }, 'N7K-B' : { 'dc1'  : { 'int1' : 'E2/21', 'int2' : 'E2/29' }, 'dc2' : { 'int1' : 'E2/21', 'int2' : 'E2/29'} }, 'N7K-C' : { 'dc1'  : { 'int1' : 'E2/21', 'int2' : 'E2/29' }, 'dc2' : { 'int1' : 'E2/21', 'int2' : 'E2/29'}  }, 'N7K-D' : { 'dc1'  : { 'int1' : 'E2/21', 'int2' : 'E2/29' }, 'dc2' : { 'int1' : 'E2/21', 'int2' : 'E2/29'} } }   })
-    
-    n7k_fw_int.update({'GIS' : { 'Outer' : { 'N7K-A' :  { 'dc1'  : { 'int1' : 'E2/22', 'int2' : 'E2/30' }, 'dc2' : { 'int1' : 'E2/22', 'int2' : 'E2/30'} }, 'N7K-B' : { 'dc1'  : { 'int1' : 'E2/22', 'int2' : 'E2/30' }, 'dc2' : { 'int1' : 'E2/22', 'int2' : 'E2/30'} }, 'N7K-C' : { 'dc1'  : { 'int1' : 'E2/22', 'int2' : 'E2/30' }, 'dc2' : { 'int1' : 'E2/22', 'int2' : 'E2/30'}  }, 'N7K-D' : { 'dc1'  : { 'int1' : 'E2/22', 'int2' : 'E2/30' }, 'dc2' : { 'int1' : 'E2/22', 'int2' : 'E2/30'} } }  } })
-    n7k_fw_int['GIS'].update({'Inner' : { 'N7K-A' :  { 'dc1'  : { 'int1' : 'E2/13', 'int2' : 'E2/14' }, 'dc2' : { 'int1' : 'E2/13', 'int2' : 'E2/14'} }, 'N7K-B' : { 'dc1'  : { 'int1' : 'E2/13', 'int2' : 'E2/14' }, 'dc2' : { 'int1' : 'E2/13', 'int2' : 'E2/14'} }, 'N7K-C' : { 'dc1'  : { 'int1' : 'E2/13', 'int2' : 'E2/14' }, 'dc2' : { 'int1' : 'E2/13', 'int2' : 'E2/14'}  }, 'N7K-D' : { 'dc1'  : { 'int1' : 'E2/13', 'int2' : 'E2/14' }, 'dc2' : { 'int1' : 'E2/13', 'int2' : 'E2/14'} } }   })
-    
-    n7k_fw_int.update({'SDE' : { 'Outer' : { 'N7K-E' :  { 'dc1'  : { 'int1' : 'E2/21', 'int2' : 'E2/29' }, 'dc2' : { 'int1' : 'E2/21', 'int2' : 'E2/29'} }, 'N7K-F' : { 'dc1'  : { 'int1' : 'E2/21', 'int2' : 'E2/29' }, 'dc2' : { 'int1' : 'E2/21', 'int2' : 'E2/29'} }  } } })
-    n7k_fw_int['SDE'].update({'Inner' : { 'N7K-E' :  { 'dc1'  : { 'int1' : 'E2/5', 'int2' : 'E2/13' }, 'dc2' : { 'int1' : 'E2/5', 'int2' : 'E2/13'} }, 'N7K-F' : { 'dc1'  : { 'int1' : 'E2/5', 'int2' : 'E2/13' }, 'dc2' : { 'int1' : 'E2/5', 'int2' : 'E2/13'} } }   })
-    
-    '''
    
     if debug == True:
         print '{ ' +  'portmap' + ':'  + json.dumps(n7k_fw_int) + ' } '
-    
-    ##############################################################################################
-    # Get interfaces on sandwich firewall
-    
-    sandwich_fw = {"SOE": {"OUTER": {"N7K-D": {"DC2": {"dc2soenwa1pfw1b": {"E2/29": "E1/8"}, "dc2soenwa1pfw1a": {"E2/21": "E1/8"}}, "DC1": {"dc1soenwa1pfw1a": {"E2/21": "E1/8"}, "dc1soenwa1pfw1b": {"E2/29": "E1/8"}}}, "N7K-B": {"DC2": {"dc2soenwa1pfw1b": {"E2/29": "E1/6"}, "dc2soenwa1pfw1a": {"E2/21": "E1/6"}}, "DC1": {"dc1soenwa1pfw1a": {"E2/21": "E1/6"}, "dc1soenwa1pfw1b": {"E2/29": "E1/6"}}}, "N7K-C": {"DC2": {"dc2soenwa1pfw1b": {"E2/29": "E1/7"}, "dc2soenwa1pfw1a": {"E2/21": "E1/7"}}, "DC1": {"dc1soenwa1pfw1a": {"E2/21": "E1/7"}, "dc1soenwa1pfw1b": {"E2/29": "E1/7"}}}, "N7K-A": {"DC2": {"dc2soenwa1pfw1b": {"E2/29": "E1/5"}, "dc2soenwa1pfw1a": {"E2/21": "E1/5"}}, "DC1": {"dc1soenwa1pfw1a": {"E2/21": "E1/5"}, "dc1soenwa1pfw1b": {"E2/29": "E1/5"}}}}, "INNER": {"N7K-D": {"DC2": {"dc2soenwa1pfw1b": {"E2/6": "E1/16"}, "dc2soenwa1pfw1a": {"E2/5": "E1/16"}}, "DC1": {"dc1soenwa1pfw1a": {"E2/5": "E1/16"}, "dc1soenwa1pfw1b": {"E2/6": "E1/16"}}}, "N7K-B": {"DC2": {"dc2soenwa1pfw1b": {"E2/6": "E1/14"}, "dc2soenwa1pfw1a": {"E2/5": "E1/14"}}, "DC1": {"dc1soenwa1pfw1a": {"E2/5": "E1/14"}, "dc1soenwa1pfw1b": {"E2/6": "E1/14"}}}, "N7K-C": {"DC2": {"dc2soenwa1pfw1b": {"E2/6": "E1/15"}, "dc2soenwa1pfw1a": {"E2/5": "E1/15"}}, "DC1": {"dc1soenwa1pfw1a": {"E2/5": "E1/15"}, "dc1soenwa1pfw1b": {"E2/6": "E1/15"}}}, "N7K-A": {"DC2": {"dc2soenwa1pfw1b": {"E2/6": "E1/13"}, "dc2soenwa1pfw1a": {"E2/5": "E1/13"}}, "DC1": {"dc1soenwa1pfw1a": {"E2/5": "E1/13"}, "dc1soenwa1pfw1b": {"E2/6": "E1/13"}}}}}, "GIS": {"OUTER": {"N7K-D": {"DC2": {"dc2gisnwa1pfw1b": {"E2/30": "E1/8"}, "dc2gisnwa1pfw1a": {"E2/22": "E1/8"}}, "DC1": {"dc1gisnwa1pfw1a": {"E2/22": "E1/8"}, "dc1gisnwa1pfw1b": {"E2/30": "E1/8"}}}, "N7K-B": {"DC2": {"dc2gisnwa1pfw1b": {"E2/30": "E1/6"}, "dc2gisnwa1pfw1a": {"E2/22": "E1/6"}}, "DC1": {"dc1gisnwa1pfw1a": {"E2/22": "E1/6"}, "dc1gisnwa1pfw1b": {"E2/30": "E1/6"}}}, "N7K-C": {"DC2": {"dc2gisnwa1pfw1b": {"E2/30": "E1/7"}, "dc2gisnwa1pfw1a": {"E2/22": "E1/7"}}, "DC1": {"dc1gisnwa1pfw1a": {"E2/22": "E1/7"}, "dc1gisnwa1pfw1b": {"E2/30": "E1/7"}}}, "N7K-A": {"DC2": {"dc2gisnwa1pfw1b": {"E2/30": "E1/5"}, "dc2gisnwa1pfw1a": {"E2/22": "E1/5"}}, "DC1": {"dc1gisnwa1pfw1a": {"E2/22": "E1/5"}, "dc1gisnwa1pfw1b": {"E2/30": "E1/5"}}}}, "INNER": {"N7K-D": {"DC2": {"dc2gisnwa1pfw1b": {"E2/14": "E1/16"}, "dc2gisnwa1pfw1a": {"E2/13": "E1/16"}}, "DC1": {"dc1gisnwa1pfw1a": {"E2/13": "E1/16"}, "dc1gisnwa1pfw1b": {"E2/14": "E1/16"}}}, "N7K-B": {"DC2": {"dc2gisnwa1pfw1b": {"E2/14": "E1/14"}, "dc2gisnwa1pfw1a": {"E2/13": "E1/14"}}, "DC1": {"dc1gisnwa1pfw1a": {"E2/13": "E1/14"}, "dc1gisnwa1pfw1b": {"E2/14": "E1/14"}}}, "N7K-C": {"DC2": {"dc2gisnwa1pfw1b": {"E2/14": "E1/15"}, "dc2gisnwa1pfw1a": {"E2/13": "E1/15"}}, "DC1": {"dc1gisnwa1pfw1a": {"E2/13": "E1/15"}, "dc1gisnwa1pfw1b": {"E2/14": "E1/15"}}}, "N7K-A": {"DC2": {"dc2gisnwa1pfw1b": {"E2/14": "E1/13"}, "dc2gisnwa1pfw1a": {"E2/13": "E1/13"}}, "DC1": {"dc1gisnwa1pfw1a": {"E2/13": "E1/13"}, "dc1gisnwa1pfw1b": {"E2/14": "E1/13"}}}}}, "SDE": {"OUTER": {"N7K-F": {"DC2": {"dc2sdenwa1pfw1a": {"E2/21": "E1/6"}, "dc2sdenwa1pfw1b": {"E2/29": "E1/6"}}, "DC1": {"dc1sdenwa1pfw1b": {"E2/29": "E1/6"}, "dc1sdenwa1pfw1a": {"E2/21": "E1/6"}}}, "N7K-E": {"DC2": {"dc2sdenwa1pfw1a": {"E2/21": "E1/5"}, "dc2sdenwa1pfw1b": {"E2/29": "E1/5"}}, "DC1": {"dc1sdenwa1pfw1b": {"E2/29": "E1/5"}, "dc1sdenwa1pfw1a": {"E2/21": "E1/5"}}}}, "INNER": {"N7K-F": {"DC2": {"dc2sdenwa1pfw1a": {"E2/5": "E1/14"}, "dc2sdenwa1pfw1b": {"E2/13": "E1/14"}}, "DC1": {"dc1sdenwa1pfw1b": {"E2/13": "E1/14"}, "dc1sdenwa1pfw1a": {"E2/5": "E1/14"}}}, "N7K-E": {"DC2": {"dc2sdenwa1pfw1a": {"E2/5": "E1/13"}, "dc2sdenwa1pfw1b": {"E2/13": "E1/13"}}, "DC1": {"dc1sdenwa1pfw1b": {"E2/13": "E1/13"}, "dc1sdenwa1pfw1a": {"E2/5": "E1/13"}}}}}}
-    
-    if debug == True:
-        print '{ ' +  'sandwich_fw_int' + ':'  + json.dumps(sandwich_fw) + ' } '
         
     ##############################################################################################
     
-    return ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa_data,n7k_fw_int,loopback_data,sandwich_fw
+    return ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa_data,n7k_fw_int,loopback_data
 
 def usage():
     print "Usage: " +  sys.argv[0] + " -f|--file <excel file name> -d|--debug -e|--execute <n7k list> -w."
@@ -1592,14 +1596,14 @@ def main(argv):
                         print sys.argv[0] + " file %s is not an Excel file" % filename
                     else:
                         if magic.from_file(filename) == 'Microsoft Excel 2007+':
-                            (ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa_data,n7k_fw_int,loopback_data,sandwich_fw) = process_xlsx(filename,dc1portmap,dc2portmap,debug)
+                            (ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa_data,n7k_fw_int,loopback_data) = process_xlsx(filename,dc1portmap,dc2portmap,debug)
                             if debug is False:
                                 if configure is True:
                                     confirm = raw_input("\n\nSwitch changes are about to be made.  Type N/n to exit or press any key to continue: \n\n")
                                     if confirm.upper() == 'N':
                                         print "\n\nExiting script.  No changes made\n\n"
                                         sys.exit(9)
-                                inner_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa_data,n7k_fw_int,loopback_data,configure,lines,detailops,sandwich_fw)
+                                inner_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa_data,n7k_fw_int,loopback_data,configure,lines,detailops)
                         else:
                             print "File must be in .xlsx format"
                             sys.exit(10)

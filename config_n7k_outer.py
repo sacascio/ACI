@@ -22,7 +22,7 @@ def getValueWithMergeLookup(sheet, cell):
                 return sheet.cell(merged_cells[0][0]).value
 
 
-def outer_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa_data,n7k_fw_int,loopback_data,outer_jnp_data,configure,lines,detailops,out_to_jnp_fw_int,sandwich_fw):
+def outer_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa_data,n7k_fw_int,loopback_data,outer_jnp_data,configure,lines,detailops,out_to_jnp_fw_int):
   
     commands = []
     loopback_position  = {'N7K-A' : 1, 'N7K-B' : 2, 'N7K-C' : 3, 'N7K-D' : 4, 'N7K-E' : 1, 'N7K-F' : 2}
@@ -285,8 +285,7 @@ def outer_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa
             if 'fw' in detailops or 'NONE' in detailops:  
                 for interfaces in n7k_fw_int[district]['OUTER'][nexusvdc][dc][fw]:
                     fwint = interfaces['int']
-                  
-                    remfwint = sandwich_fw[district]['OUTER'][nexusvdc][dc.upper()][fw][fwint]
+                    remfwint = interfaces['ext']
             
                     if configure is True and ( 'fw' in detailops or 'NONE' in detailops) :
                         curr_allowed_list = send_to_n7k_api_show("show int %s switchport" % (fwint),device_ip,district,dc,nexusvdc,device_un,device_pw)
@@ -1002,6 +1001,7 @@ def get_inner_to_pa(wb,district):
                 dc1cellszone = dc1cellszone.upper()
                 dc1cellnum = n7kvrfdc1[-1:]
                 dc1cellszone = dc1cellszone.replace("<CELL_#>",dc1cellnum)
+                dc1cellszone = 'dc1' + dc1cellszone
             
                 dc2cellszone = value
                 dc2cellszone = dc2cellszone.strip()
@@ -1009,6 +1009,7 @@ def get_inner_to_pa(wb,district):
                 dc2cellszone = dc2cellszone.upper()
                 dc2cellnum = n7kvrfdc2[-1:]
                 dc2cellszone = dc2cellszone.replace("<CELL_#>",dc2cellnum)
+                dc2cellszone = 'dc2' + dc2cellszone
                 
                 szonelist.append(dc1cellszone)
                 szonelist.append(dc2cellszone)   
@@ -1139,9 +1140,17 @@ def getfwint(wb,dc,data):
             
             if bool(re.search(dc,str(vals.value), re.IGNORECASE)):
                 vals.value = vals.value.replace(" ","")
-                fwname   = vals.value[:-6].lower()
                 district = vals.value[3:6].upper()
                 dloc     = vals.value[-5:].upper()
+                
+                raw_d = vals.value.split("-")
+                fwname   = raw_d[0]
+                extint   = raw_d[1]
+                extint   = 'E' + extint
+                extint   = extint.replace(":","/")
+                extint   = extint.replace("E0","E")
+                extint   = extint.replace("/0","/")
+                
                 
                 if bool(re.search(dc, ws[vals.column + str(vals.row-1)].value, re.IGNORECASE)):
                     interface = ws[vals.column + str(vals.row+1)].value
@@ -1157,21 +1166,21 @@ def getfwint(wb,dc,data):
                         if n7k in data[district][dloc]:
                             if dc in data[district][dloc][n7k]:
                                 if fwname in data[district][dloc][n7k][dc]:
-                                    data[district][dloc][n7k][dc][fwname].append({'int'  : interface })
+                                    data[district][dloc][n7k][dc][fwname].append({'int'  : interface, 'ext' : extint })
                                 else:
-                                    data[district][dloc][n7k][dc][fwname] = [{'int' : interface}]
+                                    data[district][dloc][n7k][dc][fwname] = [{'int' : interface, 'ext' : extint}]
                             else:
                                 data[district][dloc][n7k][dc] = {}
-                                data[district][dloc][n7k][dc][fwname] = [{ 'int' : interface}]
+                                data[district][dloc][n7k][dc][fwname] = [{ 'int' : interface, 'ext' : extint}]
                         else:
                             data[district][dloc][n7k] = {}
                             data[district][dloc][n7k][dc] = {}
-                            data[district][dloc][n7k][dc][fwname] = [{ 'int' : interface}]
+                            data[district][dloc][n7k][dc][fwname] = [{ 'int' : interface, 'ext' : extint}]
                     else:
                         data[district][dloc] = {}
                         data[district][dloc][n7k] = {}
                         data[district][dloc][n7k][dc] = {}
-                        data[district][dloc][n7k][dc][fwname] = [{ 'int' : interface}]                 
+                        data[district][dloc][n7k][dc][fwname] = [{ 'int' : interface, 'ext' : extint}]                 
                                     
                 else:
                     data.update({  
@@ -1186,7 +1195,7 @@ def getfwint(wb,dc,data):
                                             fwname :
                                             [ 
                                                 {
-                                                'int'     : interface
+                                                'int'     : interface, 'ext' : extint
                                                 }
                                             ] 
                                          }
@@ -1659,16 +1668,9 @@ def process_xlsx(filename,dc1portmap,dc2portmap,debug):
     if debug == True :
        print '{ ' +  'outer_to_juniper_fw_int' + ':'  + json.dumps(out_to_jnp_fw_int) + ' } '
     
-    ##############################################################################################
-    # Get interfaces on sandwich firewall
-    
-    sandwich_fw = {"SOE": {"OUTER": {"N7K-D": {"DC2": {"dc2soenwa1pfw1b": {"E2/29": "E1/8"}, "dc2soenwa1pfw1a": {"E2/21": "E1/8"}}, "DC1": {"dc1soenwa1pfw1a": {"E2/21": "E1/8"}, "dc1soenwa1pfw1b": {"E2/29": "E1/8"}}}, "N7K-B": {"DC2": {"dc2soenwa1pfw1b": {"E2/29": "E1/6"}, "dc2soenwa1pfw1a": {"E2/21": "E1/6"}}, "DC1": {"dc1soenwa1pfw1a": {"E2/21": "E1/6"}, "dc1soenwa1pfw1b": {"E2/29": "E1/6"}}}, "N7K-C": {"DC2": {"dc2soenwa1pfw1b": {"E2/29": "E1/7"}, "dc2soenwa1pfw1a": {"E2/21": "E1/7"}}, "DC1": {"dc1soenwa1pfw1a": {"E2/21": "E1/7"}, "dc1soenwa1pfw1b": {"E2/29": "E1/7"}}}, "N7K-A": {"DC2": {"dc2soenwa1pfw1b": {"E2/29": "E1/5"}, "dc2soenwa1pfw1a": {"E2/21": "E1/5"}}, "DC1": {"dc1soenwa1pfw1a": {"E2/21": "E1/5"}, "dc1soenwa1pfw1b": {"E2/29": "E1/5"}}}}, "INNER": {"N7K-D": {"DC2": {"dc2soenwa1pfw1b": {"E2/6": "E1/16"}, "dc2soenwa1pfw1a": {"E2/5": "E1/16"}}, "DC1": {"dc1soenwa1pfw1a": {"E2/5": "E1/16"}, "dc1soenwa1pfw1b": {"E2/6": "E1/16"}}}, "N7K-B": {"DC2": {"dc2soenwa1pfw1b": {"E2/6": "E1/14"}, "dc2soenwa1pfw1a": {"E2/5": "E1/14"}}, "DC1": {"dc1soenwa1pfw1a": {"E2/5": "E1/14"}, "dc1soenwa1pfw1b": {"E2/6": "E1/14"}}}, "N7K-C": {"DC2": {"dc2soenwa1pfw1b": {"E2/6": "E1/15"}, "dc2soenwa1pfw1a": {"E2/5": "E1/15"}}, "DC1": {"dc1soenwa1pfw1a": {"E2/5": "E1/15"}, "dc1soenwa1pfw1b": {"E2/6": "E1/15"}}}, "N7K-A": {"DC2": {"dc2soenwa1pfw1b": {"E2/6": "E1/13"}, "dc2soenwa1pfw1a": {"E2/5": "E1/13"}}, "DC1": {"dc1soenwa1pfw1a": {"E2/5": "E1/13"}, "dc1soenwa1pfw1b": {"E2/6": "E1/13"}}}}}, "GIS": {"OUTER": {"N7K-D": {"DC2": {"dc2gisnwa1pfw1b": {"E2/30": "E1/8"}, "dc2gisnwa1pfw1a": {"E2/22": "E1/8"}}, "DC1": {"dc1gisnwa1pfw1a": {"E2/22": "E1/8"}, "dc1gisnwa1pfw1b": {"E2/30": "E1/8"}}}, "N7K-B": {"DC2": {"dc2gisnwa1pfw1b": {"E2/30": "E1/6"}, "dc2gisnwa1pfw1a": {"E2/22": "E1/6"}}, "DC1": {"dc1gisnwa1pfw1a": {"E2/22": "E1/6"}, "dc1gisnwa1pfw1b": {"E2/30": "E1/6"}}}, "N7K-C": {"DC2": {"dc2gisnwa1pfw1b": {"E2/30": "E1/7"}, "dc2gisnwa1pfw1a": {"E2/22": "E1/7"}}, "DC1": {"dc1gisnwa1pfw1a": {"E2/22": "E1/7"}, "dc1gisnwa1pfw1b": {"E2/30": "E1/7"}}}, "N7K-A": {"DC2": {"dc2gisnwa1pfw1b": {"E2/30": "E1/5"}, "dc2gisnwa1pfw1a": {"E2/22": "E1/5"}}, "DC1": {"dc1gisnwa1pfw1a": {"E2/22": "E1/5"}, "dc1gisnwa1pfw1b": {"E2/30": "E1/5"}}}}, "INNER": {"N7K-D": {"DC2": {"dc2gisnwa1pfw1b": {"E2/14": "E1/16"}, "dc2gisnwa1pfw1a": {"E2/13": "E1/16"}}, "DC1": {"dc1gisnwa1pfw1a": {"E2/13": "E1/16"}, "dc1gisnwa1pfw1b": {"E2/14": "E1/16"}}}, "N7K-B": {"DC2": {"dc2gisnwa1pfw1b": {"E2/14": "E1/14"}, "dc2gisnwa1pfw1a": {"E2/13": "E1/14"}}, "DC1": {"dc1gisnwa1pfw1a": {"E2/13": "E1/14"}, "dc1gisnwa1pfw1b": {"E2/14": "E1/14"}}}, "N7K-C": {"DC2": {"dc2gisnwa1pfw1b": {"E2/14": "E1/15"}, "dc2gisnwa1pfw1a": {"E2/13": "E1/15"}}, "DC1": {"dc1gisnwa1pfw1a": {"E2/13": "E1/15"}, "dc1gisnwa1pfw1b": {"E2/14": "E1/15"}}}, "N7K-A": {"DC2": {"dc2gisnwa1pfw1b": {"E2/14": "E1/13"}, "dc2gisnwa1pfw1a": {"E2/13": "E1/13"}}, "DC1": {"dc1gisnwa1pfw1a": {"E2/13": "E1/13"}, "dc1gisnwa1pfw1b": {"E2/14": "E1/13"}}}}}, "SDE": {"OUTER": {"N7K-F": {"DC2": {"dc2sdenwa1pfw1a": {"E2/21": "E1/6"}, "dc2sdenwa1pfw1b": {"E2/29": "E1/6"}}, "DC1": {"dc1sdenwa1pfw1b": {"E2/29": "E1/6"}, "dc1sdenwa1pfw1a": {"E2/21": "E1/6"}}}, "N7K-E": {"DC2": {"dc2sdenwa1pfw1a": {"E2/21": "E1/5"}, "dc2sdenwa1pfw1b": {"E2/29": "E1/5"}}, "DC1": {"dc1sdenwa1pfw1b": {"E2/29": "E1/5"}, "dc1sdenwa1pfw1a": {"E2/21": "E1/5"}}}}, "INNER": {"N7K-F": {"DC2": {"dc2sdenwa1pfw1a": {"E2/5": "E1/14"}, "dc2sdenwa1pfw1b": {"E2/13": "E1/14"}}, "DC1": {"dc1sdenwa1pfw1b": {"E2/13": "E1/14"}, "dc1sdenwa1pfw1a": {"E2/5": "E1/14"}}}, "N7K-E": {"DC2": {"dc2sdenwa1pfw1a": {"E2/5": "E1/13"}, "dc2sdenwa1pfw1b": {"E2/13": "E1/13"}}, "DC1": {"dc1sdenwa1pfw1b": {"E2/13": "E1/13"}, "dc1sdenwa1pfw1a": {"E2/5": "E1/13"}}}}}}
-    
-    if debug == True:
-        print '{ ' +  'sandwich_fw_int' + ':'  + json.dumps(sandwich_fw) + ' } '
         
     ##############################################################################################
-    return ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa_data,n7k_fw_int,loopback_data,outer_jnp_data,out_to_jnp_fw_int,sandwich_fw
+    return ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa_data,n7k_fw_int,loopback_data,outer_jnp_data,out_to_jnp_fw_int
 
 def usage():
     print "Usage: " +  sys.argv[0] + " -f|--file <excel file name> -d|--debug -e|--execute <n7k list> -w."
@@ -1882,14 +1884,14 @@ def main(argv):
                         print sys.argv[0] + " file %s is not an Excel file" % filename
                     else:
                         if magic.from_file(filename) == 'Microsoft Excel 2007+':
-                            (ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa_data,n7k_fw_int,loopback_data,outer_jnp_data,out_to_jnp_fw_int,sandwich_fw) = process_xlsx(filename,dc1portmap,dc2portmap,debug)
+                            (ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa_data,n7k_fw_int,loopback_data,outer_jnp_data,out_to_jnp_fw_int) = process_xlsx(filename,dc1portmap,dc2portmap,debug)
                             if debug is False:
                                 if configure is True:
                                     confirm = raw_input("\n\nSwitch changes are about to be made.  Type N/n to exit or press any key to continue: \n\n")
                                     if confirm.upper() == 'N':
                                         print "\n\nExiting script.  No changes made\n\n"
                                         sys.exit(9)
-                                outer_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa_data,n7k_fw_int,loopback_data,outer_jnp_data,configure,lines,detailops,out_to_jnp_fw_int,sandwich_fw)
+                                outer_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa_data,n7k_fw_int,loopback_data,outer_jnp_data,configure,lines,detailops,out_to_jnp_fw_int)
                         else:
                             print "File must be in .xlsx format"
                             sys.exit(10)
