@@ -918,11 +918,11 @@ def getfwint(wb,dc,data):
                 extint   = extint.replace(":","/")
                 extint   = extint.replace("E0","E")
                 
-                
-                if bool(re.search(dc, ws[vals.column + str(vals.row-1)].value, re.IGNORECASE)):
+                if bool(re.search(dc, ws[vals.column + str(vals.row-1)].value, re.IGNORECASE)) or bool(re.search('7706', ws[vals.column + str(vals.row-1)].value, re.IGNORECASE)):
                     interface = ws[vals.column + str(vals.row+1)].value
                 else:
                     interface = ws[vals.column + str(vals.row-1)].value
+                
                     
                 interface = "E" + interface
                 interface = interface.replace("-","/")
@@ -967,8 +967,7 @@ def getfwint(wb,dc,data):
                                             ] 
                                          }
                                              
-                                }}}})
-               
+                                }}}})           
     return data
 
 def process_xlsx(filename,dc1portmap,dc2portmap,debug):
