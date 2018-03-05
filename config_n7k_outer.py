@@ -190,11 +190,18 @@ def outer_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa
         commands.append(" log-neighbor-changes")
         commands.append(" address-family ipv4 unicast")
         commands.append("    maximum-paths 8")
+        iplist = []
                 
         for vsys in final_all_inner_data[district]:
-            for n7k in sorted(final_all_inner_data[district][vsys]):
+            if dc == 'dc2':
+                other = 'dc1'
+            else:
+                other = 'dc2'
+                    
+            if bool((re.search(other,vsys))):
+                continue
                 
-               
+            for n7k in sorted(final_all_inner_data[district][vsys]):
                 n7kinneraddress = final_all_inner_data[district][vsys][n7k][0][dc + 'n7kip']
                 vrfname         = final_all_inner_data[district][vsys][n7k][0]['n7kvrf' + dc]
                 vrfnum          = final_all_inner_data[district][vsys][n7k][0]['vrfnumber']
@@ -208,7 +215,7 @@ def outer_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa
                 
                 for vsys_tmp in ws_definition_data[district]:
                     for attribs in ws_definition_data[district][vsys_tmp]:
-                        if int(attribs['vrfnumber']) == int(vrfnum) and attribs['config'] != 'no' :
+                        if int(attribs['vrfnumber']) == int(vrfnum) and attribs['config'] != 'no' and n7kinneraddress not in iplist:
                             commands.append(" neighbor %s remote-as %s" % (n7kinneraddress,inner_as ))
                             commands.append(" description TO_%s_%s" % (innervdc,vrfname) )
                             commands.append("    ebgp-multihop 4" )
@@ -216,6 +223,8 @@ def outer_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa
                             commands.append("       send-community both")
                             commands.append("       route-map PERMIT_DEFAULT_ONLY out")
                             commands.append("       default-originate")
+                            
+                            iplist.append(n7kinneraddress)
         
         if 'bgp' in detailops or 'NONE' in detailops:        
             print '\n'.join(map(str,commands))    

@@ -99,358 +99,8 @@ router bgp 65500
        send-community both
        route-map PERMIT_DEFAULT_ONLY out
        default-originate
- neighbor 10.255.9.161 remote-as 65501
- description TO_dc1dcinxc1soeinner_DMZ-B2B-DC1-SOE-CELL1
-    ebgp-multihop 4
-    address-family ipv4 unicast
-       send-community both
-       route-map PERMIT_DEFAULT_ONLY out
-       default-originate
- neighbor 10.255.9.161 remote-as 65501
- description TO_dc1dcinxc1soeinner_DMZ-B2B-DC1-SOE-CELL1
-    ebgp-multihop 4
-    address-family ipv4 unicast
-       send-community both
-       route-map PERMIT_DEFAULT_ONLY out
-       default-originate
- neighbor 10.255.9.165 remote-as 65501
- description TO_dc1dcinxc2soeinner_DMZ-B2B-DC1-SOE-CELL1
-    ebgp-multihop 4
-    address-family ipv4 unicast
-       send-community both
-       route-map PERMIT_DEFAULT_ONLY out
-       default-originate
- neighbor 10.255.9.165 remote-as 65501
- description TO_dc1dcinxc2soeinner_DMZ-B2B-DC1-SOE-CELL1
-    ebgp-multihop 4
-    address-family ipv4 unicast
-       send-community both
-       route-map PERMIT_DEFAULT_ONLY out
-       default-originate
- neighbor 10.255.9.169 remote-as 65501
- description TO_dc1dcinxc3soeinner_DMZ-B2B-DC1-SOE-CELL1
-    ebgp-multihop 4
-    address-family ipv4 unicast
-       send-community both
-       route-map PERMIT_DEFAULT_ONLY out
-       default-originate
- neighbor 10.255.9.169 remote-as 65501
- description TO_dc1dcinxc3soeinner_DMZ-B2B-DC1-SOE-CELL1
-    ebgp-multihop 4
-    address-family ipv4 unicast
-       send-community both
-       route-map PERMIT_DEFAULT_ONLY out
-       default-originate
- neighbor 10.255.9.173 remote-as 65501
- description TO_dc1dcinxc4soeinner_DMZ-B2B-DC1-SOE-CELL1
-    ebgp-multihop 4
-    address-family ipv4 unicast
-       send-community both
-       route-map PERMIT_DEFAULT_ONLY out
-       default-originate
- neighbor 10.255.9.173 remote-as 65501
- description TO_dc1dcinxc4soeinner_DMZ-B2B-DC1-SOE-CELL1
-    ebgp-multihop 4
-    address-family ipv4 unicast
-       send-community both
-       route-map PERMIT_DEFAULT_ONLY out
-       default-originate
- neighbor 10.255.10.113 remote-as 65501
- description TO_dc1dcinxc1soeinner_DMZ-MAL-DC1-SOE-CELL2
-    ebgp-multihop 4
-    address-family ipv4 unicast
-       send-community both
-       route-map PERMIT_DEFAULT_ONLY out
-       default-originate
- neighbor 10.255.10.113 remote-as 65501
- description TO_dc1dcinxc1soeinner_DMZ-MAL-DC1-SOE-CELL2
-    ebgp-multihop 4
-    address-family ipv4 unicast
-       send-community both
-       route-map PERMIT_DEFAULT_ONLY out
-       default-originate
- neighbor 10.255.10.117 remote-as 65501
- description TO_dc1dcinxc2soeinner_DMZ-MAL-DC1-SOE-CELL2
-    ebgp-multihop 4
-    address-family ipv4 unicast
-       send-community both
-       route-map PERMIT_DEFAULT_ONLY out
-       default-originate
- neighbor 10.255.10.117 remote-as 65501
- description TO_dc1dcinxc2soeinner_DMZ-MAL-DC1-SOE-CELL2
-    ebgp-multihop 4
-    address-family ipv4 unicast
-       send-community both
-       route-map PERMIT_DEFAULT_ONLY out
-       default-originate
- neighbor 10.255.10.121 remote-as 65501
- description TO_dc1dcinxc3soeinner_DMZ-MAL-DC1-SOE-CELL2
-    ebgp-multihop 4
-    address-family ipv4 unicast
-       send-community both
-       route-map PERMIT_DEFAULT_ONLY out
-       default-originate
- neighbor 10.255.10.121 remote-as 65501
- description TO_dc1dcinxc3soeinner_DMZ-MAL-DC1-SOE-CELL2
-    ebgp-multihop 4
-    address-family ipv4 unicast
-       send-community both
-       route-map PERMIT_DEFAULT_ONLY out
-       default-originate
- neighbor 10.255.10.125 remote-as 65501
- description TO_dc1dcinxc4soeinner_DMZ-MAL-DC1-SOE-CELL2
-    ebgp-multihop 4
-    address-family ipv4 unicast
-       send-community both
-       route-map PERMIT_DEFAULT_ONLY out
-       default-originate
- neighbor 10.255.10.125 remote-as 65501
- description TO_dc1dcinxc4soeinner_DMZ-MAL-DC1-SOE-CELL2
-    ebgp-multihop 4
-    address-family ipv4 unicast
-       send-community both
-       route-map PERMIT_DEFAULT_ONLY out
-       default-originate
- neighbor 10.255.10.97 remote-as 65501
- description TO_dc1dcinxc1soeinner_DMZ-B2B-DC1-SOE-CELL2
-    ebgp-multihop 4
-    address-family ipv4 unicast
-       send-community both
-       route-map PERMIT_DEFAULT_ONLY out
-       default-originate
- neighbor 10.255.10.97 remote-as 65501
- description TO_dc1dcinxc1soeinner_DMZ-B2B-DC1-SOE-CELL2
-    ebgp-multihop 4
-    address-family ipv4 unicast
-       send-community both
-       route-map PERMIT_DEFAULT_ONLY out
-       default-originate
- neighbor 10.255.10.101 remote-as 65501
- description TO_dc1dcinxc2soeinner_DMZ-B2B-DC1-SOE-CELL2
-    ebgp-multihop 4
-    address-family ipv4 unicast
-       send-community both
-       route-map PERMIT_DEFAULT_ONLY out
-       default-originate
- neighbor 10.255.10.101 remote-as 65501
- description TO_dc1dcinxc2soeinner_DMZ-B2B-DC1-SOE-CELL2
-    ebgp-multihop 4
-    address-family ipv4 unicast
-       send-community both
-       route-map PERMIT_DEFAULT_ONLY out
-       default-originate
- neighbor 10.255.10.105 remote-as 65501
- description TO_dc1dcinxc3soeinner_DMZ-B2B-DC1-SOE-CELL2
-    ebgp-multihop 4
-    address-family ipv4 unicast
-       send-community both
-       route-map PERMIT_DEFAULT_ONLY out
-       default-originate
- neighbor 10.255.10.105 remote-as 65501
- description TO_dc1dcinxc3soeinner_DMZ-B2B-DC1-SOE-CELL2
-    ebgp-multihop 4
-    address-family ipv4 unicast
-       send-community both
-       route-map PERMIT_DEFAULT_ONLY out
-       default-originate
- neighbor 10.255.10.109 remote-as 65501
- description TO_dc1dcinxc4soeinner_DMZ-B2B-DC1-SOE-CELL2
-    ebgp-multihop 4
-    address-family ipv4 unicast
-       send-community both
-       route-map PERMIT_DEFAULT_ONLY out
-       default-originate
- neighbor 10.255.10.109 remote-as 65501
- description TO_dc1dcinxc4soeinner_DMZ-B2B-DC1-SOE-CELL2
-    ebgp-multihop 4
-    address-family ipv4 unicast
-       send-community both
-       route-map PERMIT_DEFAULT_ONLY out
-       default-originate
- neighbor 10.255.9.177 remote-as 65501
- description TO_dc1dcinxc1soeinner_DMZ-MAL-DC1-SOE-CELL1
-    ebgp-multihop 4
-    address-family ipv4 unicast
-       send-community both
-       route-map PERMIT_DEFAULT_ONLY out
-       default-originate
- neighbor 10.255.9.177 remote-as 65501
- description TO_dc1dcinxc1soeinner_DMZ-MAL-DC1-SOE-CELL1
-    ebgp-multihop 4
-    address-family ipv4 unicast
-       send-community both
-       route-map PERMIT_DEFAULT_ONLY out
-       default-originate
- neighbor 10.255.9.181 remote-as 65501
- description TO_dc1dcinxc2soeinner_DMZ-MAL-DC1-SOE-CELL1
-    ebgp-multihop 4
-    address-family ipv4 unicast
-       send-community both
-       route-map PERMIT_DEFAULT_ONLY out
-       default-originate
- neighbor 10.255.9.181 remote-as 65501
- description TO_dc1dcinxc2soeinner_DMZ-MAL-DC1-SOE-CELL1
-    ebgp-multihop 4
-    address-family ipv4 unicast
-       send-community both
-       route-map PERMIT_DEFAULT_ONLY out
-       default-originate
- neighbor 10.255.9.185 remote-as 65501
- description TO_dc1dcinxc3soeinner_DMZ-MAL-DC1-SOE-CELL1
-    ebgp-multihop 4
-    address-family ipv4 unicast
-       send-community both
-       route-map PERMIT_DEFAULT_ONLY out
-       default-originate
- neighbor 10.255.9.185 remote-as 65501
- description TO_dc1dcinxc3soeinner_DMZ-MAL-DC1-SOE-CELL1
-    ebgp-multihop 4
-    address-family ipv4 unicast
-       send-community both
-       route-map PERMIT_DEFAULT_ONLY out
-       default-originate
- neighbor 10.255.9.189 remote-as 65501
- description TO_dc1dcinxc4soeinner_DMZ-MAL-DC1-SOE-CELL1
-    ebgp-multihop 4
-    address-family ipv4 unicast
-       send-community both
-       route-map PERMIT_DEFAULT_ONLY out
-       default-originate
- neighbor 10.255.9.189 remote-as 65501
- description TO_dc1dcinxc4soeinner_DMZ-MAL-DC1-SOE-CELL1
-    ebgp-multihop 4
-    address-family ipv4 unicast
-       send-community both
-       route-map PERMIT_DEFAULT_ONLY out
-       default-originate
- neighbor 10.255.9.193 remote-as 65501
- description TO_dc1dcinxc1soeinner_DMZ-DNS-DC1-SOE-CELL1
-    ebgp-multihop 4
-    address-family ipv4 unicast
-       send-community both
-       route-map PERMIT_DEFAULT_ONLY out
-       default-originate
- neighbor 10.255.9.193 remote-as 65501
- description TO_dc1dcinxc1soeinner_DMZ-DNS-DC1-SOE-CELL1
-    ebgp-multihop 4
-    address-family ipv4 unicast
-       send-community both
-       route-map PERMIT_DEFAULT_ONLY out
-       default-originate
- neighbor 10.255.9.197 remote-as 65501
- description TO_dc1dcinxc2soeinner_DMZ-DNS-DC1-SOE-CELL1
-    ebgp-multihop 4
-    address-family ipv4 unicast
-       send-community both
-       route-map PERMIT_DEFAULT_ONLY out
-       default-originate
- neighbor 10.255.9.197 remote-as 65501
- description TO_dc1dcinxc2soeinner_DMZ-DNS-DC1-SOE-CELL1
-    ebgp-multihop 4
-    address-family ipv4 unicast
-       send-community both
-       route-map PERMIT_DEFAULT_ONLY out
-       default-originate
- neighbor 10.255.9.201 remote-as 65501
- description TO_dc1dcinxc3soeinner_DMZ-DNS-DC1-SOE-CELL1
-    ebgp-multihop 4
-    address-family ipv4 unicast
-       send-community both
-       route-map PERMIT_DEFAULT_ONLY out
-       default-originate
- neighbor 10.255.9.201 remote-as 65501
- description TO_dc1dcinxc3soeinner_DMZ-DNS-DC1-SOE-CELL1
-    ebgp-multihop 4
-    address-family ipv4 unicast
-       send-community both
-       route-map PERMIT_DEFAULT_ONLY out
-       default-originate
- neighbor 10.255.9.205 remote-as 65501
- description TO_dc1dcinxc4soeinner_DMZ-DNS-DC1-SOE-CELL1
-    ebgp-multihop 4
-    address-family ipv4 unicast
-       send-community both
-       route-map PERMIT_DEFAULT_ONLY out
-       default-originate
- neighbor 10.255.9.205 remote-as 65501
- description TO_dc1dcinxc4soeinner_DMZ-DNS-DC1-SOE-CELL1
-    ebgp-multihop 4
-    address-family ipv4 unicast
-       send-community both
-       route-map PERMIT_DEFAULT_ONLY out
-       default-originate
- neighbor 10.255.9.225 remote-as 65501
- description TO_dc1dcinxc1soeinner_DMZ-PXY-DC1-SOE-CELL1
-    ebgp-multihop 4
-    address-family ipv4 unicast
-       send-community both
-       route-map PERMIT_DEFAULT_ONLY out
-       default-originate
- neighbor 10.255.9.225 remote-as 65501
- description TO_dc1dcinxc1soeinner_DMZ-PXY-DC1-SOE-CELL1
-    ebgp-multihop 4
-    address-family ipv4 unicast
-       send-community both
-       route-map PERMIT_DEFAULT_ONLY out
-       default-originate
- neighbor 10.255.9.229 remote-as 65501
- description TO_dc1dcinxc2soeinner_DMZ-PXY-DC1-SOE-CELL1
-    ebgp-multihop 4
-    address-family ipv4 unicast
-       send-community both
-       route-map PERMIT_DEFAULT_ONLY out
-       default-originate
- neighbor 10.255.9.229 remote-as 65501
- description TO_dc1dcinxc2soeinner_DMZ-PXY-DC1-SOE-CELL1
-    ebgp-multihop 4
-    address-family ipv4 unicast
-       send-community both
-       route-map PERMIT_DEFAULT_ONLY out
-       default-originate
- neighbor 10.255.9.233 remote-as 65501
- description TO_dc1dcinxc3soeinner_DMZ-PXY-DC1-SOE-CELL1
-    ebgp-multihop 4
-    address-family ipv4 unicast
-       send-community both
-       route-map PERMIT_DEFAULT_ONLY out
-       default-originate
- neighbor 10.255.9.233 remote-as 65501
- description TO_dc1dcinxc3soeinner_DMZ-PXY-DC1-SOE-CELL1
-    ebgp-multihop 4
-    address-family ipv4 unicast
-       send-community both
-       route-map PERMIT_DEFAULT_ONLY out
-       default-originate
- neighbor 10.255.9.237 remote-as 65501
- description TO_dc1dcinxc4soeinner_DMZ-PXY-DC1-SOE-CELL1
-    ebgp-multihop 4
-    address-family ipv4 unicast
-       send-community both
-       route-map PERMIT_DEFAULT_ONLY out
-       default-originate
- neighbor 10.255.9.237 remote-as 65501
- description TO_dc1dcinxc4soeinner_DMZ-PXY-DC1-SOE-CELL1
-    ebgp-multihop 4
-    address-family ipv4 unicast
-       send-community both
-       route-map PERMIT_DEFAULT_ONLY out
-       default-originate
  neighbor 10.255.9.209 remote-as 65501
  description TO_dc1dcinxc1soeinner_DMZ-RAC-DC1-SOE-CELL1
-    ebgp-multihop 4
-    address-family ipv4 unicast
-       send-community both
-       route-map PERMIT_DEFAULT_ONLY out
-       default-originate
- neighbor 10.255.9.209 remote-as 65501
- description TO_dc1dcinxc1soeinner_DMZ-RAC-DC1-SOE-CELL1
-    ebgp-multihop 4
-    address-family ipv4 unicast
-       send-community both
-       route-map PERMIT_DEFAULT_ONLY out
-       default-originate
- neighbor 10.255.9.213 remote-as 65501
- description TO_dc1dcinxc2soeinner_DMZ-RAC-DC1-SOE-CELL1
     ebgp-multihop 4
     address-family ipv4 unicast
        send-community both
@@ -470,29 +120,8 @@ router bgp 65500
        send-community both
        route-map PERMIT_DEFAULT_ONLY out
        default-originate
- neighbor 10.255.9.217 remote-as 65501
- description TO_dc1dcinxc3soeinner_DMZ-RAC-DC1-SOE-CELL1
-    ebgp-multihop 4
-    address-family ipv4 unicast
-       send-community both
-       route-map PERMIT_DEFAULT_ONLY out
-       default-originate
  neighbor 10.255.9.221 remote-as 65501
  description TO_dc1dcinxc4soeinner_DMZ-RAC-DC1-SOE-CELL1
-    ebgp-multihop 4
-    address-family ipv4 unicast
-       send-community both
-       route-map PERMIT_DEFAULT_ONLY out
-       default-originate
- neighbor 10.255.9.221 remote-as 65501
- description TO_dc1dcinxc4soeinner_DMZ-RAC-DC1-SOE-CELL1
-    ebgp-multihop 4
-    address-family ipv4 unicast
-       send-community both
-       route-map PERMIT_DEFAULT_ONLY out
-       default-originate
- neighbor 10.255.10.81 remote-as 65501
- description TO_dc1dcinxc1soeinner_DMZ-WEB-DC1-SOE-CELL2
     ebgp-multihop 4
     address-family ipv4 unicast
        send-community both
@@ -512,29 +141,8 @@ router bgp 65500
        send-community both
        route-map PERMIT_DEFAULT_ONLY out
        default-originate
- neighbor 10.255.10.85 remote-as 65501
- description TO_dc1dcinxc2soeinner_DMZ-WEB-DC1-SOE-CELL2
-    ebgp-multihop 4
-    address-family ipv4 unicast
-       send-community both
-       route-map PERMIT_DEFAULT_ONLY out
-       default-originate
  neighbor 10.255.10.89 remote-as 65501
  description TO_dc1dcinxc3soeinner_DMZ-WEB-DC1-SOE-CELL2
-    ebgp-multihop 4
-    address-family ipv4 unicast
-       send-community both
-       route-map PERMIT_DEFAULT_ONLY out
-       default-originate
- neighbor 10.255.10.89 remote-as 65501
- description TO_dc1dcinxc3soeinner_DMZ-WEB-DC1-SOE-CELL2
-    ebgp-multihop 4
-    address-family ipv4 unicast
-       send-community both
-       route-map PERMIT_DEFAULT_ONLY out
-       default-originate
- neighbor 10.255.10.93 remote-as 65501
- description TO_dc1dcinxc4soeinner_DMZ-WEB-DC1-SOE-CELL2
     ebgp-multihop 4
     address-family ipv4 unicast
        send-community both
@@ -554,20 +162,6 @@ router bgp 65500
        send-community both
        route-map PERMIT_DEFAULT_ONLY out
        default-originate
- neighbor 10.255.9.145 remote-as 65501
- description TO_dc1dcinxc1soeinner_DMZ-WEB-DC1-SOE-CELL1
-    ebgp-multihop 4
-    address-family ipv4 unicast
-       send-community both
-       route-map PERMIT_DEFAULT_ONLY out
-       default-originate
- neighbor 10.255.9.149 remote-as 65501
- description TO_dc1dcinxc2soeinner_DMZ-WEB-DC1-SOE-CELL1
-    ebgp-multihop 4
-    address-family ipv4 unicast
-       send-community both
-       route-map PERMIT_DEFAULT_ONLY out
-       default-originate
  neighbor 10.255.9.149 remote-as 65501
  description TO_dc1dcinxc2soeinner_DMZ-WEB-DC1-SOE-CELL1
     ebgp-multihop 4
@@ -577,20 +171,6 @@ router bgp 65500
        default-originate
  neighbor 10.255.9.153 remote-as 65501
  description TO_dc1dcinxc3soeinner_DMZ-WEB-DC1-SOE-CELL1
-    ebgp-multihop 4
-    address-family ipv4 unicast
-       send-community both
-       route-map PERMIT_DEFAULT_ONLY out
-       default-originate
- neighbor 10.255.9.153 remote-as 65501
- description TO_dc1dcinxc3soeinner_DMZ-WEB-DC1-SOE-CELL1
-    ebgp-multihop 4
-    address-family ipv4 unicast
-       send-community both
-       route-map PERMIT_DEFAULT_ONLY out
-       default-originate
- neighbor 10.255.9.157 remote-as 65501
- description TO_dc1dcinxc4soeinner_DMZ-WEB-DC1-SOE-CELL1
     ebgp-multihop 4
     address-family ipv4 unicast
        send-community both
@@ -610,29 +190,8 @@ router bgp 65500
        send-community both
        route-map PERMIT_DEFAULT_ONLY out
        default-originate
- neighbor 10.255.10.97 remote-as 65501
- description TO_dc1dcinxc1soeinner_DMZ-B2B-DC1-SOE-CELL2
-    ebgp-multihop 4
-    address-family ipv4 unicast
-       send-community both
-       route-map PERMIT_DEFAULT_ONLY out
-       default-originate
  neighbor 10.255.10.101 remote-as 65501
  description TO_dc1dcinxc2soeinner_DMZ-B2B-DC1-SOE-CELL2
-    ebgp-multihop 4
-    address-family ipv4 unicast
-       send-community both
-       route-map PERMIT_DEFAULT_ONLY out
-       default-originate
- neighbor 10.255.10.101 remote-as 65501
- description TO_dc1dcinxc2soeinner_DMZ-B2B-DC1-SOE-CELL2
-    ebgp-multihop 4
-    address-family ipv4 unicast
-       send-community both
-       route-map PERMIT_DEFAULT_ONLY out
-       default-originate
- neighbor 10.255.10.105 remote-as 65501
- description TO_dc1dcinxc3soeinner_DMZ-B2B-DC1-SOE-CELL2
     ebgp-multihop 4
     address-family ipv4 unicast
        send-community both
@@ -652,29 +211,8 @@ router bgp 65500
        send-community both
        route-map PERMIT_DEFAULT_ONLY out
        default-originate
- neighbor 10.255.10.109 remote-as 65501
- description TO_dc1dcinxc4soeinner_DMZ-B2B-DC1-SOE-CELL2
-    ebgp-multihop 4
-    address-family ipv4 unicast
-       send-community both
-       route-map PERMIT_DEFAULT_ONLY out
-       default-originate
  neighbor 10.255.9.161 remote-as 65501
  description TO_dc1dcinxc1soeinner_DMZ-B2B-DC1-SOE-CELL1
-    ebgp-multihop 4
-    address-family ipv4 unicast
-       send-community both
-       route-map PERMIT_DEFAULT_ONLY out
-       default-originate
- neighbor 10.255.9.161 remote-as 65501
- description TO_dc1dcinxc1soeinner_DMZ-B2B-DC1-SOE-CELL1
-    ebgp-multihop 4
-    address-family ipv4 unicast
-       send-community both
-       route-map PERMIT_DEFAULT_ONLY out
-       default-originate
- neighbor 10.255.9.165 remote-as 65501
- description TO_dc1dcinxc2soeinner_DMZ-B2B-DC1-SOE-CELL1
     ebgp-multihop 4
     address-family ipv4 unicast
        send-community both
@@ -694,141 +232,8 @@ router bgp 65500
        send-community both
        route-map PERMIT_DEFAULT_ONLY out
        default-originate
- neighbor 10.255.9.169 remote-as 65501
- description TO_dc1dcinxc3soeinner_DMZ-B2B-DC1-SOE-CELL1
-    ebgp-multihop 4
-    address-family ipv4 unicast
-       send-community both
-       route-map PERMIT_DEFAULT_ONLY out
-       default-originate
  neighbor 10.255.9.173 remote-as 65501
  description TO_dc1dcinxc4soeinner_DMZ-B2B-DC1-SOE-CELL1
-    ebgp-multihop 4
-    address-family ipv4 unicast
-       send-community both
-       route-map PERMIT_DEFAULT_ONLY out
-       default-originate
- neighbor 10.255.9.173 remote-as 65501
- description TO_dc1dcinxc4soeinner_DMZ-B2B-DC1-SOE-CELL1
-    ebgp-multihop 4
-    address-family ipv4 unicast
-       send-community both
-       route-map PERMIT_DEFAULT_ONLY out
-       default-originate
- neighbor 10.255.10.81 remote-as 65501
- description TO_dc1dcinxc1soeinner_DMZ-WEB-DC1-SOE-CELL2
-    ebgp-multihop 4
-    address-family ipv4 unicast
-       send-community both
-       route-map PERMIT_DEFAULT_ONLY out
-       default-originate
- neighbor 10.255.10.81 remote-as 65501
- description TO_dc1dcinxc1soeinner_DMZ-WEB-DC1-SOE-CELL2
-    ebgp-multihop 4
-    address-family ipv4 unicast
-       send-community both
-       route-map PERMIT_DEFAULT_ONLY out
-       default-originate
- neighbor 10.255.10.85 remote-as 65501
- description TO_dc1dcinxc2soeinner_DMZ-WEB-DC1-SOE-CELL2
-    ebgp-multihop 4
-    address-family ipv4 unicast
-       send-community both
-       route-map PERMIT_DEFAULT_ONLY out
-       default-originate
- neighbor 10.255.10.85 remote-as 65501
- description TO_dc1dcinxc2soeinner_DMZ-WEB-DC1-SOE-CELL2
-    ebgp-multihop 4
-    address-family ipv4 unicast
-       send-community both
-       route-map PERMIT_DEFAULT_ONLY out
-       default-originate
- neighbor 10.255.10.89 remote-as 65501
- description TO_dc1dcinxc3soeinner_DMZ-WEB-DC1-SOE-CELL2
-    ebgp-multihop 4
-    address-family ipv4 unicast
-       send-community both
-       route-map PERMIT_DEFAULT_ONLY out
-       default-originate
- neighbor 10.255.10.89 remote-as 65501
- description TO_dc1dcinxc3soeinner_DMZ-WEB-DC1-SOE-CELL2
-    ebgp-multihop 4
-    address-family ipv4 unicast
-       send-community both
-       route-map PERMIT_DEFAULT_ONLY out
-       default-originate
- neighbor 10.255.10.93 remote-as 65501
- description TO_dc1dcinxc4soeinner_DMZ-WEB-DC1-SOE-CELL2
-    ebgp-multihop 4
-    address-family ipv4 unicast
-       send-community both
-       route-map PERMIT_DEFAULT_ONLY out
-       default-originate
- neighbor 10.255.10.93 remote-as 65501
- description TO_dc1dcinxc4soeinner_DMZ-WEB-DC1-SOE-CELL2
-    ebgp-multihop 4
-    address-family ipv4 unicast
-       send-community both
-       route-map PERMIT_DEFAULT_ONLY out
-       default-originate
- neighbor 10.255.9.145 remote-as 65501
- description TO_dc1dcinxc1soeinner_DMZ-WEB-DC1-SOE-CELL1
-    ebgp-multihop 4
-    address-family ipv4 unicast
-       send-community both
-       route-map PERMIT_DEFAULT_ONLY out
-       default-originate
- neighbor 10.255.9.145 remote-as 65501
- description TO_dc1dcinxc1soeinner_DMZ-WEB-DC1-SOE-CELL1
-    ebgp-multihop 4
-    address-family ipv4 unicast
-       send-community both
-       route-map PERMIT_DEFAULT_ONLY out
-       default-originate
- neighbor 10.255.9.149 remote-as 65501
- description TO_dc1dcinxc2soeinner_DMZ-WEB-DC1-SOE-CELL1
-    ebgp-multihop 4
-    address-family ipv4 unicast
-       send-community both
-       route-map PERMIT_DEFAULT_ONLY out
-       default-originate
- neighbor 10.255.9.149 remote-as 65501
- description TO_dc1dcinxc2soeinner_DMZ-WEB-DC1-SOE-CELL1
-    ebgp-multihop 4
-    address-family ipv4 unicast
-       send-community both
-       route-map PERMIT_DEFAULT_ONLY out
-       default-originate
- neighbor 10.255.9.153 remote-as 65501
- description TO_dc1dcinxc3soeinner_DMZ-WEB-DC1-SOE-CELL1
-    ebgp-multihop 4
-    address-family ipv4 unicast
-       send-community both
-       route-map PERMIT_DEFAULT_ONLY out
-       default-originate
- neighbor 10.255.9.153 remote-as 65501
- description TO_dc1dcinxc3soeinner_DMZ-WEB-DC1-SOE-CELL1
-    ebgp-multihop 4
-    address-family ipv4 unicast
-       send-community both
-       route-map PERMIT_DEFAULT_ONLY out
-       default-originate
- neighbor 10.255.9.157 remote-as 65501
- description TO_dc1dcinxc4soeinner_DMZ-WEB-DC1-SOE-CELL1
-    ebgp-multihop 4
-    address-family ipv4 unicast
-       send-community both
-       route-map PERMIT_DEFAULT_ONLY out
-       default-originate
- neighbor 10.255.9.157 remote-as 65501
- description TO_dc1dcinxc4soeinner_DMZ-WEB-DC1-SOE-CELL1
-    ebgp-multihop 4
-    address-family ipv4 unicast
-       send-community both
-       route-map PERMIT_DEFAULT_ONLY out
-       default-originate
- neighbor 10.255.9.225 remote-as 65501
- description TO_dc1dcinxc1soeinner_DMZ-PXY-DC1-SOE-CELL1
     ebgp-multihop 4
     address-family ipv4 unicast
        send-community both
@@ -848,29 +253,8 @@ router bgp 65500
        send-community both
        route-map PERMIT_DEFAULT_ONLY out
        default-originate
- neighbor 10.255.9.229 remote-as 65501
- description TO_dc1dcinxc2soeinner_DMZ-PXY-DC1-SOE-CELL1
-    ebgp-multihop 4
-    address-family ipv4 unicast
-       send-community both
-       route-map PERMIT_DEFAULT_ONLY out
-       default-originate
  neighbor 10.255.9.233 remote-as 65501
  description TO_dc1dcinxc3soeinner_DMZ-PXY-DC1-SOE-CELL1
-    ebgp-multihop 4
-    address-family ipv4 unicast
-       send-community both
-       route-map PERMIT_DEFAULT_ONLY out
-       default-originate
- neighbor 10.255.9.233 remote-as 65501
- description TO_dc1dcinxc3soeinner_DMZ-PXY-DC1-SOE-CELL1
-    ebgp-multihop 4
-    address-family ipv4 unicast
-       send-community both
-       route-map PERMIT_DEFAULT_ONLY out
-       default-originate
- neighbor 10.255.9.237 remote-as 65501
- description TO_dc1dcinxc4soeinner_DMZ-PXY-DC1-SOE-CELL1
     ebgp-multihop 4
     address-family ipv4 unicast
        send-community both
@@ -890,29 +274,8 @@ router bgp 65500
        send-community both
        route-map PERMIT_DEFAULT_ONLY out
        default-originate
- neighbor 10.255.10.113 remote-as 65501
- description TO_dc1dcinxc1soeinner_DMZ-MAL-DC1-SOE-CELL2
-    ebgp-multihop 4
-    address-family ipv4 unicast
-       send-community both
-       route-map PERMIT_DEFAULT_ONLY out
-       default-originate
  neighbor 10.255.10.117 remote-as 65501
  description TO_dc1dcinxc2soeinner_DMZ-MAL-DC1-SOE-CELL2
-    ebgp-multihop 4
-    address-family ipv4 unicast
-       send-community both
-       route-map PERMIT_DEFAULT_ONLY out
-       default-originate
- neighbor 10.255.10.117 remote-as 65501
- description TO_dc1dcinxc2soeinner_DMZ-MAL-DC1-SOE-CELL2
-    ebgp-multihop 4
-    address-family ipv4 unicast
-       send-community both
-       route-map PERMIT_DEFAULT_ONLY out
-       default-originate
- neighbor 10.255.10.121 remote-as 65501
- description TO_dc1dcinxc3soeinner_DMZ-MAL-DC1-SOE-CELL2
     ebgp-multihop 4
     address-family ipv4 unicast
        send-community both
@@ -932,85 +295,8 @@ router bgp 65500
        send-community both
        route-map PERMIT_DEFAULT_ONLY out
        default-originate
- neighbor 10.255.10.125 remote-as 65501
- description TO_dc1dcinxc4soeinner_DMZ-MAL-DC1-SOE-CELL2
-    ebgp-multihop 4
-    address-family ipv4 unicast
-       send-community both
-       route-map PERMIT_DEFAULT_ONLY out
-       default-originate
- neighbor 10.255.9.209 remote-as 65501
- description TO_dc1dcinxc1soeinner_DMZ-RAC-DC1-SOE-CELL1
-    ebgp-multihop 4
-    address-family ipv4 unicast
-       send-community both
-       route-map PERMIT_DEFAULT_ONLY out
-       default-originate
- neighbor 10.255.9.209 remote-as 65501
- description TO_dc1dcinxc1soeinner_DMZ-RAC-DC1-SOE-CELL1
-    ebgp-multihop 4
-    address-family ipv4 unicast
-       send-community both
-       route-map PERMIT_DEFAULT_ONLY out
-       default-originate
- neighbor 10.255.9.213 remote-as 65501
- description TO_dc1dcinxc2soeinner_DMZ-RAC-DC1-SOE-CELL1
-    ebgp-multihop 4
-    address-family ipv4 unicast
-       send-community both
-       route-map PERMIT_DEFAULT_ONLY out
-       default-originate
- neighbor 10.255.9.213 remote-as 65501
- description TO_dc1dcinxc2soeinner_DMZ-RAC-DC1-SOE-CELL1
-    ebgp-multihop 4
-    address-family ipv4 unicast
-       send-community both
-       route-map PERMIT_DEFAULT_ONLY out
-       default-originate
- neighbor 10.255.9.217 remote-as 65501
- description TO_dc1dcinxc3soeinner_DMZ-RAC-DC1-SOE-CELL1
-    ebgp-multihop 4
-    address-family ipv4 unicast
-       send-community both
-       route-map PERMIT_DEFAULT_ONLY out
-       default-originate
- neighbor 10.255.9.217 remote-as 65501
- description TO_dc1dcinxc3soeinner_DMZ-RAC-DC1-SOE-CELL1
-    ebgp-multihop 4
-    address-family ipv4 unicast
-       send-community both
-       route-map PERMIT_DEFAULT_ONLY out
-       default-originate
- neighbor 10.255.9.221 remote-as 65501
- description TO_dc1dcinxc4soeinner_DMZ-RAC-DC1-SOE-CELL1
-    ebgp-multihop 4
-    address-family ipv4 unicast
-       send-community both
-       route-map PERMIT_DEFAULT_ONLY out
-       default-originate
- neighbor 10.255.9.221 remote-as 65501
- description TO_dc1dcinxc4soeinner_DMZ-RAC-DC1-SOE-CELL1
-    ebgp-multihop 4
-    address-family ipv4 unicast
-       send-community both
-       route-map PERMIT_DEFAULT_ONLY out
-       default-originate
  neighbor 10.255.9.177 remote-as 65501
  description TO_dc1dcinxc1soeinner_DMZ-MAL-DC1-SOE-CELL1
-    ebgp-multihop 4
-    address-family ipv4 unicast
-       send-community both
-       route-map PERMIT_DEFAULT_ONLY out
-       default-originate
- neighbor 10.255.9.177 remote-as 65501
- description TO_dc1dcinxc1soeinner_DMZ-MAL-DC1-SOE-CELL1
-    ebgp-multihop 4
-    address-family ipv4 unicast
-       send-community both
-       route-map PERMIT_DEFAULT_ONLY out
-       default-originate
- neighbor 10.255.9.181 remote-as 65501
- description TO_dc1dcinxc2soeinner_DMZ-MAL-DC1-SOE-CELL1
     ebgp-multihop 4
     address-family ipv4 unicast
        send-community both
@@ -1030,85 +316,8 @@ router bgp 65500
        send-community both
        route-map PERMIT_DEFAULT_ONLY out
        default-originate
- neighbor 10.255.9.185 remote-as 65501
- description TO_dc1dcinxc3soeinner_DMZ-MAL-DC1-SOE-CELL1
-    ebgp-multihop 4
-    address-family ipv4 unicast
-       send-community both
-       route-map PERMIT_DEFAULT_ONLY out
-       default-originate
  neighbor 10.255.9.189 remote-as 65501
  description TO_dc1dcinxc4soeinner_DMZ-MAL-DC1-SOE-CELL1
-    ebgp-multihop 4
-    address-family ipv4 unicast
-       send-community both
-       route-map PERMIT_DEFAULT_ONLY out
-       default-originate
- neighbor 10.255.9.189 remote-as 65501
- description TO_dc1dcinxc4soeinner_DMZ-MAL-DC1-SOE-CELL1
-    ebgp-multihop 4
-    address-family ipv4 unicast
-       send-community both
-       route-map PERMIT_DEFAULT_ONLY out
-       default-originate
- neighbor 10.255.10.129 remote-as 65501
- description TO_dc1dcinxc1soeinner_DMZ-DNS-DC1-SOE-CELL2
-    ebgp-multihop 4
-    address-family ipv4 unicast
-       send-community both
-       route-map PERMIT_DEFAULT_ONLY out
-       default-originate
- neighbor 10.255.10.129 remote-as 65501
- description TO_dc1dcinxc1soeinner_DMZ-DNS-DC1-SOE-CELL2
-    ebgp-multihop 4
-    address-family ipv4 unicast
-       send-community both
-       route-map PERMIT_DEFAULT_ONLY out
-       default-originate
- neighbor 10.255.10.133 remote-as 65501
- description TO_dc1dcinxc2soeinner_DMZ-DNS-DC1-SOE-CELL2
-    ebgp-multihop 4
-    address-family ipv4 unicast
-       send-community both
-       route-map PERMIT_DEFAULT_ONLY out
-       default-originate
- neighbor 10.255.10.133 remote-as 65501
- description TO_dc1dcinxc2soeinner_DMZ-DNS-DC1-SOE-CELL2
-    ebgp-multihop 4
-    address-family ipv4 unicast
-       send-community both
-       route-map PERMIT_DEFAULT_ONLY out
-       default-originate
- neighbor 10.255.10.137 remote-as 65501
- description TO_dc1dcinxc3soeinner_DMZ-DNS-DC1-SOE-CELL2
-    ebgp-multihop 4
-    address-family ipv4 unicast
-       send-community both
-       route-map PERMIT_DEFAULT_ONLY out
-       default-originate
- neighbor 10.255.10.137 remote-as 65501
- description TO_dc1dcinxc3soeinner_DMZ-DNS-DC1-SOE-CELL2
-    ebgp-multihop 4
-    address-family ipv4 unicast
-       send-community both
-       route-map PERMIT_DEFAULT_ONLY out
-       default-originate
- neighbor 10.255.10.141 remote-as 65501
- description TO_dc1dcinxc4soeinner_DMZ-DNS-DC1-SOE-CELL2
-    ebgp-multihop 4
-    address-family ipv4 unicast
-       send-community both
-       route-map PERMIT_DEFAULT_ONLY out
-       default-originate
- neighbor 10.255.10.141 remote-as 65501
- description TO_dc1dcinxc4soeinner_DMZ-DNS-DC1-SOE-CELL2
-    ebgp-multihop 4
-    address-family ipv4 unicast
-       send-community both
-       route-map PERMIT_DEFAULT_ONLY out
-       default-originate
- neighbor 10.255.9.193 remote-as 65501
- description TO_dc1dcinxc1soeinner_DMZ-DNS-DC1-SOE-CELL1
     ebgp-multihop 4
     address-family ipv4 unicast
        send-community both
@@ -1128,29 +337,8 @@ router bgp 65500
        send-community both
        route-map PERMIT_DEFAULT_ONLY out
        default-originate
- neighbor 10.255.9.197 remote-as 65501
- description TO_dc1dcinxc2soeinner_DMZ-DNS-DC1-SOE-CELL1
-    ebgp-multihop 4
-    address-family ipv4 unicast
-       send-community both
-       route-map PERMIT_DEFAULT_ONLY out
-       default-originate
  neighbor 10.255.9.201 remote-as 65501
  description TO_dc1dcinxc3soeinner_DMZ-DNS-DC1-SOE-CELL1
-    ebgp-multihop 4
-    address-family ipv4 unicast
-       send-community both
-       route-map PERMIT_DEFAULT_ONLY out
-       default-originate
- neighbor 10.255.9.201 remote-as 65501
- description TO_dc1dcinxc3soeinner_DMZ-DNS-DC1-SOE-CELL1
-    ebgp-multihop 4
-    address-family ipv4 unicast
-       send-community both
-       route-map PERMIT_DEFAULT_ONLY out
-       default-originate
- neighbor 10.255.9.205 remote-as 65501
- description TO_dc1dcinxc4soeinner_DMZ-DNS-DC1-SOE-CELL1
     ebgp-multihop 4
     address-family ipv4 unicast
        send-community both
@@ -1170,20 +358,6 @@ router bgp 65500
        send-community both
        route-map PERMIT_DEFAULT_ONLY out
        default-originate
- neighbor 10.255.10.129 remote-as 65501
- description TO_dc1dcinxc1soeinner_DMZ-DNS-DC1-SOE-CELL2
-    ebgp-multihop 4
-    address-family ipv4 unicast
-       send-community both
-       route-map PERMIT_DEFAULT_ONLY out
-       default-originate
- neighbor 10.255.10.133 remote-as 65501
- description TO_dc1dcinxc2soeinner_DMZ-DNS-DC1-SOE-CELL2
-    ebgp-multihop 4
-    address-family ipv4 unicast
-       send-community both
-       route-map PERMIT_DEFAULT_ONLY out
-       default-originate
  neighbor 10.255.10.133 remote-as 65501
  description TO_dc1dcinxc2soeinner_DMZ-DNS-DC1-SOE-CELL2
     ebgp-multihop 4
@@ -1193,20 +367,6 @@ router bgp 65500
        default-originate
  neighbor 10.255.10.137 remote-as 65501
  description TO_dc1dcinxc3soeinner_DMZ-DNS-DC1-SOE-CELL2
-    ebgp-multihop 4
-    address-family ipv4 unicast
-       send-community both
-       route-map PERMIT_DEFAULT_ONLY out
-       default-originate
- neighbor 10.255.10.137 remote-as 65501
- description TO_dc1dcinxc3soeinner_DMZ-DNS-DC1-SOE-CELL2
-    ebgp-multihop 4
-    address-family ipv4 unicast
-       send-community both
-       route-map PERMIT_DEFAULT_ONLY out
-       default-originate
- neighbor 10.255.10.141 remote-as 65501
- description TO_dc1dcinxc4soeinner_DMZ-DNS-DC1-SOE-CELL2
     ebgp-multihop 4
     address-family ipv4 unicast
        send-community both
