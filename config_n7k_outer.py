@@ -113,34 +113,9 @@ def outer_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa
                   
                     if outervlan not in vllist:
                    
-<<<<<<< HEAD
-                    
-                    gen_int_config = gen_int_config + 1
-            
-            
-            
-            if gen_int_config > 0:
-                outervdcvlan =  ws_definition_data[district][vsys][0]['outervdcencap']
-                ospfarea     =  ws_definition_data[district][vsys][0]['ospf' + dc]
-                
-                # Have to change this.  Change data structure to district->vsys->vlan->n7k[0]->[dc + 'n7kip']
-                n7kip        =  outer_to_pa_data[district][vsys][outervdcvlan][nexusvdc][0][dc + 'n7kip']
-               
-                commands.append("! Create L2 VLAN")
-                commands.append("vlan " + str(outervdcvlan) )
-                commands.append("!")
-                commands.append("interface vlan " + str(outervdcvlan))
-                commands.append("  description L3_%s_%s" % (district,vsys))
-                commands.append("  ip address %s 255.255.255.252" % (n7kip))
-                commands.append("  mtu 9192")
-                commands.append("  ip ospf network point-to-point")
-                commands.append("  ip router ospf %s area 0.0.0.%s" % (district,ospfarea))
-                commands.append("  no shutdown")
-=======
                         ospfarea = attrib['ospf' + dc]
                         #outervdcvlan =  ws_definition_data[district][vsys][0]['outervdcencap']
                         #ospfarea     =  ws_definition_data[district][vsys][0]['ospf' + dc]
->>>>>>> b0cd5a971a75df86df4e1a163a98a11623d08a05
                 
                         # Have to change this.  Change data structure to district->vsys->vlan->n7k[0]->[dc + 'n7kip']
                         n7kip        =  outer_to_pa_data[district][vsys][outervlan][nexusvdc][0][dc + 'n7kip']
@@ -1656,7 +1631,6 @@ def process_xlsx(filename,dc1portmap,dc2portmap,debug):
       
     '''
     n7k_fw_int = {}
-
     n7k_fw_int =  { 'SOE' : { 'Outer' : { 'N7K-A' :  { 'dc1'  : { 'int1' : 'E2/21', 'int2' : 'E2/29' }, 'dc2' : { 'int1' : 'E2/21', 'int2' : 'E2/29'} }, 'N7K-B' : { 'dc1'  : { 'int1' : 'E2/21', 'int2' : 'E2/29' }, 'dc2' : { 'int1' : 'E2/21', 'int2' : 'E2/29'} }, 'N7K-C' : { 'dc1'  : { 'int1' : 'E2/21', 'int2' : 'E2/29' }, 'dc2' : { 'int1' : 'E2/21', 'int2' : 'E2/29'}  }, 'N7K-D' : { 'dc1'  : { 'int1' : 'E2/21', 'int2' : 'E2/29' }, 'dc2' : { 'int1' : 'E2/21', 'int2' : 'E2/29'} } }  } }
     n7k_fw_int['SOE'].update({'Inner' : { 'N7K-A' :  { 'dc1'  : { 'int1' : 'E2/21', 'int2' : 'E2/29' }, 'dc2' : { 'int1' : 'E2/21', 'int2' : 'E2/29'} }, 'N7K-B' : { 'dc1'  : { 'int1' : 'E2/21', 'int2' : 'E2/29' }, 'dc2' : { 'int1' : 'E2/21', 'int2' : 'E2/29'} }, 'N7K-C' : { 'dc1'  : { 'int1' : 'E2/21', 'int2' : 'E2/29' }, 'dc2' : { 'int1' : 'E2/21', 'int2' : 'E2/29'}  }, 'N7K-D' : { 'dc1'  : { 'int1' : 'E2/21', 'int2' : 'E2/29' }, 'dc2' : { 'int1' : 'E2/21', 'int2' : 'E2/29'} } }   })
     
