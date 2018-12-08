@@ -12,11 +12,21 @@ from IPy import IP
 import requests
 import time
 from fileinput import filename
+import warnings
+
+warnings.filterwarnings("ignore")
 
 # MUST USE CUSTOM PORT MAP FILE
 # ZONES VLAN AND IP FILE MUST HAVE yes/no in column H
 
-def inner_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa_data,n7k_fw_int,loopback_data,configure,lines,detailops,sandwich_fw):
+def getValueWithMergeLookup(sheet, cell):
+    for m_range in sheet.merged_cell_ranges:
+        merged_cells = list(openpyxl.utils.rows_from_range(m_range))
+        for row in merged_cells:
+            if cell in row:
+                return sheet.cell(merged_cells[0][0]).value
+
+def inner_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa_data,n7k_fw_int,loopback_data,configure,lines,detailops):
    
     commands = []
     loopback_position  = {'N7K-A' : 1, 'N7K-B' : 2, 'N7K-C' : 3, 'N7K-D' : 4, 'N7K-E' : 1, 'N7K-F' : 2}
@@ -43,7 +53,14 @@ def inner_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa
                 subzone      =  attribs['subzone']
                 prifw        =  attribs[dc + 'prifwname']
                 sbyfw        =  attribs[dc + 'sbyfwname']
+                
+                if bool(re.search('CELL',subzone, re.IGNORECASE)):
+                    if subzone[:3] != dc:
+                        continue
+                    subzone = subzone.replace(dc,"")
+                
                 n7kip        =  final_all_inner_data[district][subzone][nexusvdc][0][dc + 'n7kip']
+                
                 commands.append("! Create L2 VLAN")
                 commands.append("vlan " + str(innervdcvlan) )
                 commands.append("!")
@@ -125,6 +142,7 @@ def inner_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa
                 
         for vsys in ws_definition_data[district]:
             for attribs in ws_definition_data[district][vsys]:
+                outervl = int(attribs['outervdcencap'])
                 
                 if attribs['config'] == 'no':
                     continue
@@ -152,7 +170,7 @@ def inner_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa
                         outervdc = dc + 'dcinxc' + str(n7k_n) + 'dciouter'                
                     
                     tname = vsys + "-" + dc.upper() + "-" + district  
-                    neighbor_ip = outer_to_pa_data[district][vsys]['N7K-' + str(n7k_l)][0][dc + 'n7kip']
+                    neighbor_ip = outer_to_pa_data[district][vsys][outervl]['N7K-' + str(n7k_l)][0][dc + 'n7kip']
                 
                     commands.append(" neighbor %s remote-as %s" % (neighbor_ip,outer_as))
                     commands.append(" description TO_%s_%s" % (outervdc,tname))
@@ -192,8 +210,7 @@ def inner_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa
             if 'fw' in detailops or 'NONE' in detailops:  
                 for interfaces in n7k_fw_int[district]['INNER'][nexusvdc][dc][fw]:
                     fwint = interfaces['int']
-                
-                    remfwint = sandwich_fw[district]['INNER'][nexusvdc][dc.upper()][fw][fwint]
+                    remfwint = interfaces['ext']
                     
                     if configure is True and ( 'fw' in detailops or 'NONE' in detailops) :
                         curr_allowed_list = send_to_n7k_api_show("show int %s switchport" % (fwint),device_ip,district,dc,nexusvdc,device_un,device_pw)
@@ -365,23 +382,30 @@ def get_outer_to_pa(wb):
             cell = 'A' + str(x)
             value = ws[cell].value 
             
-            if value is not None and  \
-            not bool((re.search('Addressing',value,re.IGNORECASE))) and \
-            not bool((re.search('Mask',value,re.IGNORECASE))) and \
-            value != "vSYS":
-                value = value.strip()
+            if isinstance(value,(int, long)):
+                outervl = value
+            
+            else:
+                if value is not None and  \
+                    not bool((re.search('Addressing',value,re.IGNORECASE))) and \
+                    not bool((re.search('Mask',value,re.IGNORECASE))) and \
+                    value != "vSYS":
+                
+                    value = value.strip()
 
-                if value == 'SDE':
-                    district = value
-                elif value == 'SOE':
-                    district = value
-                elif value == 'GIS':
-                    district = value
-                else:
-                    tenant = value
-                    tenant = tenant.upper()
-                    tenant = tenant.replace(" ","_")
-                    tenant = tenant.replace('_X000D__X000D_','')
+                    if value == 'SDE':
+                        district = value
+                    elif value == 'SOE':
+                        district = value
+                    elif value == 'GIS':
+                        district = value
+                    else:
+                        tenant = value
+                        tenant = tenant.upper()
+                        tenant = tenant.replace(" ","_")
+                        tenant = tenant.replace('_X000D__X000D_','')
+                        outervl = ws['A' + str((x+1))].value
+                        
             # Get PA IP DC1
             cell = 'B' + str(x)
             value = ws[cell].value 
@@ -464,28 +488,39 @@ def get_outer_to_pa(wb):
             
             if district in data:
                 if tenant in data[district]:
-                    if n7k in data[district][tenant]:
-                            data[district][tenant][n7k].append(
+                    if outervl in data[district][tenant]:
+                        if n7k in data[district][tenant][outervl]:
+                            data[district][tenant][outervl][n7k].append(
                                     {
                                      'dc1paip'     : dc1paip,
                                      'dc1n7kip'    : dc1n7kip,
                                      'dc2paip'     : dc2paip,
                                      'dc2n7kip'    : dc2n7kip
                                    })
-                            # If district exists, but not tenant, add new key (tenant) and initial attributes
-                    else:
-                            data[district][tenant][n7k] = [ {  
+                        else:
+                            data[district][tenant][outervl][n7k] = [ {  
                                      
                                      'dc1paip'     : dc1paip,
                                      'dc1n7kip'    : dc1n7kip,
                                      'dc2paip'     : dc2paip,
                                      'dc2n7kip'    : dc2n7kip
+                            } ]
+                            # If district exists, but not tenant, add new key (tenant) and initial attributes
+                    else:
+                            data[district][tenant][outervl] = {}
+                            data[district][tenant][outervl][n7k] = [ {  
                                      
+                                     'dc1paip'     : dc1paip,
+                                     'dc1n7kip'    : dc1n7kip,
+                                     'dc2paip'     : dc2paip,
+                                     'dc2n7kip'    : dc2n7kip
                                      } ]
                             
                 else:
                     data[district][tenant] = {}        
-                    data[district][tenant][n7k] = [ {  
+                    data[district][tenant][outervl] = {}
+                    data[district][tenant][outervl][n7k] = [ { 
+                         
                                   'dc1paip'     : dc1paip,
                                   'dc1n7kip'    : dc1n7kip,
                                   'dc2paip'     : dc2paip,
@@ -499,14 +534,17 @@ def get_outer_to_pa(wb):
                               { 
                                 tenant :  
                                     { 
+                                    outervl : {
+                                        
                                       n7k : [ 
-                                     {
-                                     'dc1paip'     : dc1paip,
-                                     'dc1n7kip'    : dc1n7kip,
-                                     'dc2paip'     : dc2paip,
-                                     'dc2n7kip'    : dc2n7kip
-                                    }
+                                      {
+                                      'dc1paip'     : dc1paip,
+                                      'dc1n7kip'    : dc1n7kip,
+                                      'dc2paip'     : dc2paip,
+                                      'dc2n7kip'    : dc2n7kip
+                                     }
                                     ] 
+                                    }
                                 }
                               } 
                          })
@@ -585,6 +623,9 @@ def get_loopback(wb):
             cell = 'G' + str(x)
             value = ws[cell].value 
             
+            if value is None:
+                continue
+            
             if value is not None and not bool((re.search('Description',value,re.IGNORECASE))) and value != 'DC2':
                 dc2desc = value
                 dc2desc = dc2desc.strip()
@@ -640,6 +681,7 @@ def get_inner_to_pa(wb,district):
         row_start = ws.min_row
         row_end   = ws.max_row
         data = {}
+        szonelist = []
         
         if district in ("SOE","GIS"):
             max_n7k = 4
@@ -691,17 +733,7 @@ def get_inner_to_pa(wb,district):
                 else:
                     dc1pafwip = value
             
-            # get sub zone name
-            cell = 'E'  + str(x)
-            value = ws[cell].value
-               
-            if value != 0 and value is not None and not bool((re.search('Zone',value,re.IGNORECASE))):
-                subzone = value
-                subzone = subzone.strip()
-                subzone = subzone.replace(' ',"_")
-                subzone = subzone.upper()
-                
-                
+            
             # get N7K VRF Name DC1
             cell = 'F'  + str(x)
             value = ws[cell].value
@@ -717,7 +749,39 @@ def get_inner_to_pa(wb,district):
             if value != 0 and value is not None and value != 'DC1 ' and value != 'DC2' and not bool((re.search('N7K',value,re.IGNORECASE))) :
                 n7kvrfdc2 = value
                 n7kvrfdc2 = n7kvrfdc2.strip()
-
+            
+            # get sub zone name
+            cell = 'E'  + str(x)
+            value = ws[cell].value
+            
+            if value is not None and value != 0 and not bool(re.search('Cell',value, re.IGNORECASE)) and not bool((re.search('Zone',value,re.IGNORECASE))) :
+                szonelist = []
+                szone = value
+                szone = szone.strip()
+                szone = szone.replace(" ","_")
+                szone = szone.upper()
+                szonelist.append(szone)
+                
+            if value is not None and value != 0 and bool(re.search('Cell',value, re.IGNORECASE))  :
+                szonelist = []
+                dc1cellszone = value
+                dc1cellszone = dc1cellszone.strip()
+                dc1cellszone = dc1cellszone.replace(" ","_")
+                dc1cellszone = dc1cellszone.upper()
+                dc1cellnum = n7kvrfdc1[-1:]
+                dc1cellszone = dc1cellszone.replace("<CELL_#>",dc1cellnum)
+            
+                dc2cellszone = value
+                dc2cellszone = dc2cellszone.strip()
+                dc2cellszone = dc2cellszone.replace(" ","_")
+                dc2cellszone = dc2cellszone.upper()
+                dc2cellnum = n7kvrfdc2[-1:]
+                dc2cellszone = dc2cellszone.replace("<CELL_#>",dc2cellnum)
+                
+                szonelist.append(dc1cellszone)
+                szonelist.append(dc2cellszone)   
+            
+            
             # get N7K IP DC2
             cell = 'H'  + str(x)
             value = ws[cell].value
@@ -748,11 +812,12 @@ def get_inner_to_pa(wb,district):
             # Use Debug option to print data
                 
             # If subzone and connection exist, append attributes as a list
-                if district in data:
-                    if subzone in data[district]:
-                        if connectdesc in data[district][subzone]:
-                            if len(data[district][subzone]) < max_n7k:
-                                data[district][subzone][connectdesc].append(
+            for subzone in szonelist:
+                    if district in data:
+                        if subzone in data[district]:
+                            if connectdesc in data[district][subzone]:
+                                if len(data[district][subzone]) < max_n7k:
+                                    data[district][subzone][connectdesc].append(
                                         {
                                          'vrfnumber'     : vrfnumber,
                                          'dc1n7kip'      : dc1n7kip,
@@ -762,8 +827,10 @@ def get_inner_to_pa(wb,district):
                                          'dc2n7kip'      : dc2n7kip,
                                          'dc2pafwip'     : dc2pafwip
                                         })
+                                
+                                
                 # If district exists, but not tenant, add new key (tenant) and initial attributes
-                        else:
+                            else:
                                 data[district][subzone][connectdesc] = [ {  
                                   'vrfnumber'     : vrfnumber,
                                   'dc1n7kip'      : dc1n7kip,
@@ -773,9 +840,9 @@ def get_inner_to_pa(wb,district):
                                   'dc2n7kip'      : dc2n7kip,
                                   'dc2pafwip'     : dc2pafwip
                                 } ]
-                    else:
-                        data[district][subzone] = {}        
-                        data[district][subzone][connectdesc] = [ {  
+                        else:
+                            data[district][subzone] = {}        
+                            data[district][subzone][connectdesc] = [ {  
                                   'vrfnumber'     : vrfnumber,
                                   'dc1n7kip'      : dc1n7kip,
                                   'dc1pafwip'     : dc1pafwip,
@@ -787,8 +854,8 @@ def get_inner_to_pa(wb,district):
                         
 
                 # Initial key/value assignment
-                else:
-                    data.update({  
+                    else:
+                        data.update({  
                          district :  
                                  { 
                                       subzone : 
@@ -808,8 +875,7 @@ def get_inner_to_pa(wb,district):
                                               }
                                  } 
                     })
-   
-
+        
         return data
 
 def getfwint(wb,dc,data):
@@ -842,14 +908,21 @@ def getfwint(wb,dc,data):
             
             if bool(re.search(dc,str(vals.value), re.IGNORECASE)):
                 vals.value = vals.value.replace(" ","")
-                fwname   = vals.value[:-6].lower()
                 district = vals.value[3:6].upper()
                 dloc     = vals.value[-5:].upper()
                 
-                if bool(re.search(dc, ws[vals.column + str(vals.row-1)].value, re.IGNORECASE)):
+                raw_d = vals.value.split("-")
+                fwname   = raw_d[0]
+                extint   = raw_d[1]
+                extint   = 'E' + extint
+                extint   = extint.replace(":","/")
+                extint   = extint.replace("E0","E")
+                
+                if bool(re.search(dc, ws[vals.column + str(vals.row-1)].value, re.IGNORECASE)) or bool(re.search('7706', ws[vals.column + str(vals.row-1)].value, re.IGNORECASE)):
                     interface = ws[vals.column + str(vals.row+1)].value
                 else:
                     interface = ws[vals.column + str(vals.row-1)].value
+                
                     
                 interface = "E" + interface
                 interface = interface.replace("-","/")
@@ -860,21 +933,21 @@ def getfwint(wb,dc,data):
                         if n7k in data[district][dloc]:
                             if dc in data[district][dloc][n7k]:
                                 if fwname in data[district][dloc][n7k][dc]:
-                                    data[district][dloc][n7k][dc][fwname].append({'int'  : interface })
+                                    data[district][dloc][n7k][dc][fwname].append({'int'  : interface, 'ext' : extint })
                                 else:
-                                    data[district][dloc][n7k][dc][fwname] = [{'int' : interface}]
+                                    data[district][dloc][n7k][dc][fwname] = [{'int' : interface, 'ext' : extint}]
                             else:
                                 data[district][dloc][n7k][dc] = {}
-                                data[district][dloc][n7k][dc][fwname] = [{ 'int' : interface}]
+                                data[district][dloc][n7k][dc][fwname] = [{ 'int' : interface, 'ext' : extint}]
                         else:
                             data[district][dloc][n7k] = {}
                             data[district][dloc][n7k][dc] = {}
-                            data[district][dloc][n7k][dc][fwname] = [{ 'int' : interface}]
+                            data[district][dloc][n7k][dc][fwname] = [{ 'int' : interface, 'ext' : extint}]
                     else:
                         data[district][dloc] = {}
                         data[district][dloc][n7k] = {}
                         data[district][dloc][n7k][dc] = {}
-                        data[district][dloc][n7k][dc][fwname] = [{ 'int' : interface}]                 
+                        data[district][dloc][n7k][dc][fwname] = [{ 'int' : interface, 'ext' : extint}]                 
                                     
                 else:
                     data.update({  
@@ -889,18 +962,19 @@ def getfwint(wb,dc,data):
                                             fwname :
                                             [ 
                                                 {
-                                                'int'     : interface
+                                                'int'     : interface, 'ext' : extint
                                                 }
                                             ] 
                                          }
                                              
-                                }}}})
-               
+                                }}}})           
     return data
 
 def process_xlsx(filename,dc1portmap,dc2portmap,debug):
     worksheets = []
     ws_definition_data = {}
+    szonelist = []
+    
 
     # Important worksheets
     ws_definition = "SOE_SDE_GIS_VRF_RT_Definition"
@@ -955,25 +1029,14 @@ def process_xlsx(filename,dc1portmap,dc2portmap,debug):
                 tenant = tenant.replace(" ","_")
                 tenant = tenant.upper()
          
-            # Get Sub Zone
-            cell = 'C' + str(x)
-            value = ws[cell].value 
-           
-            # Skip row if there is no value (empty row)
-            if value is None:
-               continue
-            if value is not None and not bool(re.search('Sub Zone',value, re.IGNORECASE)):
-                szone = value
-                szone = szone.strip()
-                szone = szone.replace(" ","_")
-                szone = szone.upper()
             
             # Get Firewall (Inside Cell, Internal, Mainframe, Money Movement
             # 01-24-2018: Only get Internal FW
+            # 01-30-2018: Get Internal FW and Inside Cell FW
             cell = 'D' + str(x)
             value = ws[cell].value 
             
-            if value is not None and bool(re.search('Internal',value, re.IGNORECASE)):
+            if value is not None and not ( bool(re.search('Mainframe',value, re.IGNORECASE)) ):
                 fwtype = value
             else:
                 continue
@@ -1007,7 +1070,7 @@ def process_xlsx(filename,dc1portmap,dc2portmap,debug):
                     
             # Get VRF #
             cell = 'G' + str(x)
-            value = ws[cell].value 
+            value = ws[cell].value
             
             if value is not None and value != 'VRF' and value != '#':
                     vrf = value
@@ -1041,6 +1104,41 @@ def process_xlsx(filename,dc1portmap,dc2portmap,debug):
             if value is not None and not bool(re.search('N7K',value, re.IGNORECASE)) and value != 'DC1' and value != 'DC2':
                     vrfnamedc2 = value
                     vrfnamedc2 = vrfnamedc2.strip()
+            
+            
+            # Get Sub Zone - moved to after column J to accomodate for different cells
+            cell = 'C' + str(x)
+            value = ws[cell].value 
+           
+            # Skip row if there is no value (empty row)
+            if value is None:
+               continue
+            if value is not None and not bool(re.search('Sub Zone',value, re.IGNORECASE)) and not bool(re.search('Cell',value, re.IGNORECASE))  :
+                szone = value
+                szone = szone.strip()
+                szone = szone.replace(" ","_")
+                szone = szone.upper()
+                szonelist.append(szone)
+                
+            else:
+                dc1cellszone = value
+                dc1cellszone = dc1cellszone.strip()
+                dc1cellszone = dc1cellszone.replace(" ","_")
+                dc1cellszone = dc1cellszone.upper()
+                dc1cellnum = vrfnamedc1[-1:]
+                dc1cellszone = dc1cellszone.replace("<CELL_#>",dc1cellnum)
+                dc1cellszone = 'dc1' + dc1cellszone 
+                
+                dc2cellszone = value
+                dc2cellszone = dc2cellszone.strip()
+                dc2cellszone = dc2cellszone.replace(" ","_")
+                dc2cellszone = dc2cellszone.upper()
+                dc2cellnum = vrfnamedc2[-1:]
+                dc2cellszone = dc2cellszone.replace("<CELL_#>",dc2cellnum)
+                dc2cellszone = 'dc2' + dc2cellszone
+                
+                szonelist.append(dc1cellszone)
+                szonelist.append(dc2cellszone)
             
             # RT DC1
             cell = 'K' + str(x)
@@ -1085,16 +1183,20 @@ def process_xlsx(filename,dc1portmap,dc2portmap,debug):
             cell = 'P' + str(x)
             value = ws[cell].value 
             
-            if value is not None and not bool(re.search('encapsulation',str(value), re.IGNORECASE)) and not bool(re.search('Inside',str(value), re.IGNORECASE)):
-                    outvdcencap = value
+            if not bool(re.search('encapsulation',str(value), re.IGNORECASE)) and not bool(re.search('Inside',str(value), re.IGNORECASE)):
+                     outvdcencap = getValueWithMergeLookup(ws, cell)
+                     
+                     if outvdcencap is None:
+                         outvdcencap = value
                      
            # Push data into dictionary
            # Use Debug option to print data
 
             # If tenant and district exist, append attributes as a list
-            if district in ws_definition_data:
-                if tenant in ws_definition_data[district]:
-                  ws_definition_data[district][tenant].append(
+            for szone in szonelist:
+                if district in ws_definition_data:
+                    if tenant in ws_definition_data[district]:
+                        ws_definition_data[district][tenant].append(
                                     {
                                      'vrfnumber'     : vrf,
                                      'subzone'       : szone,
@@ -1113,9 +1215,9 @@ def process_xlsx(filename,dc1portmap,dc2portmap,debug):
                                      'dc2prifwname'  : dc2prifwname,
                                      'dc2sbyfwname'  : dc2sbyfwname
                                    })
-                # If district exists, but not tenant, add new key (tenant) and initial attributes
-                else:
-                    ws_definition_data[district][tenant] = [ {  
+                        # If district exists, but not tenant, add new key (tenant) and initial attributes
+                    else:
+                        ws_definition_data[district][tenant] = [ {  
                                      
                                       'vrfnumber'     : vrf,
                                       'subzone'       : szone,
@@ -1136,7 +1238,7 @@ def process_xlsx(filename,dc1portmap,dc2portmap,debug):
                                      } ]
 
             # Initial key/value assignment
-            else:
+                else:
                     ws_definition_data.update({  
                               district :  
                               { 
@@ -1162,7 +1264,9 @@ def process_xlsx(filename,dc1portmap,dc2portmap,debug):
                                 ] 
                               } 
                          })
-       
+                
+            szonelist = []
+                
         if debug == True :
             print '{ ' +  'SOE_SDE_GIS_VRF_RT_Definition' + ':'  + json.dumps(ws_definition_data) + ' } '
             
@@ -1284,36 +1388,13 @@ def process_xlsx(filename,dc1portmap,dc2portmap,debug):
         n7k_fw_int = getfwint(pm,'dc2',n7k_fw_int)
     
     pm.close()  
-    
-      
-    '''
-    n7k_fw_int = {}
-
-    n7k_fw_int =  { 'SOE' : { 'Outer' : { 'N7K-A' :  { 'dc1'  : { 'int1' : 'E2/21', 'int2' : 'E2/29' }, 'dc2' : { 'int1' : 'E2/21', 'int2' : 'E2/29'} }, 'N7K-B' : { 'dc1'  : { 'int1' : 'E2/21', 'int2' : 'E2/29' }, 'dc2' : { 'int1' : 'E2/21', 'int2' : 'E2/29'} }, 'N7K-C' : { 'dc1'  : { 'int1' : 'E2/21', 'int2' : 'E2/29' }, 'dc2' : { 'int1' : 'E2/21', 'int2' : 'E2/29'}  }, 'N7K-D' : { 'dc1'  : { 'int1' : 'E2/21', 'int2' : 'E2/29' }, 'dc2' : { 'int1' : 'E2/21', 'int2' : 'E2/29'} } }  } }
-    n7k_fw_int['SOE'].update({'Inner' : { 'N7K-A' :  { 'dc1'  : { 'int1' : 'E2/21', 'int2' : 'E2/29' }, 'dc2' : { 'int1' : 'E2/21', 'int2' : 'E2/29'} }, 'N7K-B' : { 'dc1'  : { 'int1' : 'E2/21', 'int2' : 'E2/29' }, 'dc2' : { 'int1' : 'E2/21', 'int2' : 'E2/29'} }, 'N7K-C' : { 'dc1'  : { 'int1' : 'E2/21', 'int2' : 'E2/29' }, 'dc2' : { 'int1' : 'E2/21', 'int2' : 'E2/29'}  }, 'N7K-D' : { 'dc1'  : { 'int1' : 'E2/21', 'int2' : 'E2/29' }, 'dc2' : { 'int1' : 'E2/21', 'int2' : 'E2/29'} } }   })
-    
-    n7k_fw_int.update({'GIS' : { 'Outer' : { 'N7K-A' :  { 'dc1'  : { 'int1' : 'E2/22', 'int2' : 'E2/30' }, 'dc2' : { 'int1' : 'E2/22', 'int2' : 'E2/30'} }, 'N7K-B' : { 'dc1'  : { 'int1' : 'E2/22', 'int2' : 'E2/30' }, 'dc2' : { 'int1' : 'E2/22', 'int2' : 'E2/30'} }, 'N7K-C' : { 'dc1'  : { 'int1' : 'E2/22', 'int2' : 'E2/30' }, 'dc2' : { 'int1' : 'E2/22', 'int2' : 'E2/30'}  }, 'N7K-D' : { 'dc1'  : { 'int1' : 'E2/22', 'int2' : 'E2/30' }, 'dc2' : { 'int1' : 'E2/22', 'int2' : 'E2/30'} } }  } })
-    n7k_fw_int['GIS'].update({'Inner' : { 'N7K-A' :  { 'dc1'  : { 'int1' : 'E2/13', 'int2' : 'E2/14' }, 'dc2' : { 'int1' : 'E2/13', 'int2' : 'E2/14'} }, 'N7K-B' : { 'dc1'  : { 'int1' : 'E2/13', 'int2' : 'E2/14' }, 'dc2' : { 'int1' : 'E2/13', 'int2' : 'E2/14'} }, 'N7K-C' : { 'dc1'  : { 'int1' : 'E2/13', 'int2' : 'E2/14' }, 'dc2' : { 'int1' : 'E2/13', 'int2' : 'E2/14'}  }, 'N7K-D' : { 'dc1'  : { 'int1' : 'E2/13', 'int2' : 'E2/14' }, 'dc2' : { 'int1' : 'E2/13', 'int2' : 'E2/14'} } }   })
-    
-    n7k_fw_int.update({'SDE' : { 'Outer' : { 'N7K-E' :  { 'dc1'  : { 'int1' : 'E2/21', 'int2' : 'E2/29' }, 'dc2' : { 'int1' : 'E2/21', 'int2' : 'E2/29'} }, 'N7K-F' : { 'dc1'  : { 'int1' : 'E2/21', 'int2' : 'E2/29' }, 'dc2' : { 'int1' : 'E2/21', 'int2' : 'E2/29'} }  } } })
-    n7k_fw_int['SDE'].update({'Inner' : { 'N7K-E' :  { 'dc1'  : { 'int1' : 'E2/5', 'int2' : 'E2/13' }, 'dc2' : { 'int1' : 'E2/5', 'int2' : 'E2/13'} }, 'N7K-F' : { 'dc1'  : { 'int1' : 'E2/5', 'int2' : 'E2/13' }, 'dc2' : { 'int1' : 'E2/5', 'int2' : 'E2/13'} } }   })
-    
-    '''
    
     if debug == True:
         print '{ ' +  'portmap' + ':'  + json.dumps(n7k_fw_int) + ' } '
-    
-    ##############################################################################################
-    # Get interfaces on sandwich firewall
-    
-    sandwich_fw = {"SOE": {"OUTER": {"N7K-D": {"DC2": {"dc2soenwa1pfw1b": {"E2/29": "E1/8"}, "dc2soenwa1pfw1a": {"E2/21": "E1/8"}}, "DC1": {"dc1soenwa1pfw1a": {"E2/21": "E1/8"}, "dc1soenwa1pfw1b": {"E2/29": "E1/8"}}}, "N7K-B": {"DC2": {"dc2soenwa1pfw1b": {"E2/29": "E1/6"}, "dc2soenwa1pfw1a": {"E2/21": "E1/6"}}, "DC1": {"dc1soenwa1pfw1a": {"E2/21": "E1/6"}, "dc1soenwa1pfw1b": {"E2/29": "E1/6"}}}, "N7K-C": {"DC2": {"dc2soenwa1pfw1b": {"E2/29": "E1/7"}, "dc2soenwa1pfw1a": {"E2/21": "E1/7"}}, "DC1": {"dc1soenwa1pfw1a": {"E2/21": "E1/7"}, "dc1soenwa1pfw1b": {"E2/29": "E1/7"}}}, "N7K-A": {"DC2": {"dc2soenwa1pfw1b": {"E2/29": "E1/5"}, "dc2soenwa1pfw1a": {"E2/21": "E1/5"}}, "DC1": {"dc1soenwa1pfw1a": {"E2/21": "E1/5"}, "dc1soenwa1pfw1b": {"E2/29": "E1/5"}}}}, "INNER": {"N7K-D": {"DC2": {"dc2soenwa1pfw1b": {"E2/6": "E1/16"}, "dc2soenwa1pfw1a": {"E2/5": "E1/16"}}, "DC1": {"dc1soenwa1pfw1a": {"E2/5": "E1/16"}, "dc1soenwa1pfw1b": {"E2/6": "E1/16"}}}, "N7K-B": {"DC2": {"dc2soenwa1pfw1b": {"E2/6": "E1/14"}, "dc2soenwa1pfw1a": {"E2/5": "E1/14"}}, "DC1": {"dc1soenwa1pfw1a": {"E2/5": "E1/14"}, "dc1soenwa1pfw1b": {"E2/6": "E1/14"}}}, "N7K-C": {"DC2": {"dc2soenwa1pfw1b": {"E2/6": "E1/15"}, "dc2soenwa1pfw1a": {"E2/5": "E1/15"}}, "DC1": {"dc1soenwa1pfw1a": {"E2/5": "E1/15"}, "dc1soenwa1pfw1b": {"E2/6": "E1/15"}}}, "N7K-A": {"DC2": {"dc2soenwa1pfw1b": {"E2/6": "E1/13"}, "dc2soenwa1pfw1a": {"E2/5": "E1/13"}}, "DC1": {"dc1soenwa1pfw1a": {"E2/5": "E1/13"}, "dc1soenwa1pfw1b": {"E2/6": "E1/13"}}}}}, "GIS": {"OUTER": {"N7K-D": {"DC2": {"dc2gisnwa1pfw1b": {"E2/30": "E1/8"}, "dc2gisnwa1pfw1a": {"E2/22": "E1/8"}}, "DC1": {"dc1gisnwa1pfw1a": {"E2/22": "E1/8"}, "dc1gisnwa1pfw1b": {"E2/30": "E1/8"}}}, "N7K-B": {"DC2": {"dc2gisnwa1pfw1b": {"E2/30": "E1/6"}, "dc2gisnwa1pfw1a": {"E2/22": "E1/6"}}, "DC1": {"dc1gisnwa1pfw1a": {"E2/22": "E1/6"}, "dc1gisnwa1pfw1b": {"E2/30": "E1/6"}}}, "N7K-C": {"DC2": {"dc2gisnwa1pfw1b": {"E2/30": "E1/7"}, "dc2gisnwa1pfw1a": {"E2/22": "E1/7"}}, "DC1": {"dc1gisnwa1pfw1a": {"E2/22": "E1/7"}, "dc1gisnwa1pfw1b": {"E2/30": "E1/7"}}}, "N7K-A": {"DC2": {"dc2gisnwa1pfw1b": {"E2/30": "E1/5"}, "dc2gisnwa1pfw1a": {"E2/22": "E1/5"}}, "DC1": {"dc1gisnwa1pfw1a": {"E2/22": "E1/5"}, "dc1gisnwa1pfw1b": {"E2/30": "E1/5"}}}}, "INNER": {"N7K-D": {"DC2": {"dc2gisnwa1pfw1b": {"E2/14": "E1/16"}, "dc2gisnwa1pfw1a": {"E2/13": "E1/16"}}, "DC1": {"dc1gisnwa1pfw1a": {"E2/13": "E1/16"}, "dc1gisnwa1pfw1b": {"E2/14": "E1/16"}}}, "N7K-B": {"DC2": {"dc2gisnwa1pfw1b": {"E2/14": "E1/14"}, "dc2gisnwa1pfw1a": {"E2/13": "E1/14"}}, "DC1": {"dc1gisnwa1pfw1a": {"E2/13": "E1/14"}, "dc1gisnwa1pfw1b": {"E2/14": "E1/14"}}}, "N7K-C": {"DC2": {"dc2gisnwa1pfw1b": {"E2/14": "E1/15"}, "dc2gisnwa1pfw1a": {"E2/13": "E1/15"}}, "DC1": {"dc1gisnwa1pfw1a": {"E2/13": "E1/15"}, "dc1gisnwa1pfw1b": {"E2/14": "E1/15"}}}, "N7K-A": {"DC2": {"dc2gisnwa1pfw1b": {"E2/14": "E1/13"}, "dc2gisnwa1pfw1a": {"E2/13": "E1/13"}}, "DC1": {"dc1gisnwa1pfw1a": {"E2/13": "E1/13"}, "dc1gisnwa1pfw1b": {"E2/14": "E1/13"}}}}}, "SDE": {"OUTER": {"N7K-F": {"DC2": {"dc2sdenwa1pfw1a": {"E2/21": "E1/6"}, "dc2sdenwa1pfw1b": {"E2/29": "E1/6"}}, "DC1": {"dc1sdenwa1pfw1b": {"E2/29": "E1/6"}, "dc1sdenwa1pfw1a": {"E2/21": "E1/6"}}}, "N7K-E": {"DC2": {"dc2sdenwa1pfw1a": {"E2/21": "E1/5"}, "dc2sdenwa1pfw1b": {"E2/29": "E1/5"}}, "DC1": {"dc1sdenwa1pfw1b": {"E2/29": "E1/5"}, "dc1sdenwa1pfw1a": {"E2/21": "E1/5"}}}}, "INNER": {"N7K-F": {"DC2": {"dc2sdenwa1pfw1a": {"E2/5": "E1/14"}, "dc2sdenwa1pfw1b": {"E2/13": "E1/14"}}, "DC1": {"dc1sdenwa1pfw1b": {"E2/13": "E1/14"}, "dc1sdenwa1pfw1a": {"E2/5": "E1/14"}}}, "N7K-E": {"DC2": {"dc2sdenwa1pfw1a": {"E2/5": "E1/13"}, "dc2sdenwa1pfw1b": {"E2/13": "E1/13"}}, "DC1": {"dc1sdenwa1pfw1b": {"E2/13": "E1/13"}, "dc1sdenwa1pfw1a": {"E2/5": "E1/13"}}}}}}
-    
-    if debug == True:
-        print '{ ' +  'sandwich_fw_int' + ':'  + json.dumps(sandwich_fw) + ' } '
         
     ##############################################################################################
     
-    return ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa_data,n7k_fw_int,loopback_data,sandwich_fw
+    return ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa_data,n7k_fw_int,loopback_data
 
 def usage():
     print "Usage: " +  sys.argv[0] + " -f|--file <excel file name> -d|--debug -e|--execute <n7k list> -w."
@@ -1514,14 +1595,14 @@ def main(argv):
                         print sys.argv[0] + " file %s is not an Excel file" % filename
                     else:
                         if magic.from_file(filename) == 'Microsoft Excel 2007+':
-                            (ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa_data,n7k_fw_int,loopback_data,sandwich_fw) = process_xlsx(filename,dc1portmap,dc2portmap,debug)
+                            (ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa_data,n7k_fw_int,loopback_data) = process_xlsx(filename,dc1portmap,dc2portmap,debug)
                             if debug is False:
                                 if configure is True:
                                     confirm = raw_input("\n\nSwitch changes are about to be made.  Type N/n to exit or press any key to continue: \n\n")
                                     if confirm.upper() == 'N':
                                         print "\n\nExiting script.  No changes made\n\n"
                                         sys.exit(9)
-                                inner_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa_data,n7k_fw_int,loopback_data,configure,lines,detailops,sandwich_fw)
+                                inner_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa_data,n7k_fw_int,loopback_data,configure,lines,detailops)
                         else:
                             print "File must be in .xlsx format"
                             sys.exit(10)
