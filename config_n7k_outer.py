@@ -72,7 +72,7 @@ def outer_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa
         commands = []
   
         for vsys in ws_definition_data[district]:
-            gen_int_config = 0
+            vllist = []
             found = 0
             
             # If there's at least 1 VRF to config per vSYS, write interface config
@@ -110,7 +110,10 @@ def outer_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa
                     else:
                         fw_to_vlan[sbyfw] = [{ 'vlan' : int(outervlan)}]
                     
+                  
+                    if outervlan not in vllist:
                    
+<<<<<<< HEAD
                     
                     gen_int_config = gen_int_config + 1
             
@@ -133,9 +136,28 @@ def outer_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa
                 commands.append("  ip ospf network point-to-point")
                 commands.append("  ip router ospf %s area 0.0.0.%s" % (district,ospfarea))
                 commands.append("  no shutdown")
+=======
+                        ospfarea = attrib['ospf' + dc]
+                        #outervdcvlan =  ws_definition_data[district][vsys][0]['outervdcencap']
+                        #ospfarea     =  ws_definition_data[district][vsys][0]['ospf' + dc]
+>>>>>>> b0cd5a971a75df86df4e1a163a98a11623d08a05
                 
-                
-        
+                        # Have to change this.  Change data structure to district->vsys->vlan->n7k[0]->[dc + 'n7kip']
+                        n7kip        =  outer_to_pa_data[district][vsys][outervlan][nexusvdc][0][dc + 'n7kip']
+               
+                        commands.append("! Create L2 VLAN")
+                        commands.append("vlan " + str(outervlan) )
+                        commands.append("!")
+                        commands.append("interface vlan " + str(outervlan))
+                        commands.append("  description L3_%s_%s" % (district,vsys))
+                        commands.append("  ip address %s 255.255.255.252" % (n7kip))
+                        commands.append("  mtu 9192")
+                        commands.append("  ip ospf network point-to-point")
+                        commands.append("  ip router ospf %s area 0.0.0.%s" % (district,ospfarea))
+                        commands.append("  no shutdown")    
+                    
+                        vllist.append(outervlan)
+       
         if 'vlan' in detailops or 'NONE' in detailops :            
             print '\n'.join(map(str,commands))
             print "!"
@@ -193,11 +215,18 @@ def outer_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa
         commands.append(" log-neighbor-changes")
         commands.append(" address-family ipv4 unicast")
         commands.append("    maximum-paths 8")
+        iplist = []
                 
         for vsys in final_all_inner_data[district]:
-            for n7k in sorted(final_all_inner_data[district][vsys]):
+            if dc == 'dc2':
+                other = 'dc1'
+            else:
+                other = 'dc2'
+                    
+            if bool((re.search(other,vsys))):
+                continue
                 
-               
+            for n7k in sorted(final_all_inner_data[district][vsys]):
                 n7kinneraddress = final_all_inner_data[district][vsys][n7k][0][dc + 'n7kip']
                 vrfname         = final_all_inner_data[district][vsys][n7k][0]['n7kvrf' + dc]
                 vrfnum          = final_all_inner_data[district][vsys][n7k][0]['vrfnumber']
@@ -211,7 +240,7 @@ def outer_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa
                 
                 for vsys_tmp in ws_definition_data[district]:
                     for attribs in ws_definition_data[district][vsys_tmp]:
-                        if int(attribs['vrfnumber']) == int(vrfnum) and attribs['config'] != 'no' :
+                        if int(attribs['vrfnumber']) == int(vrfnum) and attribs['config'] != 'no' and n7kinneraddress not in iplist:
                             commands.append(" neighbor %s remote-as %s" % (n7kinneraddress,inner_as ))
                             commands.append(" description TO_%s_%s" % (innervdc,vrfname) )
                             commands.append("    ebgp-multihop 4" )
@@ -219,6 +248,8 @@ def outer_vdc_config(ws_definition_data,final_all_inner_data,bgp_asn,outer_to_pa
                             commands.append("       send-community both")
                             commands.append("       route-map PERMIT_DEFAULT_ONLY out")
                             commands.append("       default-originate")
+                            
+                            iplist.append(n7kinneraddress)
         
         if 'bgp' in detailops or 'NONE' in detailops:        
             print '\n'.join(map(str,commands))    
@@ -1415,7 +1446,7 @@ def process_xlsx(filename,dc1portmap,dc2portmap,debug):
             cell = 'P' + str(x)
             value = ws[cell].value 
             
-            if not bool(re.search('encapsulation',str(value), re.IGNORECASE)) and not bool(re.search('Inside',str(value), re.IGNORECASE)):
+            if not bool(re.search('encapsulation',str(value), re.IGNORECASE)) and not bool(re.search('Outside',str(value), re.IGNORECASE)):
                      outvdcencap = getValueWithMergeLookup(ws, cell)
                      
                      if outvdcencap is None:
