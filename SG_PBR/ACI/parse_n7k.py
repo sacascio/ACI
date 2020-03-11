@@ -3,6 +3,9 @@ from ciscoconfparse import CiscoConfParse
 import re
 import json
 
+#def get_inner_outer_mapping(n7k):
+
+# return : local port, remote port, remote n7k name as dictionary
 def get_bgp_int_vlan(dc,district):
 
     data = {}
@@ -15,6 +18,11 @@ def get_bgp_int_vlan(dc,district):
     for i in numfiles:
 	for j in ['inner','outer']:
 		filename = dc + district + 'nxc' + str(i) + district + j + '.log'
+		n7k = dc + district + 'nxc' + str(i) + district + j 
+		
+		# Need to code this
+		#n7k_mapping = get_inner_outer_mapping(n7k)
+	
 	  	data[filename] = {}	
 		print filename
 		parse = CiscoConfParse(filename)
