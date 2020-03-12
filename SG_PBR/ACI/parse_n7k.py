@@ -2,6 +2,7 @@
 from ciscoconfparse import CiscoConfParse
 import re
 import json
+import sys
 
 #def get_inner_outer_mapping(n7k):
 
@@ -35,9 +36,10 @@ def get_bgp_int_vlan(dc,district):
 						svi = obj.text
 						svi = svi.replace("interface Vlan","")
 						vrf = c.text
-						vrf = vrf.replace("vrf member","")
+						vrf = vrf.replace("vrf member ","")
+						vrf = vrf.lstrip()
 						data[filename][vrf] = {}
-						data[filename][vrf] = { 'svi' : svi, 'shutdown' : 'N', 'fw_trunk_int' : []}
+						data[filename][vrf] = { 'svi' : svi, 'shutdown' : 'N', 'fw_trunk_int' : [], 'remote_as' : 'N/A', 'neighbors' : []}
 
 		# GET FW INT
 		vlallowed = []
@@ -70,6 +72,33 @@ def get_bgp_int_vlan(dc,district):
 							vlallowed = []
 							
     		# Get BGP Neighbors		
+		for obj in parse.find_objects("router bgp"):
+                        if obj.hash_children != 0:
+				# For inner VDC
+                                if obj.re_search_children("vrf"):
+                                        for c in obj.children:
+                                                if bool((re.search('vrf',c.text,re.IGNORECASE))):
+							vrfmember = c.text
+							for obj2 in parse.find_objects(vrfmember):
+								if obj2.re_search_children("neighbor"):
+									for d in obj2.children:
+										vrfmember = vrfmember.replace("vrf ","") 
+										vrfmember = vrfmember.lstrip()
+										if bool((re.search('address-family',d.text,re.IGNORECASE))):
+											continue
+										if bool((re.search('NonAff',vrfmember,re.IGNORECASE))):
+											continue
+										attribs = d.text
+										attribs = attribs.lstrip()
+										attribsx = attribs.split(" ")
+										neighbor = attribsx[1]
+										remote_as = attribs[3]
+                                                                                data[filename][vrfmember]['remote_as']  = remote_as
+										if len(data[filename][vrfmember]['neighbors']) == 0:
+                                                                                        data[filename][vrfmember]['neighbors']  = [ neighbor ]
+                                                                                else:
+                                                                                        data[filename][vrfmember]['neighbors'].append(neighbor)
+							
     print json.dumps(data)
 
 
