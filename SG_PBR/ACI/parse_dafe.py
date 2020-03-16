@@ -1,18 +1,321 @@
 #!/usr/bin/env python
 
 import openpyxl
+import ipaddress
+from netaddr import *
 import shutil
 import sys
 import getopt
 import os.path
+import fnmatch 
 import re
 from IPy import IP
 #from xlrd import open_workbook, XLRDError
 import json
 #from fileinput import filename
 import warnings
+from ciscoconfparse import CiscoConfParse
 
 warnings.filterwarnings("ignore")
+
+
+def write_new_n7k_configs(vrfmember,p2psubnets,dc,district,n7k_data):
+	dir_path = './output'
+	os.mkdir(dir_path + "/" + "N7K_PREWORK")
+	k = 0
+	if district.upper() == 'SDE':
+		numn7k = ['1','2']
+	else:
+		numn7k = ['1','2','3','4']
+		
+	for i in numn7k:
+		n7kname = dc + district + 'nxc' + i + district +  'inner'
+		encap = n7k_data[n7kname][vrfmember]['svi']
+    		f = open(dir_path + "/" + "N7K_PREWORK" + "/" +  n7kname, "a")
+    		f.write("! Create sub interfaces to outer VDCs in VRF " + vrfmember + " in a shutdown state" + '\n')
+    		f.write("configure terminal" + '\n')
+		f.close()
+		for inner_int in n7k_data[n7kname]['P2P']:
+			for outer_int in n7k_data[n7kname]['P2P'][inner_int]:
+				for outer_7k in n7k_data[n7kname]['P2P'][inner_int][outer_int]:
+					# Write Inner config
+					f = open(dir_path + "/" + "N7K_PREWORK" + "/" +  n7kname, "a")
+    					f.write("interface Ethernet" + inner_int + "." + encap + '\n')
+    					f.write(" description To_" + outer_7k + "_E" + outer_int + "." + encap + '\n')
+    					f.write(" shutdown" + '\n')
+    					f.write(" vrf member " + vrfmember + '\n')
+    					f.write(" mtu 9192" + '\n')
+    					f.write(" encapsulation dot1Q " + encap + '\n')
+					ipinner = p2psubnets[k]
+					ipinnerx = ipinner.split('/')
+					ipinner = IPAddress(ipinnerx[0])
+					mask = ipinnerx[1]
+					ipinner = ipinner + 1
+					ipouter = ipinner + 1
+					ipinner = str(IPAddress(ipinner))
+					ipouter = str(IPAddress(ipouter))
+    					f.write(" ip address " + ipinner + "/" + mask + '\n')
+    					f.write( '\n')
+					k = k+1
+					f.close()
+				
+					# Write outer config
+					if not os.path.exists(dir_path + "/" + "N7K_PREWORK" + "/" +  outer_7k):
+						f = open(dir_path + "/" + "N7K_PREWORK" + "/" +  outer_7k, "a")
+						f.write("! Create sub interfaces to inner VDCs for VRF " + vrfmember + " in a shutdown state" + '\n')
+						f.close()
+						
+					f = open(dir_path + "/" + "N7K_PREWORK" + "/" +  outer_7k, "a")
+					f.write("interface Ethernet" + outer_int + "." + encap + '\n')
+                                        f.write(" description To_" + n7kname + "_E" + inner_int + "." + encap + '\n')
+                                        f.write(" shutdown" + '\n')
+                                        f.write(" mtu 9192" + '\n')
+                                        f.write(" encapsulation dot1Q " + encap + '\n')
+					f.write(" ip address " + ipouter + "/" + mask + '\n')
+                                        f.write( '\n')
+    					f.close()	
+	sys.exit(9)
+
+
+
+
+
+
+
+def get_inner_outer_mapping(dc):
+
+    pattern = '*' + dc.upper() + '*Port Map*'
+  
+    files = os.listdir('.') 
+    for name in files:
+        if fnmatch.fnmatch(name, pattern):
+                if not bool(re.search('^~',name, re.IGNORECASE)): 
+                        filename = name
+                        break
+    worksheets = []
+    wb = openpyxl.load_workbook(filename, data_only=True)
+
+    for sheet in wb:
+        worksheets.append(sheet.title)
+    wb.close()
+
+    wb.active = worksheets.index('7706')
+    ws = wb.active
+    row_start = ws.min_row
+    row_end   = ws.max_row
+
+    mapping = {}
+        
+    for cells in ws.iter_rows(min_row=row_start, min_col=1, max_col=24): 
+        for vals in cells:
+                if vals.value == 'A':
+                        n7k_local = 1
+                if vals.value == 'B':
+                        n7k_local = 2
+                if vals.value == 'C':
+                        n7k_local = 3
+                if vals.value == 'D':
+                        n7k_local = 4
+                if vals.value == 'E':
+                        n7k_local = 1
+                if vals.value == 'F':
+                        n7k_local = 2
+
+                if bool(re.search("nxc(.*)inner",str(vals.value), re.IGNORECASE)) or bool(re.search("nxc(.*)outer",str(vals.value), re.IGNORECASE)):
+                        remote_n7k = vals.value
+                        local_interface = ws[vals.column + str(vals.row+1)].value
+
+                        if local_interface is None:
+                                local_interface = ws[vals.column + str(vals.row-1)].value
+
+                        local_interface = local_interface.replace("-","/")
+                        xvals = vals.value.split("_E")
+                        remote_interface = xvals[1]
+                        remote_n7k = xvals[0]
+
+                        # Determine local N7K now
+                        if bool(re.search("sde",remote_n7k, re.IGNORECASE)) and bool(re.search("inner",remote_n7k, re.IGNORECASE)):
+                                local_n7k = dc + 'sde' + 'nxc' + str(n7k_local) + 'sdeouter'
+                        if bool(re.search("sde",remote_n7k, re.IGNORECASE)) and bool(re.search("outer",remote_n7k, re.IGNORECASE)):
+                                local_n7k = dc + 'sde' + 'nxc' + str(n7k_local) + 'sdeinner'
+
+                        if bool(re.search("gis",remote_n7k, re.IGNORECASE)) and bool(re.search("inner",remote_n7k, re.IGNORECASE)):
+                                local_n7k = dc + 'gis' + 'nxc' + str(n7k_local) + 'gisouter'
+                        if bool(re.search("gis",remote_n7k, re.IGNORECASE)) and bool(re.search("outer",remote_n7k, re.IGNORECASE)):
+                                local_n7k = dc + 'gis' + 'nxc' + str(n7k_local) + 'gisinner'
+
+                        if bool(re.search("soe",remote_n7k, re.IGNORECASE)) and bool(re.search("inner",remote_n7k, re.IGNORECASE)):
+                                local_n7k = dc + 'soe' + 'nxc' + str(n7k_local) + 'soeouter'
+                        if bool(re.search("soe",remote_n7k, re.IGNORECASE)) and bool(re.search("outer",remote_n7k, re.IGNORECASE)):
+                                local_n7k = dc + 'soe' + 'nxc' + str(n7k_local) + 'soeinner'
+
+
+                        if local_n7k not in mapping:
+                                mapping[local_n7k] = {}
+
+                        if local_interface not in mapping[local_n7k]:
+                                mapping[local_n7k][local_interface] = {}
+
+                        if remote_interface not in mapping[local_n7k][local_interface]:
+                                mapping[local_n7k][local_interface][remote_interface] = {}
+
+                        if remote_n7k not in mapping[local_n7k][local_interface][remote_interface]:
+                                mapping[local_n7k][local_interface][remote_interface][remote_n7k] = {}
+    
+    return mapping
+
+def get_bgp_int_vlan(dc,district,vrfs):
+
+    data = {}
+    p2p_n7k_mapping = get_inner_outer_mapping(dc)
+ 
+    if district.lower() in ('sde'):
+        numfiles = ['1','2']
+    else:
+        numfiles = ['1','2','3','4']
+
+    for i in numfiles:
+        for j in ['inner','outer']:
+                filename = dc + district + 'nxc' + str(i) + district + j + '.log'
+                n7k = dc + district + 'nxc' + str(i) + district + j 
+
+                # Need to code this
+                n7k_mapping = get_inner_outer_mapping(dc)
+
+                data[n7k] = {}
+                parse = CiscoConfParse(filename)
+
+                # GET SVI
+                for obj in parse.find_objects("interface Vlan"):
+                        svi = obj.text
+                        svi = svi.replace("interface Vlan","")
+
+                        if obj.hash_children != 0:
+                                for c in obj.children:
+
+                                        if bool((re.search('vrf member',c.text,re.IGNORECASE))):
+                                                vrf = c.text
+                                                vrf = vrf.replace("vrf member ","")
+                                                vrf = vrf.lstrip()
+
+                                        # For outer, set VRF to SVI since outer does not have vrf
+                                        if bool((re.search('outer',n7k,re.IGNORECASE))):
+                                                vrf = svi
+
+                                        if bool((re.search('ip address',c.text,re.IGNORECASE))):
+                                                        svi_ip = c.text
+                                                        svi_ip = c.text.replace("  ip address ","")
+                                                        svi_ip = re.sub('/.*',"", svi_ip)
+
+                                data[n7k][vrf] = {}
+                                data[n7k]['P2P'] = {}
+                                data[n7k][vrf] = { 'svi' : svi, 'shutdown' : 'N', 'fw_trunk_int' : [], 'remote_as' : 'N/A', 'neighbors' : [], 'svi_ip' : svi_ip, 'local_as' : 'N/A' }
+
+                # GET FW INT
+                vlallowed = []
+                for obj in parse.find_objects("interface Ethernet"):
+                        if obj.hash_children != 0:
+                                if obj.re_search_children("switchport trunk allowed"):
+                                        for c in obj.children:
+                                                if bool((re.search('switchport trunk allowed',c.text,re.IGNORECASE))):
+                                                        fwint = obj.text
+                                                        fwint = fwint.replace("interface Ethernet","")
+                                                        c.text = c.text.replace("switchport trunk allowed vlan","")
+                                                        vlist = c.text.split(",")
+                                                        for v in vlist:
+                                                                if bool((re.search('-',v,re.IGNORECASE))):
+                                                                        vv = v.split("-")
+                                                                        vv[1] = int(vv[1]) + int(1)
+                                                                        for vvv in xrange(int(vv[0]),int(vv[1])):
+                                                                                vlallowed.append(vvv) 
+                                                                else:
+                                                                        vlallowed.append(int(v))
+
+                                                        for vls in vlallowed:
+                                                                for vrf_vals in data[n7k]:
+                                                                        if vrf_vals != 'P2P':
+                                                                                if vls == int(data[n7k][vrf_vals]['svi']):
+                                                                                        if len(data[n7k][vrf_vals]['fw_trunk_int']) == 0:
+                                                                                                data[n7k][vrf_vals]['fw_trunk_int']  = [ fwint ]
+                                                                                        else:
+                                                                                                data[n7k][vrf_vals]['fw_trunk_int'].append(fwint)
+                                                                vlallowed = []
+
+
+
+                # Get BGP Neighbors
+                for obj in parse.find_objects("router bgp"):
+                        local_as = obj.text
+                        local_as = local_as.replace("router bgp ","")
+                        if obj.hash_children != 0:
+                                # For inner VDC
+                                if obj.re_search_children("vrf"):
+                                        for c in obj.children:
+                                                if bool((re.search('vrf',c.text,re.IGNORECASE))):
+                                                        vrfmember = c.text
+                                                        for obj2 in parse.find_objects(vrfmember):
+                                                                if obj2.re_search_children("neighbor"):
+                                                                        for d in obj2.children:
+                                                                                vrfmember = vrfmember.replace("vrf ","") 
+                                                                                vrfmember = vrfmember.lstrip()
+                                                                                if bool((re.search('address-family',d.text,re.IGNORECASE))):
+                                                                                        continue
+                                                                                if bool((re.search('NonAff',vrfmember,re.IGNORECASE))):
+                                                                                        continue
+                                                                                attribs = d.text
+                                                                                attribs = attribs.lstrip()
+                                                                                attribsx = attribs.split(" ")
+                                                                                neighbor = attribsx[1]
+                                                                                remote_as = attribsx[3]
+                                                                                data[n7k][vrfmember]['remote_as']  = remote_as
+                                                                                if len(data[n7k][vrfmember]['neighbors']) == 0:
+                                                                                        data[n7k][vrfmember]['neighbors']  = [ neighbor ]
+                                                                                else:
+                                                                                        data[n7k][vrfmember]['neighbors'].append(neighbor)
+
+                                                                                data[n7k][vrfmember]['local_as'] = local_as
+                                # For outer VDC
+                                if bool((re.search('outer',filename,re.IGNORECASE))):
+                                        for c in obj.children:
+                                                if bool((re.search('neighbor ',c.text,re.IGNORECASE))):
+                                                        attribs = c.text
+                                                        attribs = attribs.lstrip()
+                                                        attribsx = attribs.split(" ")
+                                                        neighbor = attribsx[1]
+                                                        remote_as = attribsx[3]
+
+                                                        for vrfmember in data:
+                                                                for v in data[vrfmember]:
+                                                                        if v == 'P2P':
+                                                                                continue
+                                                                        if data[vrfmember][v]['svi_ip'] == neighbor:
+                                                                                for n in data[vrfmember][v]['neighbors']:
+                                                                                        for o in data:
+                                                                                                for p in data[o]:
+                                                                                                        if unicode(p).isnumeric():
+
+                                                                                                                if data[o][p]['svi_ip'] == n:
+                                                                                                                        if 'vrf' not in data[o][p]:
+                                                                                                                                data[o][p]['vrf'] = {}
+                                                                                                                                del data[o][p]['neighbors']
+                                                                                                                        if v not in data[o][p]['vrf']:
+                                                                                                                                data[o][p]['vrf'][v] = {}
+                                                                                                                                data[o][p]['vrf'][v]['neighbor_ip'] = [neighbor]
+                                                                                                                        else:
+                                                                                                                                if neighbor not in data[o][p]['vrf'][v]['neighbor_ip']:
+                                                                                                                                        data[o][p]['vrf'][v]['neighbor_ip'].append(neighbor)
+                                                                                                                        data[o][p]['remote_as'] = remote_as
+                                                                                                                        data[o][p]['local_as'] = local_as
+
+    # Append P2P data
+    # P2P dictionary format:
+    # Local Int -> remote int -> remote N7K
+    for n7k in data:
+        data[n7k]['P2P'] = p2p_n7k_mapping[n7k]
+
+    return data
+
+
 def get_sw_prof_name(dafe_file,leafid):
     worksheets = []
     wb = openpyxl.load_workbook(dafe_file, data_only=True)
@@ -65,13 +368,12 @@ def fix_type_x(write_to_aci_cfg):
 
 
 def usage():
-    print "Usage: " +  sys.argv[0] + " -v|--vrf -e|--epg -d|--district <soe, gis or sde> -c|--datacenter <dc1 or dc2> -f|file <inputfile>"
+    print "Usage: " +  sys.argv[0] + " -d|--district <soe, gis or sde> -c|--datacenter <dc1 or dc2> -f|file <inputfile>"
     print ""
-    print "-f|--file:   Pass input file to use for configuration.   Must use -v or -e option when using -f (not both v and e)"
-    print " if using -v, format is: tenant,vrf one per line.  ex: Control,PTD"
-    print " if using -e, format is: epg one per line.  ex: SVC-ITC-DC2-SDE-AD"
-    print "-e|--epg: indicates input file is a list of EPGs"
-    print "-v|--vrf: indicates input file is a list of VRFs"
+    print "-f|--file:   Pass input file to use for configuration.   Format:"
+    print "1 value per line - assume its an EPG"
+    print "6 to 10 values per line (depending on district) - assume by VRF: Tenant,VRF,P2P Subnet IP 1, P2P IP Subnet 2, etc"
+    print "4 subnets for SDE, 8 subnets for GIS/SOE"
     print "-d|--district: indicates district name, must be <SOE|GIS|SDE>"
     print "-c|--datacenter: indicates datacenter name, must be <DC1 or DC2>"
     print "-h|--help: print help message"
@@ -193,8 +495,8 @@ def get_epg_from_vrf(dafe_file,vrfs):
 
     for v in vrfs:
 	vs = v.split(",")
-	if len(vs) != 2:
-		print "ERROR: Check input file, must be in format <tenant,vrf>, found %s" % v
+	if len(vs) != 6 and len(vs) != 10:
+		print "ERROR: Check input file, must be in format <tenant,vrf,p2p ips subnet1, p2p ip subnet 2, etc. Found %s" % v
 		sys.exit(9)
         tenant = vs[0]
         vrf = vs[1]
@@ -372,7 +674,17 @@ def get_all_epg_from_dafe(tenant,vrf,file):
 def get_epg_type(epg):
 
     worksheets = []
-    wb = openpyxl.load_workbook("VRF_EPG_Counts.xlsx", data_only=True)
+
+    pattern = 'VRF_EPG_Counts*'
+
+    files = os.listdir('.')
+    for name in files:
+        if fnmatch.fnmatch(name, pattern):
+                if not bool(re.search('^~',name, re.IGNORECASE)):
+                        filename = name
+                        break
+
+    wb = openpyxl.load_workbook(filename, data_only=True)
 
     for sheet in wb:
         worksheets.append(sheet.title)
@@ -410,19 +722,76 @@ def get_epg_type(epg):
     try:
 	type
     except NameError:
-	#print "WARNING: EPG %s not found in VRF_EPG_Counts.xlsx" % epg
+	#print "WARNING: EPG %s not found in %s" % (epg,filename)
 	type='X'
     
     return type
 
-def get_data(filename,epgs,dc):
+def get_data(filename,epgs,dc,district,p2psubnets):
+    p2psubnetvals = {}
+
+    for p in p2psubnets:
+	p = p.rstrip()
+        p = p.split(",")
+        p_tenant = p[0]
+ 	p_vrf = p[1]
+        p_subnets = p[2:]
+
+	# Sort IP addresses in case they are not in order (low to high)
+        new_list = []
+
+	# Check for Valid IP address
+	for element in p_subnets:
+		try:
+			IPNetwork(element)
+		except AddrFormatError:
+			print "Invalid Subnet address given for Tenant %s, VRF %s.  %s given" % (p_tenant,p_vrf,element)
+			sys.exit(9)
+  	
+		t_ip = IPNetwork(element)
+		tt_ip = str(t_ip) 
+		tt_ip = re.sub('/.*',"", tt_ip)	
+		
+		if str(tt_ip) != str(t_ip.network):
+			print "ERROR: Invalid Subnet address provided for Tenant %s, VRF %s.  %s given" % (p_tenant,p_vrf,element)
+			sys.exit(9)
+		else:
+			new_list.append(IPNetwork(element))
+	
+
+	new_list.sort()
+	cidr = cidr_merge(new_list)
+
+	# Check for discontinuous networks
+	if len(cidr) != 1:
+		print "WARNING: Discontiguous subnets found for Tenant %s, VRF %s.  %s given" % (p_tenant,p_vrf,(', '.join(p_subnets)))
+	p = []
+	for ee in new_list:
+		if ee.prefixlen != 30:
+			print "WARNING: P2P IP for Tenant %s, VRF %s is not a /30.  %s given" % (p_tenant,p_vrf,ee.cidr.__str__())
+			
+		p.append(ee.cidr.__str__())
+
+		
+	
+	p2psubnetvals[p_tenant + "-" + p_vrf] = {}
+	p2psubnetvals[p_tenant + "-" + p_vrf] = p
 
     # Get Pre-Build data
 
     worksheets = []
     pre_build = {}
 
-    wb2 = openpyxl.load_workbook("DCT_SDE_PBR_Firewalls_Cabling&P2P_Info_2020_02_24.xlsx", data_only=True)
+    pattern = 'DCT_' + district.upper() + '*Firewalls*Cabling*'
+
+    files = os.listdir('.')
+    for name in files:
+        if fnmatch.fnmatch(name, pattern):
+                if not bool(re.search('^~',name, re.IGNORECASE)):
+                        cabling_file = name
+                        break
+    
+    wb2 = openpyxl.load_workbook(cabling_file, data_only=True)
 
     for sheet in wb2:
         worksheets.append(sheet.title)
@@ -500,7 +869,16 @@ def get_data(filename,epgs,dc):
 		
     worksheets = []
 
-    wb2 = openpyxl.load_workbook("DCT PBR FIrewalls_Cisco.xlsx", data_only=True)
+    pattern = 'DCT*FIrewalls_Cisco*'
+
+    files = os.listdir('.')
+    for name in files:
+        if fnmatch.fnmatch(name, pattern):
+                if not bool(re.search('^~',name, re.IGNORECASE)):
+                        fwfile = name
+                        break
+
+    wb2 = openpyxl.load_workbook(fwfile, data_only=True)
 
     for sheet in wb2:
         worksheets.append(sheet.title)
@@ -899,7 +1277,8 @@ def get_data(filename,epgs,dc):
 						'sgtname'       : 'N/A',
 						'pbrname'       : 'N/A',
 						'sgcontractname'       : 'N/A',
-						'fwcluster' : 'N/A'
+						'fwcluster' : 'N/A',
+						'p2psubnets' :  p2psubnetvals[tenant + "-" + vrf]
 				     	      }]
 
 
@@ -950,6 +1329,12 @@ def get_data(filename,epgs,dc):
     return write_to_aci_cfg
 
 def main(argv):
+    dir_path = './output'
+    
+    if os.path.isdir(dir_path):
+	shutil.rmtree(dir_path)
+	os.mkdir(dir_path)
+    
     # Arguments
     if len(argv) == 0:
         usage()
@@ -1007,21 +1392,51 @@ def main(argv):
 	numparams = epgs[0].split(",")
 
     # If theres no comma in the input, its by EPG. 
-    # if theres 1 comma, its by VRF
+    # if theres at least 1 comma, its by VRF
 
     if len(numparams) == 1:
     	with open (infile) as f:
 		epgs = f.readlines()
 
-    if len(numparams) == 2:
+    if len(numparams) == 6 and district.upper() == 'SDE':
 	with open (infile) as f:
 		vrfs = f.readlines()
 		epgs = get_epg_from_vrf(dafe_file,vrfs)	
+    
+    if len(numparams) != 6 and district.upper() == 'SDE':
+    	print "ERROR: Check input file. There must be at least 6 parameters (tenant, vrf, P2P Subnet 1, P2P Subnet 2, etc"
+	sys.exit(9)
+ 
+    if len(numparams) == 10 and (district.upper == 'SOE' or district.upper == 'GIS' ) :
+	with open (infile) as f:
+		vrfs = f.readlines()
+		epgs = get_epg_from_vrf(dafe_file,vrfs)	
+    
+    if len(numparams) != 10 and ( district.upper == 'SOE' or district.upper == 'GIS' ) :
+    	print "ERROR: Check input file. There must be at least 10 parameters (tenant, vrf, P2P Subnet 1, P2P Subnet 2, etc"
+	sys.exit(9)
+
+
+    # Get N7K Data - to be used after ACI configs built
+    n7k_data = get_bgp_int_vlan(dc,district,vrfs)
+    f = open('n7k_data.json', 'w')
+    f.write(json.dumps(n7k_data) )
+    f.close()
+
 
     (aepname,linkpolname,cdppolname,lldpolname,stpolname,lacpolname,mcpolname) = get_pc_params(dafe_file)
-    
-    write_to_aci_cfg = get_data(dafe_file,epgs,dc)
-    vrf_to_fw,fw_to_vrf = get_vrf_to_fw("Zones Vlans and IPs_2.42.xlsx",dc,district)
+    write_to_aci_cfg = get_data(dafe_file,epgs,dc,district,vrfs)
+
+    pattern = 'Zones*Vlans*IPs*'
+
+    files = os.listdir('.')
+    for name in files:
+        if fnmatch.fnmatch(name, pattern):
+                if not bool(re.search('^~',name, re.IGNORECASE)):
+                        zvlipfile = name
+                        break
+
+    vrf_to_fw,fw_to_vrf = get_vrf_to_fw(zvlipfile,dc,district)
  
     # Checks
     # 1. all EPGs migrated in VRF for the input file? Y or N - Will determine if the n7K inner config gets modified
@@ -1068,9 +1483,18 @@ def main(argv):
 					
 		else:
 			# All inner is being migrated, remove the tenant/VRF from the list of fw_to_epg for the outer, then check this later on to see if all VRFs are removed from FW
-			# Write N7K Config here
+			# Write N7K Config here (Inner and outer and shutdown inner config)
+			# Still have to check if we can shutdown outer config - done later
+			# Check for cleanup as well - later
+
 			print "OK: Inner config can be removed for tenant %s, vrf %s" % (tenant,vrf)
+			
+			for ep in write_to_aci_cfg[tenant][vrf]:
+					vrfmember = write_to_aci_cfg[tenant][vrf][ep][0]['vrfmember']
+					p2psubnets =  write_to_aci_cfg[tenant][vrf][ep][0]['p2psubnets']
+					break
 			vrf_to_fw[tenant][vrf]['to_delete'] = 1
+			write_new_n7k_configs(vrfmember,p2psubnets,dc,district,n7k_data)
 
 		epglist = []
         	dafe_epg = []
@@ -1122,12 +1546,7 @@ def main(argv):
     # Check if output dir exists - if not, create it
     # if exists, delete it and re-create it
 
-    dir_path = './output'
-    
-    if os.path.isdir(dir_path):
-	shutil.rmtree(dir_path)
-	os.mkdir(dir_path)
-	os.mkdir(dir_path + "/" + "PRE_WORK")
+    os.mkdir(dir_path + "/" + "PRE_WORK")
    
 
     # Pre work
@@ -1422,7 +1841,7 @@ def main(argv):
 							f.write(tenant + "," + ap + "," + epg + "," + c + '\n')
 						f.close()
 
-    f = open('x', 'w') 
+    f = open('write_to_aci_cfg.json', 'w') 
     f.write(json.dumps(write_to_aci_cfg) )
     f.close()
 
