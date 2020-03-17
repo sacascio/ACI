@@ -20,9 +20,12 @@ warnings.filterwarnings("ignore")
 
 
 def write_new_n7k_configs(vrfmember,p2psubnets,dc,district,n7k_data):
-	dir_path = './output'
+        dir_path = './output'
+	inner_bgp_config = {}
+	outer_bgp_config = {}
 	os.mkdir(dir_path + "/" + "N7K_PREWORK")
 	k = 0
+
 	if district.upper() == 'SDE':
 		numn7k = ['1','2']
 	else:
@@ -31,6 +34,20 @@ def write_new_n7k_configs(vrfmember,p2psubnets,dc,district,n7k_data):
 	for i in numn7k:
 		n7kname = dc + district + 'nxc' + i + district +  'inner'
 		encap = n7k_data[n7kname][vrfmember]['svi']
+		inner_bgp_as = n7k_data[n7kname][vrfmember]['local_as']
+		outer_bgp_as = n7k_data[n7kname][vrfmember]['remote_as']
+		inner_bgp_config[n7kname] = []
+
+		# Start preparing inner/outer BGP config
+		inner_bgp_config[n7kname].append("! Add new BGP neighbors to VRF " + vrfmember + " using the N7K Outer VDC IP addresses")	
+		inner_bgp_config[n7kname].append("! These adjacencies will not come up until the N7K Outer VDCs are configured and enabled" + '\n')	
+		inner_bgp_config[n7kname].append("router bgp " + inner_bgp_as)	
+		inner_bgp_config[n7kname].append(" vrf " + vrfmember)	
+		inner_bgp_config[n7kname].append("  address-family ipv4 unicast")	
+		inner_bgp_config[n7kname].append("   maximum-paths 8")	
+		
+
+
     		f = open(dir_path + "/" + "N7K_PREWORK" + "/" +  n7kname, "a")
     		f.write("! Create sub interfaces to outer VDCs in VRF " + vrfmember + " in a shutdown state" + '\n')
     		f.write("configure terminal" + '\n')
@@ -38,6 +55,12 @@ def write_new_n7k_configs(vrfmember,p2psubnets,dc,district,n7k_data):
 		for inner_int in n7k_data[n7kname]['P2P']:
 			for outer_int in n7k_data[n7kname]['P2P'][inner_int]:
 				for outer_7k in n7k_data[n7kname]['P2P'][inner_int][outer_int]:
+					if outer_7k not in outer_bgp_config:
+						outer_bgp_config[outer_7k] = []
+						outer_bgp_config[outer_7k].append("! Add new BGP neighbors to VRF " + vrfmember + " using the N7K Inner VDC IP addresses")	
+						outer_bgp_config[outer_7k].append("! These adjacencies will not come up until the N7K Inner VDCs are configured and enabled" + '\n')	
+						outer_bgp_config[outer_7k].append("router bgp " + outer_bgp_as)	
+
 					# Write Inner config
 					f = open(dir_path + "/" + "N7K_PREWORK" + "/" +  n7kname, "a")
     					f.write("interface Ethernet" + inner_int + "." + encap + '\n')
@@ -54,6 +77,19 @@ def write_new_n7k_configs(vrfmember,p2psubnets,dc,district,n7k_data):
 					ipouter = ipinner + 1
 					ipinner = str(IPAddress(ipinner))
 					ipouter = str(IPAddress(ipouter))
+
+					inner_bgp_config[n7kname].append("  neighbor " + ipouter + " remote-as " + outer_bgp_as)
+					inner_bgp_config[n7kname].append("   description TO_" + outer_7k)
+					inner_bgp_config[n7kname].append("   address-family ipv4 unicast")
+					inner_bgp_config[n7kname].append("    send-community both")
+					
+					outer_bgp_config[outer_7k].append("  neighbor " + ipinner + " remote-as " + inner_bgp_as)
+					outer_bgp_config[outer_7k].append("   description TO_" + n7kname)
+					outer_bgp_config[outer_7k].append("   address-family ipv4 unicast")
+					outer_bgp_config[outer_7k].append("    send-community both")
+					outer_bgp_config[outer_7k].append("    route-map PERMIT_DEFAULT_ONLY out")
+					outer_bgp_config[outer_7k].append("    default-originate")
+
     					f.write(" ip address " + ipinner + "/" + mask + '\n')
     					f.write( '\n')
 					k = k+1
@@ -73,7 +109,22 @@ def write_new_n7k_configs(vrfmember,p2psubnets,dc,district,n7k_data):
                                         f.write(" encapsulation dot1Q " + encap + '\n')
 					f.write(" ip address " + ipouter + "/" + mask + '\n')
                                         f.write( '\n')
-    					f.close()	
+    					f.close()
+				
+					
+	for n7ks in inner_bgp_config:
+		f = open(dir_path + "/" + "N7K_PREWORK" + "/" +  n7ks, "a")
+		f.write(('\n'.join(inner_bgp_config[n7ks])))
+		f.write('\n')
+		f.write('\n')
+		f.close()
+	
+	for n7ks in outer_bgp_config:
+		f = open(dir_path + "/" + "N7K_PREWORK" + "/" +  n7ks, "a")
+		f.write(('\n'.join(outer_bgp_config[n7ks])))
+		f.write('\n')
+		f.write('\n')
+		f.close()
 	sys.exit(9)
 
 
