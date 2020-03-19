@@ -849,7 +849,7 @@ def get_vrf_to_fw(zones_vl_ip_file,dc,district):
 			if tenant == 'Audit' and vrf == 'DAT':
 				vrf = 'DDT'
 
-			# Another One off - ACI config has Audit/DDT -Zones vlans and IPs has Audit/DAT.  Changing to what ACI has
+			# Another One off - ACI config has Audit/DDT -Zones vlans and IPs has User Access.  Changing to what ACI has
 			if tenant == 'User Access':
 				tenant = 'User_Access'
 	
@@ -1271,9 +1271,8 @@ def get_data(filename,epgs,dc,district,p2psubnets):
         try:
                 bd_subnet
         except NameError:
-                print "ERROR: BD Subnet Not found for EPG %s.  Please check dafe output" % epg
-                sys.exit(9)
-                continue
+                print "WARNING: %s, BD Subnet Not found" % epg
+                bd_subnet = 'N/A'
 
  
     	#From vrf tab, get vrf member name, using tenant and vrf from bridge_domain tab
@@ -1345,7 +1344,7 @@ def get_data(filename,epgs,dc,district,p2psubnets):
 			epg_c_contracts.append(contract)
 
 	if len(epg_c_contracts) == 0 and l3routing == 'yes':
-		print "ERROR: No consumed contracts found for EPG %s, moving on to the next EPG" % epg
+		print "WARNING: %s, No consumed contracts assigned" % epg
 
     	# Get EPG provided contracts.  For the EPG, put contracts into an array
 
@@ -1366,7 +1365,7 @@ def get_data(filename,epgs,dc,district,p2psubnets):
                         epg_p_contracts.append(contract)
 
         if len(epg_p_contracts) == 0 and l3routing == 'yes':
-                print "ERROR: No provide contracts found for EPG %s, moving on to the next EPG" % epg	 
+                print "WARNING: %s, No provide contracts assigned" % epg	 
 
     	# External EPG name from L3Out name along with provided and consumed contract, which have to be split by comma
 	wb.active = worksheets.index('external_epg')
@@ -1417,21 +1416,21 @@ def get_data(filename,epgs,dc,district,p2psubnets):
 			contracts_to_remove.append(c)
 
 		if l3out == 'N/A' and l3routing == 'yes':
-			print "WARNING: EPG %s is part of BD %s, which is not assigned to an L3 Out.  Please confirm if this EPG should be included" % (epg,bd)
+			print "WARNING: %s, is part of BD %s that is not assigned to an L3 Out.  Please confirm if this EPG should be included" % (epg,bd)
 	
 		# On EPG, if on consumer but not provider, print warning
 		if c not in epg_p_contracts:
-			print "WARNING: Contract %s not in EPG %s as provider" % (c,epg)
+			print "WARNING: %s, Contract %s not assigned to EPG as provider" % (epg,c)
 		
                 # If contract is not on L3out as provider and consumer, print warning
                 if c not in l3out_p_contracts and c not in l3out_c_contracts and externalepg != 'N/A':
-                        print "WARNING: Contract %s not in external EPG %s as consumer or provider for epg %s" % (c,externalepg,epg)
+                        print "WARNING: %s, Consumed Contract %s not assigned to external EPG %s as consumer or provider" % (epg,c,externalepg)
 		
 		# On EPG, if on consumer but only on either provider or consumer of L3out, print warning
 		if c not in l3out_c_contracts and c in l3out_p_contracts and externalepg != 'N/A':
-			print "WARNING: Contract %s not in external EPG %s as consumer, but exists on external EPG %s as provider" % (c,externalepg)
+			print "WARNING: %s, Contract %s not assigned to external EPG %s as consumer, but assigned as provider" % (epg,c,externalepg)
 		if c in l3out_c_contracts and c not in l3out_p_contracts:
-			print "WARNING: Contract %s exists on external EPG %s as consumer, but not on external EPG %s as provider" % (c,externalepg)
+			print "WARNING: %s, Contract %s assigned to external EPG %s as consumer, but not assigned as provider" % (epg,c,externalepg)
 
 	# Repeat checks for EPG provider
 	# no need to check if EPG provider contract exists on EPG consumer and l3out as provider/consumer - done already
@@ -1439,17 +1438,17 @@ def get_data(filename,epgs,dc,district,p2psubnets):
         
                 # On EPG, if on provider but not consumer, print warning
                 if p not in epg_c_contracts:
-                        print "WARNING: Contract %s not in EPG %s as consumer" % (p,epg)
+                        print "WARNING: %s, Contract %s not assigned as consumer" % (epg,p)
                 
                 # If contract is not on L3out as provider and consumer, print warning
                 if p not in l3out_p_contracts and p not in l3out_c_contracts and externalepg != 'N/A':
-                        print "WARNING: Contract %s not in external EPG %s as consumer or provider" % (p,externalepg)
+                        print "WARNING: %s, Provided Contract %s not assigned to external EPG %s as consumer or provider" % (epg,p,externalepg)
         
                 # On EPG, if on provider but only on either provider or consumer of L3out, print warning
-                if p not in l3out_c_contracts and c in l3out_p_contracts and externalepg != 'N/A':
-                        print "WARNING: Contract %s not in external EPG %s as consumer, but exists on external EPG %s as provider" % (p,externalepg)
+                if p not in l3out_c_contracts and p in l3out_p_contracts and externalepg != 'N/A':
+                        print "WARNING: %s, Contract %s not assigned to external EPG %s as consumer but assigned as provider" % (epg,p,externalepg)
                 if p in l3out_c_contracts and p not in l3out_p_contracts:
-                        print "WARNING: Contract %s exists on external EPG %s as consumer, but not on external EPG %s as provider" % (p,externalepg)
+                        print "WARNING: %s, Contract %s assigned to external EPG %s as consumer but not assigned as provider" % (epg,p,externalepg)
 
         # Get  VRF to EPG list - will check to make sure we got it all
         # if the argument passed to the script is by VRF, no need to check, we got it all and inner N7K config can be removed
@@ -1469,7 +1468,11 @@ def get_data(filename,epgs,dc,district,p2psubnets):
 	if bool((re.search('AUD-DDT',vrfmember,re.IGNORECASE))):
 		vrfmember = vrfmember.replace('DDT','DAT')
 
-	if vrfmember in pre_build:
+	# One off - rename DMZ-DVT-DC[1 or2]-SDE  to DMZ-WEB-DC[1 or 2]-SDE-CELL1 temporarily
+	if vrfmember == 'DMZ-DVT-' + dc.upper()+ '-SDE':
+		vrfmember = 'DMZ-WEB-' + dc.upper() + '-SDE-CELL1'
+	
+        if vrfmember in pre_build:
 		vlan = pre_build[vrfmember]['vlan']
 		fwvip = pre_build[vrfmember]['fwvip']
 		fwbdip = pre_build[vrfmember]['bdip']
@@ -1496,6 +1499,10 @@ def get_data(filename,epgs,dc,district,p2psubnets):
 
 	if bool((re.search('AUD-DAT',vrfmember,re.IGNORECASE))):
 		vrfmember = vrfmember.replace('DAT','DDT')
+	
+	# Change back the One off
+	if vrfmember == 'DMZ-WEB-' + dc.upper() + '-SDE-CELL1':
+		vrfmember = 'DMZ-DVT-' + dc.upper() + '-SDE'
 	
 	write_to_aci_cfg[tenant][vrf][epg] = [{
 
@@ -1674,6 +1681,34 @@ def main(argv):
     (aepname,linkpolname,cdppolname,lldpolname,stpolname,lacpolname,mcpolname) = get_pc_params(dafe_file)
     write_to_aci_cfg = get_data(dafe_file,epgs,dc,district,vrfs)
 
+    # Print out pre-migration planning info
+    migration_planning_file = './output/PRE_MIGRATION_PLANNING.txt'
+    f = open(migration_planning_file,"a")
+
+    for tenant in write_to_aci_cfg:
+	for vrf in write_to_aci_cfg[tenant]:
+		ecount = 0
+		nomigr = []
+		for epg in write_to_aci_cfg[tenant][vrf]:
+			for e in write_to_aci_cfg[tenant][vrf][epg]:
+				bdip = e['bd_subnet']
+				isl3 = e['l3']
+				fw = e['fwaname']
+				vrftype = e['type']
+
+				if isl3 == 'yes':
+					f.write(epg + ',' + bdip + ',' + fw + ',' + vrftype + ',' + vrf + ',' + tenant + ',' + '\n')
+					ecount = ecount + 1 
+				else:
+					nomigr.append(epg)
+		f.write('\n' + "Number of EPGs migrated: " + str(ecount) + '\n')	
+		f.write("Number of L2 EPGs not migrated: " + str(len(nomigr)) + '\n' )
+		for n in nomigr:
+			f.write(n + '\n')
+		f.write('\n')
+		f.write('*' * 12 + '\n')
+    f.close()	
+
     pattern = 'Zones*Vlans*IPs*'
 
     files = os.listdir('.')
@@ -1716,9 +1751,11 @@ def main(argv):
 				print e
 
 		if len(missing_from_input_file) > 0:
-			print "WARNING: The following EPGs in tenant %s, vrf %s are not being migrated.  Inner and outer VDC config should not be modified and contract on L3Out should not be removed" % ( tenant, vrf )
+    			f = open(migration_planning_file,"a")
+			f.write("WARNING: The following EPGs in tenant %s, vrf %s are not being migrated.  Inner and outer VDC config should not be modified and contract on L3Out should not be removed" % ( tenant, vrf ) + '\n' )
 			for e in missing_from_input_file:
-				print e
+				f.write(e + '\n')
+			f.close()
 
 			# find out which tenant this EPG is in and set all the EPGs in that tenant to remove_l3_contract to no
 			for tenant in write_to_aci_cfg:
@@ -1732,8 +1769,9 @@ def main(argv):
 			# Write N7K Config here (Inner and outer and shutdown inner config)
 			# Still have to check if we can shutdown outer config - done later
 			# Check for cleanup as well - later
-
-			print "OK: Inner config can be removed for tenant %s, vrf %s" % (tenant,vrf)
+    			f = open(migration_planning_file,"a")
+			f.write("Inner config can be removed for tenant %s, vrf %s" % (tenant,vrf) + '\n' )
+			f.close()
 			
 			for ep in write_to_aci_cfg[tenant][vrf]:
 					vrfmember = write_to_aci_cfg[tenant][vrf][ep][0]['vrfmember']
@@ -1792,14 +1830,18 @@ def main(argv):
 								break;
 			if len(stillexist) == 0 and targeted == 1:
 				sorted_d = sorted(count.items(), key=operator.itemgetter(1))
-				print "OK: Outer encap " + svi + " can be removed on " + n7k + "." + "  SVI shutdown config will be written to: " + sorted_d[-1][0] + " because it has the most EPGs in this VRF/SVI"
+				fmigr = open(migration_planning_file,"a")
+				fmigr.write("Outer encap " + svi + " can be removed on " + n7k + "." + "  SVI shutdown config will be written to: " + sorted_d[-1][0] + " because it has the most EPGs in this VRF/SVI" + '\n')
+				fmigr.close()
 				f = open(cutover_dir + "/" + sorted_d[-1][0] + "/" + n7k, "a")
 				f.write("!! Shutdown VLAN and remove VLAN from firewall - All VRFs migrated " + '\n')
 				f.close()	
 
 			if len(stillexist) != 0 and targeted == 1:
 				sorted_d = sorted(count.items(), key=operator.itemgetter(1))
-				print "WARNING: Outer encap " + svi + " on " + n7k + " has VRFs, but SVI shutdown config will be written to " + sorted_d[-1][0] + ".  Please remove this config if not needed. The following VRFs still exist:" + ','.join(stillexist)
+				fmigr = open(migration_planning_file,"a")
+				fmigr.write("WARNING: Outer encap " + svi + " on " + n7k + " has VRFs, but SVI shutdown config will be written to " + sorted_d[-1][0] + ".  Please remove this config if not needed. The following VRFs still exist:" + ','.join(stillexist) + '\n' )
+				fmigr.close()
 				f = open(cutover_dir + "/" + sorted_d[-1][0] + "/" + n7k, "a")
 				f.write("!! Verify if the SVI shutdown and firewall config VLAN removal should be executed. VRFs " + ','.join(stillexist) + " still exist on this VLAN per config"  + '\n')
 				f.close()
