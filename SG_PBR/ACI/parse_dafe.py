@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import openpyxl
+import operator
 import ipaddress
 from netaddr import *
 import shutil
@@ -319,6 +320,19 @@ def write_new_n7k_configs(vrfmember,p2psubnets,dc,district,n7k_data):
 		f.write('\n')
 		f.write('\n')
 		f.close()
+
+	for n7ks in n7k_data:
+		if bool(re.search('inner',n7ks, re.IGNORECASE)):
+			fwints = n7k_data[n7ks][vrfmember]['fw_trunk_int']
+			svi = n7k_data[n7ks][vrfmember]['svi']
+			f = open(cutover_dir + "/" + n7ks, "a")
+			f.write('\n')
+			f.write("!! Remove VLAN from firewall trunk" + '\n')
+			for fw in fwints:
+				f.write("interface Ethernet" + fw + '\n')
+				f.write(" switchport trunk allowed vlan remove " + svi + '\n')
+				f.write('\n')
+			f.close()	
 		
 def get_inner_outer_mapping(dc):
 
@@ -1499,8 +1513,6 @@ def get_data(filename,epgs,dc,district,p2psubnets):
 						'contract' : contracts_to_remove,
 						'curr_c_contracts' : epg_c_contracts,
 						'curr_p_contracts' : epg_p_contracts,
-						'remove_n7k_inner_config' : 'yes',
-						'remove_n7k_outer_config' : 'yes',
 						'vlan' : vlan,
 						'fwbdname' : 'N/A',
 						'fwvip' : fwvip,
@@ -1708,14 +1720,12 @@ def main(argv):
 			for e in missing_from_input_file:
 				print e
 
-			# find out which tenant this EPG is in and set all the EPGs in that tenant to remove_n7k_*_config to no
+			# find out which tenant this EPG is in and set all the EPGs in that tenant to remove_l3_contract to no
 			for tenant in write_to_aci_cfg:
 				for vrf in write_to_aci_cfg[tenant]:
 					for ep in write_to_aci_cfg[tenant][vrf]:
 				 		for a in write_to_aci_cfg[tenant][vrf][ep]:
 							 a['remove_l3_contract'] = 'no'	
-							 a['remove_n7k_inner_config'] = 'no'
-							 a['remove_n7k_outer_config'] = 'no'
 					
 		else:
 			# All inner is being migrated, remove the tenant/VRF from the list of fw_to_epg for the outer, then check this later on to see if all VRFs are removed from FW
@@ -1752,6 +1762,10 @@ def main(argv):
     # If all the VRFs are being removed from the FW, shutdown the SVI on the outer and remove the VLAN from the trunk on inner and outer
     stillexist = []   
     targeted = 0 
+    count  = {}
+    
+    cutover_dir = dir_path + "/" + "N7K_CUTOVER" 
+   
     for n7k in n7k_data:
     	if bool((re.search('outer',n7k,re.IGNORECASE))) :
 		for svi in n7k_data[n7k]:
@@ -1765,18 +1779,43 @@ def main(argv):
 				else:
 					targeted = 1
 
+			# Write SVI shutdown and VLAN removal to the VRF cutover file which has the most EPG's in the group of VRFs on the trunk - this will most likely be targeted last during the migration
+			# In the inner, remove the VLAN from the FW trunk for every VRF	
+			# Get EPG count
+			for v in n7k_data[n7k][svi]['vrf']:
+				for tenant in write_to_aci_cfg:
+					for vvvrf in write_to_aci_cfg[tenant]:
+						for epg in write_to_aci_cfg[tenant][vvvrf]:
+							if write_to_aci_cfg[tenant][vvvrf][epg][0]['vrfmember'] == v:
+								num = len(write_to_aci_cfg[tenant][vvvrf])
+								count[v] = num
+								break;
 			if len(stillexist) == 0 and targeted == 1:
-				print "OK: Outer encap " + svi + " can be removed on " + n7k
-				print "\n"
-				# Write SVI shutdown and VLAN removal to the VRF cutover file which has the most EPG's in the group of VRFs on the trunk - this will most likely be targeted last during the migration
-				# In the inner, remove the VLAN from the FW trunk for every VRF	
+				sorted_d = sorted(count.items(), key=operator.itemgetter(1))
+				print "OK: Outer encap " + svi + " can be removed on " + n7k + "." + "  SVI shutdown config will be written to: " + sorted_d[-1][0] + " because it has the most EPGs in this VRF/SVI"
+				f = open(cutover_dir + "/" + sorted_d[-1][0] + "/" + n7k, "a")
+				f.write("!! Shutdown VLAN and remove VLAN from firewall - All VRFs migrated " + '\n')
+				f.close()	
 
 			if len(stillexist) != 0 and targeted == 1:
-				print "WARNING: Outer encap " + svi + " cannot be removed on " + n7k
-				print "The following VRFs still exist:"
-				print '\n'.join(stillexist)
-				print '\n'
-				print '\n'
+				sorted_d = sorted(count.items(), key=operator.itemgetter(1))
+				print "WARNING: Outer encap " + svi + " on " + n7k + " has VRFs, but SVI shutdown config will be written to " + sorted_d[-1][0] + ".  Please remove this config if not needed. The following VRFs still exist:" + ','.join(stillexist)
+				f = open(cutover_dir + "/" + sorted_d[-1][0] + "/" + n7k, "a")
+				f.write("!! Verify if the SVI shutdown and firewall config VLAN removal should be executed. VRFs " + ','.join(stillexist) + " still exist on this VLAN per config"  + '\n')
+				f.close()
+	
+			if targeted == 1:
+				fwints = n7k_data[n7k][svi]['fw_trunk_int']
+				f = open(cutover_dir + "/" + sorted_d[-1][0] + "/" + n7k, "a")
+				f.write("interface Vlan" + svi + '\n')
+				f.write(" shutdown" + '\n')
+				for fw in fwints:
+					f.write("interface Ethernet" + fw + '\n')
+					f.write(" switchport trunk allowed vlan remove " + svi + '\n')
+				f.close()
+
+					
+			count = {}
 			stillexist = []
 			targeted = 0
 		
