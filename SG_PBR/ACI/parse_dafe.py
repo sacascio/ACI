@@ -1280,28 +1280,31 @@ def get_data(filename,epgs,dc,district,p2psubnets):
 
 
 	# Get BD Subnet
-	wb.active = worksheets.index('bd_subnet')
+	if l3routing == 'yes':
+		wb.active = worksheets.index('bd_subnet')
 
-        ws = wb.active
-        row_start = ws.min_row
-        row_end   = ws.max_row
+        	ws = wb.active
+        	row_start = ws.min_row
+        	row_end   = ws.max_row
 
-        for x in range(row_start,row_end+1):
-                cell = 'C' + str(x)
-                bdvalue = ws[cell].value
+        	for x in range(row_start,row_end+1):
+                	cell = 'C' + str(x)
+                	bdvalue = ws[cell].value
                 
-		cell = 'D' + str(x)
-                tenantvalue = ws[cell].value
+			cell = 'D' + str(x)
+                	tenantvalue = ws[cell].value
                 
-		if bdvalue == bd and tenantvalue == tenant:
-                        bdsubnetcell = 'A' + str(x)
-                        bd_subnet = ws[bdsubnetcell].value
+			if bdvalue == bd and tenantvalue == tenant:
+                        	bdsubnetcell = 'A' + str(x)
+                        	bd_subnet = ws[bdsubnetcell].value
 
-        try:
-                bd_subnet
-        except NameError:
-                print "WARNING: %s, BD Subnet Not found" % epg
-                bd_subnet = 'N/A'
+        	try:
+                	bd_subnet
+        	except NameError:
+                	print "WARNING: %s, BD Subnet Not found" % epg
+                	bd_subnet = 'N/A'
+	else:
+		bd_subnet = 'N/A'
 
  
     	#From vrf tab, get vrf member name, using tenant and vrf from bridge_domain tab
@@ -1610,6 +1613,7 @@ def get_data(filename,epgs,dc,district,p2psubnets):
         del fwb
         del leafa_int
         del leafb_int
+	del bd_subnet
 
    
     return write_to_aci_cfg
