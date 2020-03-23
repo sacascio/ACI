@@ -28,9 +28,12 @@ def write_new_n7k_configs(vrfmember,p2psubnets,dc,district,n7k_data):
 	bgp_shut_outer = {}
 	bgp_rb_inner = {}
 	bgp_rb_outer = {}
+	bgp_rb_outer = {}
+	svi_cleanup = {}
 	
 	cutover_dir = dir_path + "/" + "N7K_CUTOVER" + "/" + vrfmember
 	rollback_dir = dir_path + "/" + "N7K_ROLLBACK" + "/" + vrfmember
+	cleanup_dir = dir_path + "/" + "N7K_NEXT_CLEANUP" + "/" + vrfmember
 
 	if not os.path.exists(dir_path + "/" + "N7K_PREWORK"):
 		os.mkdir(dir_path + "/" + "N7K_PREWORK")
@@ -38,9 +41,12 @@ def write_new_n7k_configs(vrfmember,p2psubnets,dc,district,n7k_data):
 		os.mkdir(dir_path + "/" + "N7K_CUTOVER")
 	if not os.path.exists(dir_path + "/" + "N7K_ROLLBACK"):
 		os.mkdir(dir_path + "/" + "N7K_ROLLBACK")
+	if not os.path.exists(dir_path + "/" + "N7K_NEXT_CLEANUP"):
+		os.mkdir(dir_path + "/" + "N7K_NEXT_CLEANUP")
 
 	os.mkdir(cutover_dir)
 	os.mkdir(rollback_dir)
+	os.mkdir(cleanup_dir)
 
 	k = 0
 
@@ -176,7 +182,14 @@ def write_new_n7k_configs(vrfmember,p2psubnets,dc,district,n7k_data):
 					if bool(re.search('inner',n7kname, re.IGNORECASE)):
 						bgp_rb_inner[n7kname]['subint'].append("no interface Ethernet" + inner_int + "." + encap)
 					
-					ipinner = p2psubnets[k]
+					# Custom IP addressing for SDE because we already started this way
+					if k == 2 and district.upper() == 'SDE':
+						ipinner = p2psubnets[3]
+					elif k == 3 and district.upper() == 'SDE':
+						ipinner = p2psubnets[2]
+					else:	
+						ipinner = p2psubnets[k]
+
 					ipinnerx = ipinner.split('/')
 					ipinner = IPAddress(ipinnerx[0])
 					mask = ipinnerx[1]
@@ -255,6 +268,13 @@ def write_new_n7k_configs(vrfmember,p2psubnets,dc,district,n7k_data):
 		if bool(re.search('inner',n7kname, re.IGNORECASE)):
     			bgp_rb_inner[n7kname]['svi'].append("interface Vlan" + encap)
     			bgp_rb_inner[n7kname]['svi'].append(" no shutdown")
+		
+		# Write cleanup part for next window
+		if bool(re.search('inner',n7kname, re.IGNORECASE)):
+			if n7kname not in svi_cleanup:
+				svi_cleanup[n7kname] = {}
+				svi_cleanup[n7kname]['svi'] = []
+    			svi_cleanup[n7kname]['svi'].append("no interface Vlan" + str(encap))
 				
 					
 	for n7ks in inner_bgp_config:
@@ -320,12 +340,21 @@ def write_new_n7k_configs(vrfmember,p2psubnets,dc,district,n7k_data):
 		f.write('\n')
 		f.write('\n')
 		f.close()
+	
+	for n7ks in svi_cleanup:
+		f = open(cleanup_dir + "/" +  n7ks, "a")
+		f.write("!!" + '\n')
+		f.write("!! SVI Removal N7K Inner VDC - VRF " + vrfmember +  '\n')
+		f.write("!!" + '\n')
+                f.write("configure terminal" + '\n')
+		f.write(('\n'.join(svi_cleanup[n7ks]['svi'])))
+                f.write('\n')
 
 	for n7ks in n7k_data:
 		if bool(re.search('inner',n7ks, re.IGNORECASE)):
 			fwints = n7k_data[n7ks][vrfmember]['fw_trunk_int']
 			svi = n7k_data[n7ks][vrfmember]['svi']
-			f = open(cutover_dir + "/" + n7ks, "a")
+			f = open(cleanup_dir + "/" + n7ks, "a")
 			f.write('\n')
 			f.write("!! Remove VLAN from firewall trunk" + '\n')
 			for fw in fwints:
@@ -1803,6 +1832,7 @@ def main(argv):
     count  = {}
     
     cutover_dir = dir_path + "/" + "N7K_CUTOVER" 
+    cleanup_dir = dir_path + "/" + "N7K_NEXT_CLEANUP" 
    
     for n7k in n7k_data:
     	if bool((re.search('outer',n7k,re.IGNORECASE))) :
@@ -1851,11 +1881,17 @@ def main(argv):
 				f = open(cutover_dir + "/" + sorted_d[-1][0] + "/" + n7k, "a")
 				f.write("interface Vlan" + svi + '\n')
 				f.write(" shutdown" + '\n')
+				f.close()
+				f = open(cleanup_dir + "/" + sorted_d[-1][0] + "/" + n7k, "a")
+				f.write("!!Remove VLAN Interface for VRF " + sorted_d[-1][0]  + '\n')
+				f.write("no interface Vlan" + svi + '\n')
+				f.write('\n')
 				for fw in fwints:
+					f.write("!!Remove VLAN from FW trunk for VRF " + sorted_d[-1][0]  + '\n')
 					f.write("interface Ethernet" + fw + '\n')
 					f.write(" switchport trunk allowed vlan remove " + svi + '\n')
+					f.write('\n')
 				f.close()
-
 					
 			count = {}
 			stillexist = []
