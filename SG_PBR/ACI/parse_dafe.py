@@ -88,6 +88,7 @@ def write_new_n7k_configs(vrfmember,p2psubnets,dc,district,n7k_data):
 		bgp_rb_outer[n7k] = {}
                 bgp_rb_outer[n7k]['neighbors'] = []
                 bgp_rb_outer[n7k]['subint'] = []
+                bgp_rb_outer[n7k]['svi'] = []
 
 		for svi in n7k_data[n7k]:
 			if svi == 'P2P':
@@ -103,8 +104,10 @@ def write_new_n7k_configs(vrfmember,p2psubnets,dc,district,n7k_data):
 					bgp_shut_outer[n7k].append("! Shutdown the BGP adjacency to the N7K Inner in VRF " + vrfmember)
 					bgp_shut_outer[n7k].append("router bgp " + local_as)
 
-					# Squeeze in rollback for BGP Neighbors
+					# Squeeze in rollback for BGP Neighbors and the SVI
 					bgp_rb_outer[n7k]['neighbors'].append("router bgp " + local_as)
+					bgp_rb_outer[n7k]['svi'].append("interface Vlan" + svi)
+					bgp_rb_outer[n7k]['svi'].append(" no shutdown")
 
 					for n in outer_neighbors:
 						bgp_shut_outer[n7k].append(" neighbor " +  n + " remote-as " + remote_as )
@@ -331,13 +334,16 @@ def write_new_n7k_configs(vrfmember,p2psubnets,dc,district,n7k_data):
 		f.write("!! N7K Outer VDC - VRF " + vrfmember +  '\n')
 		f.write("!!" + '\n')
 		f.write("configure terminal" + '\n')
-		f.write("! Remove new sub interfaces to Outer VDCs" + '\n')
+		f.write("! Remove new sub interfaces to Inner VDCs" + '\n')
 		f.write(('\n'.join(bgp_rb_outer[n7ks]['subint'])))
 		f.write('\n')
 		f.write('\n')
 		f.write("! Remove direct BGP adjacencies to Inner VDCs and re-enable BGP Adjacencies to FW-Outer" + '\n')
 		f.write(('\n'.join(bgp_rb_outer[n7ks]['neighbors'])))
 		f.write('\n')
+		f.write('\n')
+		f.write("! Re-enable SVI to FW-Outer" + '\n')
+		f.write(('\n'.join(bgp_rb_outer[n7ks]['svi'])))
 		f.write('\n')
 		f.close()
 	
@@ -667,6 +673,56 @@ def getValueWithMergeLookup(sheet, cell):
         for row in merged_cells:
             if cell in row:
                 return sheet.cell(merged_cells[0][0]).value
+
+def check_selector_exists(selector,pgname,dafe_file):
+
+    worksheets = []
+    wb = openpyxl.load_workbook(dafe_file, data_only=True)
+
+    for sheet in wb:
+        worksheets.append(sheet.title)
+    wb.close()
+
+    wb.active = worksheets.index('leaf_interface_selector')
+    ws = wb.active
+    row_start = ws.min_row
+    row_end   = ws.max_row
+
+    for x in range(row_start+1,row_end+1):
+            cell = 'A' + str(x)
+            int_selector = ws[cell].value
+            
+	    cell = 'D' + str(x)
+            pg_path = ws[cell].value
+
+            if int_selector == selector and pg_path == 'uni/infra/funcprof/accbundle-' + pgname:
+                return True
+
+    return False
+
+    
+def check_pcpg_name(pgname,dafe_file):
+
+    worksheets = []
+    wb = openpyxl.load_workbook(dafe_file, data_only=True)
+
+    for sheet in wb:
+        worksheets.append(sheet.title)
+    wb.close()
+
+    wb.active = worksheets.index('pc_vpc_interface_policy_group')
+    ws = wb.active
+    row_start = ws.min_row
+    row_end   = ws.max_row
+
+    for x in range(row_start+1,row_end+1):
+            cell = 'A' + str(x)
+            name = ws[cell].value
+
+    	    if name == pgname:
+		return True
+
+    return False	
 
 def get_pc_params(dafe_file):
 			
@@ -1951,6 +2007,8 @@ def main(argv):
     f.write("INTPROFILE,PC_POLICY,PORT,PN" + '\n')
     f.close()
     
+    pc_creation['pc_dc1sdenwa1sbx01:AEP_STATIC:10GB_Auto:CDP_ENABLE:LLDP_ENABLE:BPDU_GUARD_ENABLED:LACP_ACTIVE:MCP_ENABLE'] =  {"leafid": 212, "intf": ["1/27", "1/28", "1/29", "1/17"]}
+
     for pc_key in pc_creation:
 	tmp = pc_key.split(':')
 	pgname = tmp[0]
@@ -1966,16 +2024,26 @@ def main(argv):
 
 	swprofname = get_sw_prof_name(dafe_file,leafid)
 
-        f = open(dir_path + "/PRE_WORK/3.6  - Create port channel interface policy group for the new firewall connections.csv", "a") 
-    	f.write(pgname + "," + link + "," + cdppol + "," + mcp_pol + "," + lldppol + "," + stppol + "," + lacppol + "," + aeppol + '\n')
-    	f.close()
+	# if port channel policy group is created, skip creating it
+	pgname_exists = check_pcpg_name(pgname,dafe_file)
+	if pgname_exists is False:
+        	f = open(dir_path + "/PRE_WORK/3.6  - Create port channel interface policy group for the new firewall connections.csv", "a") 
+    		f.write(pgname + "," + link + "," + cdppol + "," + mcp_pol + "," + lldppol + "," + stppol + "," + lacppol + "," + aeppol + '\n')
+    		f.close()
+	else:
+		print "OK: Port channel policy group name " + pgname + " exists, not creating it"
         
 	f = open(dir_path + "/PRE_WORK/3.7 - Create int selectors and associate leaf interfaces to port channel interface policy group.csv", "a") 
 	for n in intf:
 		i = n.split("/")
 		portnum = i[1]
 		selector = "E_" + i[0] + "_" + portnum
-    		f.write(swprofname + "," +  pgname + "," + selector + "," + portnum + '\n')
+		selector_exists = check_selector_exists(selector,pgname,dafe_file)
+
+		if selector_exists is False:
+    			f.write(swprofname + "," +  pgname + "," + selector + "," + portnum + '\n')
+		else:
+			print "OK: Interface selector " + selector + " already exists in policy group " + pgname + ".  Selector will not be created"
     	f.close()
 
     # 3.8 to 3.14 - Create new construct names, save it and access it later 
