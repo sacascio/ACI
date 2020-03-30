@@ -1679,7 +1679,8 @@ def main(argv):
     
     if os.path.isdir(dir_path):
 	shutil.rmtree(dir_path)
-	os.mkdir(dir_path)
+   
+    os.mkdir(dir_path)
     
     # Arguments
     if len(argv) == 0:
@@ -2007,7 +2008,7 @@ def main(argv):
     f.write("INTPROFILE,PC_POLICY,PORT,PN" + '\n')
     f.close()
     
-    pc_creation['pc_dc1sdenwa1sbx01:AEP_STATIC:10GB_Auto:CDP_ENABLE:LLDP_ENABLE:BPDU_GUARD_ENABLED:LACP_ACTIVE:MCP_ENABLE'] =  {"leafid": 212, "intf": ["1/27", "1/28", "1/29", "1/17"]}
+    #pc_creation['pc_dc1sdenwa1sbx01:AEP_STATIC:10GB_Auto:CDP_ENABLE:LLDP_ENABLE:BPDU_GUARD_ENABLED:LACP_ACTIVE:MCP_ENABLE'] =  {"leafid": 212, "intf": ["1/27", "1/28", "1/29", "1/17"]}
 
     for pc_key in pc_creation:
 	tmp = pc_key.split(':')
