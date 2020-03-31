@@ -655,7 +655,7 @@ def fix_type_x(write_to_aci_cfg):
 
 
 def usage():
-    print "Usage: " +  sys.argv[0] + " -d|--district <soe, gis or sde> -c|--datacenter <dc1 or dc2> -f|file <inputfile>"
+    print "Usage: " +  sys.argv[0] + " -d|--district <soe, gis or sde> -c|--datacenter <dc1 or dc2> -f|file <inputfile> -x <excludefile>"
     print ""
     print "-f|--file:   Pass input file to use for configuration.   Format:"
     print "1 value per line - assume its an EPG"
@@ -663,6 +663,7 @@ def usage():
     print "4 subnets for SDE, 8 subnets for GIS/SOE"
     print "-d|--district: indicates district name, must be <SOE|GIS|SDE>"
     print "-c|--datacenter: indicates datacenter name, must be <DC1 or DC2>"
+    print "-x|--exclude: exclude EPGs from the migration.  File format expected is: tenant,vrf,epg (per line)"
     print "-h|--help: print help message"
     sys.exit(1)
     
@@ -1681,13 +1682,15 @@ def main(argv):
 	shutil.rmtree(dir_path)
    
     os.mkdir(dir_path)
+
+    toexclude = False
     
     # Arguments
     if len(argv) == 0:
         usage()
     
     try:
-        opts,args = getopt.getopt(argv,"d:c:f:h",["district=","datacenter=","file=","help"])
+        opts,args = getopt.getopt(argv,"d:c:f:hx:",["district=","datacenter=","file=","help","--exclude"])
     except getopt.GetoptError as err:
         print str(err)
         sys.exit(2)
@@ -1701,6 +1704,9 @@ def main(argv):
                 dc = arg
             if opt in ("-f","--file"):
                 infile = arg
+            if opt in ("-x","--exclude"):
+                excludefile = arg
+		toexclude = True
     try:
 	district
     except NameError:
@@ -1730,8 +1736,15 @@ def main(argv):
     if not os.path.isfile(infile):
         print sys.argv[0] + " Input File %s NOT found" % infile
         sys.exit(9)
-
- 
+   
+    if toexclude is True: 
+    	if os.path.isfile(excludefile):
+        	with open (excludefile) as ex:
+			exinfo = ex.read().splitlines()
+	else:
+		print "ERROR: Exclude option chosen, but exclude file not found"
+		sys.exit(9)
+			
     dafe_file = dc.upper() + "_" + district.upper() + "_DAFE.xlsx"
 
     with open (infile) as f:
@@ -1740,6 +1753,7 @@ def main(argv):
 
     # If theres no comma in the input, its by EPG. 
     # if theres at least 1 comma, its by VRF
+    # Deprecated - it's only bt VRF now
 
     if len(numparams) == 1:
     	with open (infile) as f:
@@ -1971,7 +1985,8 @@ def main(argv):
     # Check if output dir exists - if not, create it
     # if exists, delete it and re-create it
 
-    os.mkdir(dir_path + "/" + "PRE_WORK")
+    os.mkdir(dir_path + "/" + "ACI_PRE_WORK")
+    os.mkdir(dir_path + "/" + "ACI_CONTRACT_VERIFICATION")
    
 
     # Pre work
@@ -2000,11 +2015,11 @@ def main(argv):
 					pc_creation[pcb_key] = {'leafid' : d['leafb'], 'intf' : d['leafb_int']}
 
 
-    f = open(dir_path + "/" + "PRE_WORK/3.6  - Create port channel interface policy group for the new firewall connections.csv", "a") 
+    f = open(dir_path + "/" + "ACI_PRE_WORK/3.6  - Create port channel interface policy group for the new firewall connections.csv", "a") 
     f.write("PC_PG,LINK,CDP,MCP,LLDP,BPDU,LACP,AEP" + '\n')
     f.close()
     
-    f = open(dir_path + "/PRE_WORK/3.7 - Create int selectors and associate leaf interfaces to port channel interface policy group.csv", "a") 
+    f = open(dir_path + "/ACI_PRE_WORK/3.7 - Create int selectors and associate leaf interfaces to port channel interface policy group.csv", "a") 
     f.write("INTPROFILE,PC_POLICY,PORT,PN" + '\n')
     f.close()
     
@@ -2028,13 +2043,13 @@ def main(argv):
 	# if port channel policy group is created, skip creating it
 	pgname_exists = check_pcpg_name(pgname,dafe_file)
 	if pgname_exists is False:
-        	f = open(dir_path + "/PRE_WORK/3.6  - Create port channel interface policy group for the new firewall connections.csv", "a") 
+        	f = open(dir_path + "/ACI_PRE_WORK/3.6  - Create port channel interface policy group for the new firewall connections.csv", "a") 
     		f.write(pgname + "," + link + "," + cdppol + "," + mcp_pol + "," + lldppol + "," + stppol + "," + lacppol + "," + aeppol + '\n')
     		f.close()
 	else:
 		print "OK: Port channel policy group name " + pgname + " exists, not creating it"
         
-	f = open(dir_path + "/PRE_WORK/3.7 - Create int selectors and associate leaf interfaces to port channel interface policy group.csv", "a") 
+	f = open(dir_path + "/ACI_PRE_WORK/3.7 - Create int selectors and associate leaf interfaces to port channel interface policy group.csv", "a") 
 	for n in intf:
 		i = n.split("/")
 		portnum = i[1]
@@ -2083,31 +2098,31 @@ def main(argv):
 				d.update({'fwcluster' : shortfirewall.upper()})
 
     # Prepare all the headers for the pre-work files
-    f = open(dir_path + "/PRE_WORK/3.8 - Create a bridge domain for the policy-based routing policy.csv", "a")
+    f = open(dir_path + "/ACI_PRE_WORK/3.8 - Create a bridge domain for the policy-based routing policy.csv", "a")
     f.write("TENANT,BD,SUBNET,VRF" + '\n')
     f.close()
 
-    f = open(dir_path + "/PRE_WORK/3.9 - Create the L4-L7 device.csv", "a")
+    f = open(dir_path + "/ACI_PRE_WORK/3.9 - Create the L4-L7 device.csv", "a")
     f.write("TENANT,FW,DEVICE1,LEAF_ID1,PC_NAME1,DEVICE2,LEAF_ID2,PC_NAME2,PHYS_DOMAIN,VLANID,CLUSTER" + '\n')
     f.close()
     
-    f = open(dir_path + "/PRE_WORK/3.10 - Create the service graph template.csv", "a")
+    f = open(dir_path + "/ACI_PRE_WORK/3.10 - Create the service graph template.csv", "a")
     f.write("TENANT,SGNAME,FW" + '\n')
     f.close()
     
-    f = open(dir_path + "/PRE_WORK/3.11 - Create the policy-based redirect policies.csv", "a")
+    f = open(dir_path + "/ACI_PRE_WORK/3.11 - Create the policy-based redirect policies.csv", "a")
     f.write("TENANT,PBRNAME,REDIRECTIP,REDIRECTMAC" + '\n')
     f.close()
     
-    f = open(dir_path + "/PRE_WORK/3.12 - Create a new contract with the Service Graph name defined as the subject.csv", "a" )
+    f = open(dir_path + "/ACI_PRE_WORK/3.12 - Create a new contract with the Service Graph name defined as the subject.csv", "a" )
     f.write("TENANT,CONTRACT_NAME,SUBJECT" + '\n')
     f.close()
     
-    f = open(dir_path + "/PRE_WORK/3.13 - Create device selection policy.csv", "a")
+    f = open(dir_path + "/ACI_PRE_WORK/3.13 - Create device selection policy.csv", "a")
     f.write("TENANT,CONTRACT_NAME,SGNAME,NODENAME,FW,BD,PBR_POLICY,CLUSTER" + '\n')
     f.close()
     
-    f = open(dir_path + "/PRE_WORK/3.14  - Assign the L4-L7 service graph to the new contract in the contract subject.csv", "a" )
+    f = open(dir_path + "/ACI_PRE_WORK/3.14  - Assign the L4-L7 service graph to the new contract in the contract subject.csv", "a" )
     f.write("TENANT,CONTRACT_NAME,SGNAME,SUBJECT" + '\n')
     f.close()
 
@@ -2130,31 +2145,31 @@ def main(argv):
 			vlan = write_to_aci_cfg[tenant][vrf][epg][0]['vlan']
 			fwbdsubnetmask_t = write_to_aci_cfg[tenant][vrf][epg][0]['fwbdsubnet'].split("/")
 			fwbdsubnetmask =  fwbdsubnetmask_t[1]	
-			f = open(dir_path + "/PRE_WORK/3.8 - Create a bridge domain for the policy-based routing policy.csv", "a")
+			f = open(dir_path + "/ACI_PRE_WORK/3.8 - Create a bridge domain for the policy-based routing policy.csv", "a")
 			f.write(tenant +  "," + fwbdname + "," + fwbdip + "/" + fwbdsubnetmask + "," + vrf + '\n')
 			f.close()
 			
-			f = open(dir_path + "/PRE_WORK/3.9 - Create the L4-L7 device.csv", "a")
+			f = open(dir_path + "/ACI_PRE_WORK/3.9 - Create the L4-L7 device.csv", "a")
 			f.write(tenant +  "," + l4l7name + "," + fwaname.upper() + "," + str(leafid_a) + "," + "pc_" + fwaname + "," + fwbname.upper() + "," + str(leafid_b) + "," + "pc_" + fwbname + "," + dc.upper() + "_" + district.upper() + "_" + "PHYS_DOM" "," + vlan + "," + fwcluster +   '\n')
 			f.close()
 			
-			f = open(dir_path + "/PRE_WORK/3.10 - Create the service graph template.csv", "a")
+			f = open(dir_path + "/ACI_PRE_WORK/3.10 - Create the service graph template.csv", "a")
 			f.write(tenant +  "," + sgtname + "," + l4l7name + '\n')
 			f.close()
 			
-			f = open(dir_path + "/PRE_WORK/3.11 - Create the policy-based redirect policies.csv", "a")
+			f = open(dir_path + "/ACI_PRE_WORK/3.11 - Create the policy-based redirect policies.csv", "a")
 			f.write(tenant +  "," + pbrname + "," + fwvip + "," + '\n')
 			f.close()
 			
-			f = open(dir_path + "/PRE_WORK/3.12 - Create a new contract with the Service Graph name defined as the subject.csv", "a")
+			f = open(dir_path + "/ACI_PRE_WORK/3.12 - Create a new contract with the Service Graph name defined as the subject.csv", "a")
 			f.write(tenant +  "," + sgcontractname + "," + "Permit_Any" + '\n')
 			f.close()
 			
-			f = open(dir_path + "/PRE_WORK/3.13 - Create device selection policy.csv", "a")
+			f = open(dir_path + "/ACI_PRE_WORK/3.13 - Create device selection policy.csv", "a")
 			f.write(tenant +  "," + sgcontractname + "," + sgtname + "," + "N1," + l4l7name + "," + fwbdname + "," + pbrname + "," + fwcluster  + '\n')
 			f.close()
 			
-			f = open(dir_path + "/PRE_WORK/3.14  - Assign the L4-L7 service graph to the new contract in the contract subject.csv", "a")
+			f = open(dir_path + "/ACI_PRE_WORK/3.14  - Assign the L4-L7 service graph to the new contract in the contract subject.csv", "a")
 			f.write(tenant +  "," + sgcontractname + "," + sgtname + "," + "Permit_Any"  + '\n')
 			f.close()
 			break
@@ -2164,7 +2179,7 @@ def main(argv):
 		for epg in write_to_aci_cfg[tenant][vrf]:
 			dirname = epg.split("-")
 			tenantdir = dirname[0]
-			os.mkdir(dir_path + "/" + tenantdir + "-" + vrf)
+			os.mkdir(dir_path + "/ACI_" + tenantdir + "-" + vrf)
 			break
 
     # MIGRATION STEPS - PRINT CONTRACTS
@@ -2173,14 +2188,13 @@ def main(argv):
     for tenant in write_to_aci_cfg:
 	for vrf in write_to_aci_cfg[tenant]:
 		for epg in write_to_aci_cfg[tenant][vrf]:
-		
 			for d in write_to_aci_cfg[tenant][vrf][epg]:
 				if d['remove_l3_contract'] == 'yes' and d['l3'] == 'yes' :
 					dirname = epg.split("-")
 					tenantdir = dirname[0]
 					fname = vrf + " 1 Type " + d['type'] +  " - Associate contracts to L3Out as consumer.csv"
-					if not os.path.isfile(dir_path + "/" + tenantdir + "-" + vrf + "/" + fname):
-    						f = open(dir_path + "/" + tenantdir + "-" + vrf + "/" + fname, "a") 
+					if not os.path.isfile(dir_path + "/ACI_" + tenantdir + "-" + vrf + "/" + fname):
+    						f = open(dir_path + "/ACI_" + tenantdir + "-" + vrf + "/" + fname, "a") 
     						f.write("TENANT,L3OUT,NETWORK,NEW_L3_CONTRACT" + '\n')
     						f.close()
 
@@ -2190,8 +2204,13 @@ def main(argv):
 					newcontract_key = tenantdir + "-" + vrf + "-" + l3out_name + "-" + ext_epg + "-" + newcontract
 					if newcontract_key not in l3out and l3out_name != 'N/A':
 						l3out[newcontract_key] = {}
-						f = open(dir_path + "/" + tenantdir + "-" + vrf + "/" + fname, "a") 
+						f = open(dir_path + "/ACI_" + tenantdir + "-" + vrf + "/" + fname, "a") 
+						fverify = open(dir_path + "/ACI_CONTRACT_VERIFICATION/" + tenantdir + "-" + vrf, "a") 
+						
 						f.write(tenant + "," + l3out_name + "," + ext_epg + "," + newcontract + '\n')
+						fverify.write(tenant + "," + l3out_name + "," + ext_epg + '\n')
+						
+						fverify.close()
 						f.close()
     
     # Print EPG associate new contract
@@ -2199,6 +2218,9 @@ def main(argv):
     for tenant in write_to_aci_cfg:
 	for vrf in write_to_aci_cfg[tenant]:
 		for epg in write_to_aci_cfg[tenant][vrf]:
+			if toexclude is True and epg in exinfo:
+				print "OK: Excluding EPG " + epg + " from new contract association"
+				continue	
 			for d in write_to_aci_cfg[tenant][vrf][epg]:
 				if d['l3'] == 'yes' :
 					s = epg.split("-")
@@ -2207,30 +2229,37 @@ def main(argv):
 					ap = d['ap']
 					if type == 'A':
 						fname = vrf + " 2 Type " + d['type'] + " - Assign new contract as provider.csv"
-						if not os.path.isfile(dir_path + "/" + tenantdir + "-" + vrf + "/" + fname):
-    							f = open(dir_path + "/" + tenantdir + "-" + vrf + "/" + fname, "a") 
+						if not os.path.isfile(dir_path + "/ACI_" + tenantdir + "-" + vrf + "/" + fname):
+    							f = open(dir_path + "/ACI_" + tenantdir + "-" + vrf + "/" + fname, "a") 
     							f.write("TENANT,AP,EPG,NEW_EPG_CONTRACT" + '\n')
     							f.close()
-    						f = open(dir_path + "/" + tenantdir + "-" + vrf + "/" + fname, "a") 
+    						f = open(dir_path + "/ACI_" + tenantdir + "-" + vrf + "/" + fname, "a") 
 						f.write(tenant + "," + ap + "," + epg + "," + tenantdir + "-" + vrf + "-" + "SG-PBR-Permit_Any" + '\n')
 						f.close()
 
 					if type == 'B':
 						fname = vrf + " 2 Type " + d['type'] + " - Assign new contract as provider and delete old contracts.csv"
-						if not os.path.isfile(dir_path + "/" + tenantdir + "-" + vrf + "/" + fname):
-    							f = open(dir_path + "/" + tenantdir + "-" + vrf + "/" + fname, "a") 
+						if not os.path.isfile(dir_path + "/ACI_" + tenantdir + "-" + vrf + "/" + fname):
+    							f = open(dir_path + "/ACI_" + tenantdir + "-" + vrf + "/" + fname, "a") 
     							f.write("TENANT,AP,EPG,NEW_EPG_CONTRACT,OLD_EPG_CONTRACT" + '\n')
     							f.close()
-    						f = open(dir_path + "/" + tenantdir + "-" + vrf + "/" + fname, "a")
+    						f = open(dir_path + "/ACI_" + tenantdir + "-" + vrf + "/" + fname, "a")
 						for c in d['contract']: 
 							f.write(tenant + "," + ap + "," + epg + "," + tenantdir + "-" + vrf + "-" + "SG-PBR-Permit_Any" + "," + c + '\n')
 						f.close()
+
+					fverify = open(dir_path + "/ACI_CONTRACT_VERIFICATION/" + tenantdir + "-" + vrf, "a") 
+					fverify.write(tenant + "," + ap + "," + epg + '\n')
+					f.close()
     
     l3out = {}
     #Contract removal
     for tenant in write_to_aci_cfg:
 	for vrf in write_to_aci_cfg[tenant]:
 		for epg in write_to_aci_cfg[tenant][vrf]:
+			if toexclude is True and epg in exinfo:
+				print "OK: Excluding EPG " + epg + " from old contract removal"
+				continue	
 			for d in write_to_aci_cfg[tenant][vrf][epg]:
 				if d['l3'] == 'yes' :
 					d_l3out = d['l3out']
@@ -2240,8 +2269,8 @@ def main(argv):
 					type = d['type']
 					tenantdir = s[0]
 					fname = vrf + " 3 Type " + d['type'] + " - Remove contract from L3Out and EPG as provider_consumer.csv"	
-					if not os.path.isfile(dir_path + "/" + tenantdir + "-" + vrf + "/" + fname):
-    						f = open(dir_path + "/" + tenantdir + "-" + vrf + "/" + fname, "a") 
+					if not os.path.isfile(dir_path + "/ACI_" + tenantdir + "-" + vrf + "/" + fname):
+    						f = open(dir_path + "/ACI_" + tenantdir + "-" + vrf + "/" + fname, "a") 
     						f.write("TENANT,AP,EPG,OLD_EPG_CONTRACT,L3OUT,NETWORK,OLD_L3_CONTRACT" + '\n')
     						f.close()
 					
@@ -2251,30 +2280,30 @@ def main(argv):
 							if d_extepg not in l3out[d_l3out]:
 								l3out[d_l3out][d_extepg] = {}
 								l3out[d_l3out][d_extepg][c] = {}
-    								f = open(dir_path + "/" + tenantdir + "-" + vrf + "/" + fname, "a") 
-								f.write(tenant + ",,,," + d_l3out +  " ," + d_extepg + "," + c + '\n')
+    								f = open(dir_path + "/ACI_" + tenantdir + "-" + vrf + "/" + fname, "a") 
+								f.write(tenant + ",,,," + d_l3out +  "," + d_extepg + "," + c + '\n')
 								f.close()
 							if d_extepg in l3out[d_l3out]:
 								if c not in l3out[d_l3out][d_extepg]:
 									l3out[d_l3out][d_extepg][c] = {}
-    									f = open(dir_path + "/" + tenantdir + "-" + vrf + "/" + fname, "a") 
-									f.write(tenant + ",,,," + d_l3out +  " ," + d_extepg + "," + c + '\n')
+    									f = open(dir_path + "/ACI_" + tenantdir + "-" + vrf + "/" + fname, "a") 
+									f.write(tenant + ",,,," + d_l3out +  "," + d_extepg + "," + c + '\n')
 									f.close()
 						if d_l3out in l3out:
 							if d_extepg not in l3out[d_l3out]:
                                                                 l3out[d_l3out][d_extepg] = {}
                                                                 l3out[d_l3out][d_extepg][c] = {}
-    								f = open(dir_path + "/" + tenantdir + "-" + vrf + "/" + fname, "a") 
-								f.write(tenant + ",,,," + d_l3out +  " ," + d_extepg + "," + c + '\n')
+    								f = open(dir_path + "/ACI_" + tenantdir + "-" + vrf + "/" + fname, "a") 
+								f.write(tenant + ",,,," + d_l3out +  "," + d_extepg + "," + c + '\n')
 								f.close()
 							if d_extepg in l3out[d_l3out]:
                                                                 if c not in l3out[d_l3out][d_extepg]:
                                                                         l3out[d_l3out][d_extepg][c] = {}
-    									f = open(dir_path + "/" + tenantdir + "-" + vrf + "/" + fname, "a") 
-									f.write(tenant + ",,,," + d_l3out +  " ," + d_extepg + "," + c + '\n')
+    									f = open(dir_path + "/ACI_" + tenantdir + "-" + vrf + "/" + fname, "a") 
+									f.write(tenant + ",,,," + d_l3out +  "," + d_extepg + "," + c + '\n')
 									f.close()
 						if type == 'A':
-    							f = open(dir_path + "/" + tenantdir + "-" + vrf + "/" + fname, "a") 
+    							f = open(dir_path + "/ACI_" + tenantdir + "-" + vrf + "/" + fname, "a") 
 							f.write(tenant + "," + ap + "," + epg + "," + c + '\n')
 						f.close()
 
