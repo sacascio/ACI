@@ -2208,7 +2208,7 @@ def main(argv):
 						fverify = open(dir_path + "/ACI_CONTRACT_VERIFICATION/" + tenantdir + "-" + vrf, "a") 
 						
 						f.write(tenant + "," + l3out_name + "," + ext_epg + "," + newcontract + '\n')
-						fverify.write(tenant + "," + l3out_name + "," + ext_epg + '\n')
+						fverify.write("L3Out," + tenant + "," + l3out_name + "," + ext_epg + '\n')
 						
 						fverify.close()
 						f.close()
@@ -2249,7 +2249,7 @@ def main(argv):
 						f.close()
 
 					fverify = open(dir_path + "/ACI_CONTRACT_VERIFICATION/" + tenantdir + "-" + vrf, "a") 
-					fverify.write(tenant + "," + ap + "," + epg + '\n')
+					fverify.write("EPG," + tenant + "," + ap + "," + epg + '\n')
 					f.close()
     
     l3out = {}
