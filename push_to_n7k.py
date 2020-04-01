@@ -42,19 +42,16 @@ def send_to_n7k_api(ip,commands,username,password):
                              headers=headers,
                              data=json.dumps(payload),
                              verify=False,                      # disable SSH certificate verification
-                             timeout=30)
+                             timeout=10)
     
     if response.status_code == 200:
     	allcmds = commands.split(" ; ")
     	# verify result 
     	data = response.json()
     	if isinstance(data['ins_api']['outputs']['output'],dict):
-    		for k in data['ins_api']['outputs']['output'].keys():
     			if int(data['ins_api']['outputs']['output']['code']) != 200:
-    				cmd_number =  data['ins_api']['outputs']['output'].index(data['ins_api']['outputs']['output'])
-    				if k != 'code':
-    					data['ins_api']['outputs']['output'][k] = data['ins_api']['outputs']['output'][k].rstrip()
-    					print ("ERROR: %s, %s.  Command is: %s" % (k, data['ins_api']['outputs']['output'][k], allcmds[cmd_number]))	
+    				data['ins_api']['outputs']['output']['msg'] = data['ins_api']['outputs']['output']['msg'].rstrip()
+    				print ("ERROR: %s, %s.  Command is: %s" % ('msg', data['ins_api']['outputs']['output']['msg'], commands))	
     			else:
     				if 'body' in data['ins_api']['outputs']['output'] and len(data['ins_api']['outputs']['output']['body']) > 0:
                                 	print (data['ins_api']['outputs']['output']['body'])	
@@ -70,7 +67,7 @@ def send_to_n7k_api(ip,commands,username,password):
     					print (d['body'])
                	             
     else:
-    	msg = "call to %s failed, status code %d (%s).  Command is %s.  %s" % (ip,
+    	msg = "call to %s failed, status code %d (%s).  Command is %s." % (ip,
                                                           response.status_code,
                                                           response.content.decode("utf-8"),
                                                           commands
