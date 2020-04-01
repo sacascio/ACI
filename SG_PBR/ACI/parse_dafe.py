@@ -1067,6 +1067,7 @@ def get_epg_type(epg):
 
 def get_data(filename,epgs,dc,district,p2psubnets):
     p2psubnetvals = {}
+    write_back_contract = {}
 
     for p in p2psubnets:
 	p = p.rstrip()
@@ -1514,7 +1515,18 @@ def get_data(filename,epgs,dc,district,p2psubnets):
                 # If contract is not on L3out as provider and consumer, print warning
                 if c not in l3out_p_contracts and c not in l3out_c_contracts and externalepg != 'N/A':
                         print "WARNING: %s, Consumed Contract %s not assigned to external EPG %s as consumer or provider" % (epg,c,externalepg)
-		
+			if tenant not in write_back_contract:
+				write_back_contract[tenant] =  {}
+
+			if ap not in write_back_contract[tenant]:
+				write_back_contract[tenant][ap] = {}
+			
+			if epg not in write_back_contract[tenant][ap]:
+				write_back_contract[tenant][ap][epg] = []
+
+			if c not in write_back_contract[tenant][ap][epg]:
+				write_back_contract[tenant][ap][epg].append(c)
+	
 		# On EPG, if on consumer but only on either provider or consumer of L3out, print warning
 		if c not in l3out_c_contracts and c in l3out_p_contracts and externalepg != 'N/A':
 			print "WARNING: %s, Contract %s not assigned to external EPG %s as consumer, but assigned as provider" % (epg,c,externalepg)
@@ -1532,7 +1544,7 @@ def get_data(filename,epgs,dc,district,p2psubnets):
                 # If contract is not on L3out as provider and consumer, print warning
                 if p not in l3out_p_contracts and p not in l3out_c_contracts and externalepg != 'N/A':
                         print "WARNING: %s, Provided Contract %s not assigned to external EPG %s as consumer or provider" % (epg,p,externalepg)
-        
+
                 # On EPG, if on provider but only on either provider or consumer of L3out, print warning
                 if p not in l3out_c_contracts and p in l3out_p_contracts and externalepg != 'N/A':
                         print "WARNING: %s, Contract %s not assigned to external EPG %s as consumer but assigned as provider" % (epg,p,externalepg)
@@ -1672,8 +1684,7 @@ def get_data(filename,epgs,dc,district,p2psubnets):
         del leafb_int
 	del bd_subnet
 
-   
-    return write_to_aci_cfg
+    return (write_to_aci_cfg,write_back_contract)
 
 def main(argv):
     dir_path = './output'
@@ -1783,7 +1794,7 @@ def main(argv):
 
 
     (aepname,linkpolname,cdppolname,lldpolname,stpolname,lacpolname,mcpolname) = get_pc_params(dafe_file)
-    write_to_aci_cfg = get_data(dafe_file,epgs,dc,district,vrfs)
+    (write_to_aci_cfg,write_back_contract) = get_data(dafe_file,epgs,dc,district,vrfs)
 
     # Print out pre-migration planning info
     migration_planning_file = './output/PRE_MIGRATION_PLANNING.txt'
@@ -2261,7 +2272,7 @@ def main(argv):
 				print "OK: Excluding EPG " + epg + " from old contract removal"
 				continue	
 			for d in write_to_aci_cfg[tenant][vrf][epg]:
-				if d['l3'] == 'yes' :
+				if d['l3'] == 'yes':
 					d_l3out = d['l3out']
 					d_extepg = d['extepg']
 					ap = d['ap']
@@ -2274,6 +2285,12 @@ def main(argv):
     						f.write("TENANT,AP,EPG,OLD_EPG_CONTRACT,L3OUT,NETWORK,OLD_L3_CONTRACT" + '\n')
     						f.close()
 					
+					# temp fix
+					if epg == 'CTL-PTD-DCX-SDE-ND-MGMT_SVR':
+						f = open(dir_path + "/ACI_" + tenantdir + "-" + vrf + "/" + fname, "a")
+                                                f.write('Control,' + 'Control,' + epg + ',' + 'PTD_Permit_Any' + '\n')
+                                        	f.close()	
+
 					for c in d['contract']:
 						if d_l3out not in l3out:
 							l3out[d_l3out] = {}
@@ -2306,6 +2323,25 @@ def main(argv):
     							f = open(dir_path + "/ACI_" + tenantdir + "-" + vrf + "/" + fname, "a") 
 							f.write(tenant + "," + ap + "," + epg + "," + c + '\n')
 						f.close()
+
+    #Remove contracts that exist on the EPG but not on the L3 Out
+   
+    for tenant in write_back_contract:
+        for ap in write_back_contract[tenant]:
+                for epg in write_back_contract[tenant][ap]:
+			xx = epg.split("-")
+			shorttenant = xx[0]
+			shortvrf = xx[1]
+    
+    			fname = shortvrf + " 4 " + " - Remove contract from EPG as provider_consumer.csv" 
+			if not os.path.isfile(dir_path + "/ACI_" + shorttenant + "-" + shortvrf + "/" + fname):
+    				f = open(dir_path + "/ACI_" + shorttenant + "-" + shortvrf + "/" + fname, "a")
+    				f.write("TENANT,AP,EPG,OLD_EPG_CONTRACT" + '\n')
+				f.close()
+			f = open(dir_path + "/ACI_" + shorttenant + "-" + shortvrf + "/" + fname, "a")
+			for c in write_back_contract[tenant][ap][epg]:
+				f.write(tenant + ',' + ap + ',' + epg + ',' +  c + '\n')
+			f.close()
 
     f = open('write_to_aci_cfg.json', 'w') 
     f.write(json.dumps(write_to_aci_cfg) )
