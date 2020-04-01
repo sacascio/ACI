@@ -46,18 +46,29 @@ def send_to_n7k_api(ip,commands,username,password):
     
     if response.status_code == 200:
     	allcmds = commands.split(" ; ")
-    	# verify result if a cli_conf operation was performed
+    	# verify result 
     	data = response.json()
-    	for d in data['ins_api']['outputs']['output']:
-    		for k in d.keys():
-    			if int(d['code']) != 200:
-    				cmd_number =  data['ins_api']['outputs']['output'].index(d)
-    				if k != 'code': 
-    					d[k] = d[k].rstrip()
-    					print ("ERROR: %s, %s.  Command is: %s" % (k, d[k], allcmds[cmd_number]))
-    		if 'body' in d and len(d['body']) > 0:
-    				print (d['body'])
-                            
+    	if isinstance(data['ins_api']['outputs']['output'],dict):
+    		for k in data['ins_api']['outputs']['output'].keys():
+    			if int(data['ins_api']['outputs']['output']['code']) != 200:
+    				cmd_number =  data['ins_api']['outputs']['output'].index(data['ins_api']['outputs']['output'])
+    				if k != 'code':
+    					data['ins_api']['outputs']['output'][k] = data['ins_api']['outputs']['output'][k].rstrip()
+    					print ("ERROR: %s, %s.  Command is: %s" % (k, data['ins_api']['outputs']['output'][k], allcmds[cmd_number]))	
+    			else:
+    				if 'body' in data['ins_api']['outputs']['output'] and len(data['ins_api']['outputs']['output']['body']) > 0:
+                                	print (data['ins_api']['outputs']['output']['body'])	
+    	else:	
+    		for d in data['ins_api']['outputs']['output']:
+    			for k in d.keys():
+    				if int(d['code']) != 200:
+    					cmd_number =  data['ins_api']['outputs']['output'].index(d)
+    					if k != 'code': 
+    						d[k] = d[k].rstrip()
+    						print ("ERROR: %s, %s.  Command is: %s" % (k, d[k], allcmds[cmd_number]))
+    			if 'body' in d and len(d['body']) > 0:
+    					print (d['body'])
+               	             
     else:
     	msg = "call to %s failed, status code %d (%s).  Command is %s.  %s" % (ip,
                                                           response.status_code,
@@ -65,7 +76,6 @@ def send_to_n7k_api(ip,commands,username,password):
                                                           commands
                                                           )
     	print(msg)
-    	#raise Exception(msg) 
 
 
 def usage():
@@ -104,16 +114,11 @@ def main(argv):
     if len(filename) == 0:
         print ("Missing -f|--file option")
         sys.exit(9)
-    """ 
+    
     username = input("\n\nEnter N7K username and press enter: \n\n")
     password = getpass.getpass("\n\nEnter N7K password and press enter: \n\n")
     n7k = input("\n\nEnter N7K IP and press enter: \n\n")
-    """
-
-    username='cisco'
-    password='cisco'
-    n7k='172.16.1.95'
-
+   
     commands = load_commands(filename)       
     send_to_n7k_api(n7k,commands,username,password)
 
