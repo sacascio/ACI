@@ -229,11 +229,11 @@ def write_new_n7k_configs(vrfmember,p2psubnets,dc,district,n7k_data):
 					# Write outer config
 					if not os.path.exists(dir_path + "/" + "N7K_PREWORK" + "/" +  outer_7k):
 						f = open(dir_path + "/" + "N7K_PREWORK" + "/" +  outer_7k, "a")
-						f.write("! Create sub interfaces to inner VDCs for VRF " + vrfmember + " in a shutdown state" + '\n')
 						f.write("configure terminal" + '\n')
 						f.close()
 						
 					f = open(dir_path + "/" + "N7K_PREWORK" + "/" +  outer_7k, "a")
+					f.write("! Create sub interfaces to inner VDCs for VRF " + vrfmember + " in a shutdown state" + '\n')
 					f.write("interface Ethernet" + outer_int + "." + encap + '\n')
                                         f.write(" description To_" + n7kname + "_E" + inner_int + "." + encap + '\n')
                                         f.write(" shutdown" + '\n')
