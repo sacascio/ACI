@@ -30,6 +30,8 @@ def write_new_n7k_configs(vrfmember,p2psubnets,dc,district,n7k_data):
 	bgp_rb_outer = {}
 	bgp_rb_outer = {}
 	svi_cleanup = {}
+	bgp_cleanup_inner = {}
+	bgp_cleanup_outer = {}
 	
 	cutover_dir = dir_path + "/" + "N7K_CUTOVER" + "/" + vrfmember
 	rollback_dir = dir_path + "/" + "N7K_ROLLBACK" + "/" + vrfmember
@@ -58,6 +60,8 @@ def write_new_n7k_configs(vrfmember,p2psubnets,dc,district,n7k_data):
 		bgp_rb_inner[n7k]['neighbors'] = []
 		bgp_rb_inner[n7k]['subint'] = []
 		bgp_rb_inner[n7k]['svi'] = []
+		bgp_cleanup_inner[n7k] = {}
+		bgp_cleanup_inner[n7k]['neighbors'] = []
 
 		neighbors = n7k_data[n7k][vrfmember]['neighbors']
 		local_as = n7k_data[n7k][vrfmember]['local_as']	
@@ -71,6 +75,10 @@ def write_new_n7k_configs(vrfmember,p2psubnets,dc,district,n7k_data):
 		# Squeeze in rollback for new adjacencies
 		bgp_rb_inner[n7k]['neighbors'].append("router bgp " + local_as)
 		bgp_rb_inner[n7k]['neighbors'].append(" vrf " + vrfmember)
+		
+		# Squeeze in cleanup for new adjacencies
+		bgp_cleanup_inner[n7k]['neighbors'].append("router bgp " + local_as)
+		bgp_cleanup_inner[n7k]['neighbors'].append(" vrf " + vrfmember)
 	
 		for n in neighbors:
 			bgp_shut_inner[n7k][vrfmember].append(" neighbor " +  n + " remote-as " + remote_as )
@@ -79,6 +87,9 @@ def write_new_n7k_configs(vrfmember,p2psubnets,dc,district,n7k_data):
 			# Rollback
 			bgp_rb_inner[n7k]['neighbors'].append("   neighbor " +  n + " remote-as " + remote_as)
 			bgp_rb_inner[n7k]['neighbors'].append("     no shutdown")
+			
+			# cleanup
+			bgp_cleanup_inner[n7k]['neighbors'].append("   no neighbor " +  n + " remote-as " + remote_as)
 			
 
 	# Get outer VDC BGP details
@@ -89,7 +100,9 @@ def write_new_n7k_configs(vrfmember,p2psubnets,dc,district,n7k_data):
                 bgp_rb_outer[n7k]['neighbors'] = []
                 bgp_rb_outer[n7k]['subint'] = []
                 bgp_rb_outer[n7k]['svi'] = []
-
+		bgp_cleanup_outer[n7k] = {}
+		bgp_cleanup_outer[n7k]['neighbors'] = []
+		
 		for svi in n7k_data[n7k]:
 			if svi == 'P2P':
 				continue
@@ -108,6 +121,9 @@ def write_new_n7k_configs(vrfmember,p2psubnets,dc,district,n7k_data):
 					bgp_rb_outer[n7k]['neighbors'].append("router bgp " + local_as)
 					bgp_rb_outer[n7k]['svi'].append("interface Vlan" + svi)
 					bgp_rb_outer[n7k]['svi'].append(" no shutdown")
+					
+					# Squeeze in cleanup for BGP Neighbors
+					bgp_cleanup_outer[n7k]['neighbors'].append("router bgp " + local_as)
 
 					for n in outer_neighbors:
 						bgp_shut_outer[n7k].append(" neighbor " +  n + " remote-as " + remote_as )
@@ -116,6 +132,9 @@ def write_new_n7k_configs(vrfmember,p2psubnets,dc,district,n7k_data):
 						# Rollback
 						bgp_rb_outer[n7k]['neighbors'].append(" neighbor " +  n + " remote-as " + remote_as )
 						bgp_rb_outer[n7k]['neighbors'].append("    no shutdown" )
+						
+						# Cleanup
+						bgp_cleanup_outer[n7k]['neighbors'].append(" no neighbor " +  n + " remote-as " + remote_as )
 
 	if district.upper() == 'SDE':
 		numn7k = ['1','2']
@@ -172,7 +191,7 @@ def write_new_n7k_configs(vrfmember,p2psubnets,dc,district,n7k_data):
     					f.write(" vrf member " + vrfmember + '\n')
     					f.write(" mtu 9192" + '\n')
     					f.write(" encapsulation dot1Q " + encap + '\n')
-			
+					
 					# Write cutover part to enable the new sub interfaces on inner		
 					fsub = open(cutover_dir + "/" +  n7kname, "a")
                                         fsub.write("! Enable sub interfaces to outer VDCs for VRF " + vrfmember +  '\n')
@@ -242,7 +261,7 @@ def write_new_n7k_configs(vrfmember,p2psubnets,dc,district,n7k_data):
 					f.write(" ip address " + ipouter + "/" + mask + '\n')
                                         f.write( '\n')
     					f.close()
-					
+				
 					# Write cutover part to enable the new sub interfaces on outer
 					if not os.path.exists(cutover_dir + "/" + outer_7k):
 						f = open(cutover_dir + "/" +  outer_7k, "a")
@@ -286,14 +305,14 @@ def write_new_n7k_configs(vrfmember,p2psubnets,dc,district,n7k_data):
 		f.write('\n')
 		f.write('\n')
 		f.close()
-	
+
 	for n7ks in outer_bgp_config:
 		f = open(dir_path + "/" + "N7K_PREWORK" + "/" +  n7ks, "a")
 		f.write(('\n'.join(outer_bgp_config[n7ks])))
 		f.write('\n')
 		f.write('\n')
 		f.close()
-
+	
 	for n7ks in bgp_shut_outer:
 		f = open(cutover_dir + "/" +  n7ks, "a")
 		f.write(('\n'.join(bgp_shut_outer[n7ks])))
@@ -368,7 +387,27 @@ def write_new_n7k_configs(vrfmember,p2psubnets,dc,district,n7k_data):
 				f.write(" switchport trunk allowed vlan remove " + svi + '\n')
 				f.write('\n')
 			f.close()	
-		
+
+	for n7ks in bgp_cleanup_inner:
+		f = open(cleanup_dir + "/" +  n7ks, "a")
+		f.write("!!" + '\n')
+		f.write("!! Remove BGP adjacency to the outer N7K VDC connected to the FW " +  '\n')
+		f.write("!!" + '\n')
+		f.write("configure terminal" + '\n')
+		f.write(('\n'.join(bgp_cleanup_inner[n7ks]['neighbors'])))
+		f.write('\n')
+	f.close()	
+	
+	for n7ks in bgp_cleanup_outer:
+		f = open(cleanup_dir + "/" +  n7ks, "a")
+		f.write("!!" + '\n')
+		f.write("!! Remove BGP adjacency to the inner N7K VDC connected to the FW " +  '\n')
+		f.write("!!" + '\n')
+		f.write("configure terminal" + '\n')
+		f.write(('\n'.join(bgp_cleanup_outer[n7ks]['neighbors'])))
+		f.write('\n')
+	f.close()	
+
 def get_inner_outer_mapping(dc):
 
     pattern = '*' + dc.upper() + '*Port Map*'
@@ -2247,6 +2286,10 @@ def main(argv):
     						f = open(dir_path + "/ACI_" + tenantdir + "-" + vrf + "/" + fname, "a") 
 						f.write(tenant + "," + ap + "," + epg + "," + tenantdir + "-" + vrf + "-" + "SG-PBR-Permit_Any" + '\n')
 						f.close()
+						
+						fverify = open(dir_path + "/ACI_CONTRACT_VERIFICATION/" + tenantdir + "-" + vrf, "a") 
+						fverify.write("EPG," + tenant + "," + ap + "," + epg + '\n')
+						f.close()
 
 					if type == 'B':
 						fname = vrf + " 2 Type " + d['type'] + " - Assign new contract as provider and delete old contracts.csv"
@@ -2259,9 +2302,9 @@ def main(argv):
 							f.write(tenant + "," + ap + "," + epg + "," + tenantdir + "-" + vrf + "-" + "SG-PBR-Permit_Any" + "," + c + '\n')
 						f.close()
 
-					fverify = open(dir_path + "/ACI_CONTRACT_VERIFICATION/" + tenantdir + "-" + vrf, "a") 
-					fverify.write("EPG," + tenant + "," + ap + "," + epg + '\n')
-					f.close()
+						fverify = open(dir_path + "/ACI_CONTRACT_VERIFICATION/" + tenantdir + "-" + vrf, "a") 
+						fverify.write("EPG," + tenant + "," + ap + "," + epg + '\n')
+						f.close()
     
     l3out = {}
     #Contract removal

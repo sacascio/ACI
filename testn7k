@@ -1,1 +1,32 @@
-show run bgp
+! Create sub interfaces to outer VDCs in VRF CTL-DA2-DC1-SDE in a shutdown state
+interface Ethernet2/8.27
+ description To_dc1sdenxc1sdeouter_E5/15.27
+ shutdown
+ vrf member CTL-DA2-DC1-SDE
+ mtu 9192
+ encapsulation dot1Q 27
+ ip address 10.255.19.33/30
+
+interface Ethernet2/16.27
+ description To_dc1sdenxc2sdeouter_E5/20.27
+ shutdown
+ vrf member CTL-DA2-DC1-SDE
+ mtu 9192
+ encapsulation dot1Q 27
+ ip address 10.255.19.37/30
+
+! Add new BGP neighbors to VRF CTL-DA2-DC1-SDE using the N7K Outer VDC IP addresses
+! These adjacencies will not come up until the N7K Outer VDCs are configured and enabled
+
+router bgp 65506
+ vrf CTL-DA2-DC1-SDE
+  address-family ipv4 unicast
+   maximum-paths 8
+  neighbor 10.255.19.34 remote-as 65505
+   description TO_dc1sdenxc1sdeouter
+   address-family ipv4 unicast
+    send-community both
+  neighbor 10.255.19.38 remote-as 65505
+   description TO_dc1sdenxc2sdeouter
+   address-family ipv4 unicast
+    send-community both
