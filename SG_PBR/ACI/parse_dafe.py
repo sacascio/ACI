@@ -32,7 +32,9 @@ def write_new_n7k_configs(vrfmember,p2psubnets,dc,district,n7k_data):
 	svi_cleanup = {}
 	bgp_cleanup_inner = {}
 	bgp_cleanup_outer = {}
-	
+	svi_inner_cutover = {}
+    	subint_inner_cutover = {}	
+    	subint_outer_cutover = {}	
 	cutover_dir = dir_path + "/" + "N7K_CUTOVER" + "/" + vrfmember
 	rollback_dir = dir_path + "/" + "N7K_ROLLBACK" + "/" + vrfmember
 	cleanup_dir = dir_path + "/" + "N7K_NEXT_CLEANUP" + "/" + vrfmember
@@ -46,10 +48,11 @@ def write_new_n7k_configs(vrfmember,p2psubnets,dc,district,n7k_data):
 	if not os.path.exists(dir_path + "/" + "N7K_NEXT_CLEANUP"):
 		os.mkdir(dir_path + "/" + "N7K_NEXT_CLEANUP")
 
+
 	os.mkdir(cutover_dir)
 	os.mkdir(rollback_dir)
 	os.mkdir(cleanup_dir)
-
+	
 	k = 0
 
 	# Get Inner BGP Details
@@ -114,7 +117,6 @@ def write_new_n7k_configs(vrfmember,p2psubnets,dc,district,n7k_data):
 				if vrf == vrfmember:
 					outer_neighbors = n7k_data[n7k][svi]['vrf'][vrf]['neighbor_ip']
 					bgp_shut_outer[n7k] = []
-					bgp_shut_outer[n7k].append("! Shutdown the BGP adjacency to the N7K Inner in VRF " + vrfmember)
 					bgp_shut_outer[n7k].append("router bgp " + local_as)
 
 					# Squeeze in rollback for BGP Neighbors and the SVI
@@ -143,10 +145,14 @@ def write_new_n7k_configs(vrfmember,p2psubnets,dc,district,n7k_data):
 		
 	for i in numn7k:
 		n7kname = dc + district + 'nxc' + i + district +  'inner'
+		f = open(dir_path + "/" + "N7K_CUTOVER" + "/" +  "execute_cutover_" + vrfmember + ".sh", "a")
+		f.write("../push_to_n7k.py -f " + vrfmember + "/"  + n7kname + " -c ../" + n7kname + "_creds"  '\n')
+		f.close()
 		encap = n7k_data[n7kname][vrfmember]['svi']
 		inner_bgp_as = n7k_data[n7kname][vrfmember]['local_as']
 		outer_bgp_as = n7k_data[n7kname][vrfmember]['remote_as']
 		inner_bgp_config[n7kname] = []
+    		subint_inner_cutover[n7kname] = []
 
 		# Start preparing inner/outer BGP config
 		inner_bgp_config[n7kname].append("! Add new BGP neighbors to VRF " + vrfmember + " using the N7K Outer VDC IP addresses")	
@@ -163,19 +169,29 @@ def write_new_n7k_configs(vrfmember,p2psubnets,dc,district,n7k_data):
     			f.write("! Create sub interfaces to outer VDCs in VRF " + vrfmember + " in a shutdown state" + '\n')
                         f.write("configure terminal" +  '\n')
 			f.close()
+
+			f = open(dir_path + "/" + "N7K_PREWORK" + "/" +  "execute_prework.sh", "a")
+        		f.write("../push_to_n7k.py -f "  + n7kname + " -c ../" + n7kname + "_creds"  '\n')
+        		f.close()
 		else:
     			f = open(dir_path + "/" + "N7K_PREWORK" + "/" +  n7kname, "a")
     			f.write("! Create sub interfaces to outer VDCs in VRF " + vrfmember + " in a shutdown state" + '\n')
 			f.close()
 
-		if not os.path.exists(cutover_dir + "/" +  n7kname):
-			f = open(cutover_dir + "/" +  n7kname, "a")
-			f.write("configure terminal" + '\n')
-			f.close()
+		#if not os.path.exists(cutover_dir + "/" +  n7kname):
+		#	f = open(cutover_dir + "/" +  n7kname, "a")
+		#	f.write("configure terminal" + '\n')
+		#	f.close()
 
 		for inner_int in n7k_data[n7kname]['P2P']:
 			for outer_int in n7k_data[n7kname]['P2P'][inner_int]:
 				for outer_7k in n7k_data[n7kname]['P2P'][inner_int][outer_int]:
+    					if outer_7k not in subint_outer_cutover:
+						f = open(dir_path + "/" + "N7K_CUTOVER" + "/" +  "execute_cutover_" + vrfmember + ".sh", "a")
+						f.write("../push_to_n7k.py -f " + vrfmember + "/"  + outer_7k + " -c ../" + outer_7k + "_creds"  '\n')
+						f.close()
+						subint_outer_cutover[outer_7k] = []
+
 					if outer_7k not in outer_bgp_config:
 						outer_bgp_config[outer_7k] = []
 						outer_bgp_config[outer_7k].append("! Add new BGP neighbors to VRF " + vrfmember + " using the N7K Inner VDC IP addresses")	
@@ -193,12 +209,15 @@ def write_new_n7k_configs(vrfmember,p2psubnets,dc,district,n7k_data):
     					f.write(" encapsulation dot1Q " + encap + '\n')
 					
 					# Write cutover part to enable the new sub interfaces on inner		
-					fsub = open(cutover_dir + "/" +  n7kname, "a")
-                                        fsub.write("! Enable sub interfaces to outer VDCs for VRF " + vrfmember +  '\n')
-                                        fsub.write("interface Ethernet" + inner_int + "." + encap + '\n')
-                                        fsub.write(" no shutdown" + '\n')
-                                        fsub.write('\n')
-					fsub.close()
+					subint_inner_cutover[n7kname].append("interface Ethernet" + inner_int + "." + encap)
+					subint_inner_cutover[n7kname].append(" no shutdown")
+
+					#fsub = open(cutover_dir + "/" +  n7kname, "a")
+                                        #fsub.write("! Enable sub interfaces to outer VDCs for VRF " + vrfmember +  '\n')
+                                        #fsub.write("interface Ethernet" + inner_int + "." + encap + '\n')
+                                        #fsub.write(" no shutdown" + '\n')
+                                        #fsub.write('\n')
+					#fsub.close()
 
 					# Write Rollback part for inner
 					if bool(re.search('inner',n7kname, re.IGNORECASE)):
@@ -250,6 +269,10 @@ def write_new_n7k_configs(vrfmember,p2psubnets,dc,district,n7k_data):
 						f = open(dir_path + "/" + "N7K_PREWORK" + "/" +  outer_7k, "a")
 						f.write("configure terminal" + '\n')
 						f.close()
+
+						f = open(dir_path + "/" + "N7K_PREWORK" + "/" +  "execute_prework.sh", "a")
+                        			f.write("../push_to_n7k.py -f "  + outer_7k + " -c ../" + outer_7k + "_creds"  '\n')
+                        			f.close()
 						
 					f = open(dir_path + "/" + "N7K_PREWORK" + "/" +  outer_7k, "a")
 					f.write("! Create sub interfaces to inner VDCs for VRF " + vrfmember + " in a shutdown state" + '\n')
@@ -262,29 +285,36 @@ def write_new_n7k_configs(vrfmember,p2psubnets,dc,district,n7k_data):
                                         f.write( '\n')
     					f.close()
 				
-					# Write cutover part to enable the new sub interfaces on outer
-					if not os.path.exists(cutover_dir + "/" + outer_7k):
-						f = open(cutover_dir + "/" +  outer_7k, "a")
-						f.write("configure terminal" +  '\n')
-						f.close()
-					f = open(cutover_dir + "/" +  outer_7k, "a")
-					f.write("! Enable sub interfaces to inner VDCs for VRF " + vrfmember +  '\n')
-					f.write("interface Ethernet" + outer_int + "." + encap + '\n')
-					f.write(" no shutdown" + '\n')
-					f.write('\n')
-					f.close()
+    					# Write cutover part to enable the new sub interfaces on outer
+					subint_outer_cutover[outer_7k].append("interface Ethernet" + outer_int + "." + encap)
+					subint_outer_cutover[outer_7k].append(" no shutdown")
+					
+					#if not os.path.exists(cutover_dir + "/" + outer_7k):
+				        #	f = open(cutover_dir + "/" +  outer_7k, "a")
+				        #	f.write("configure terminal" +  '\n')
+					#	f.close()
+					#f = open(cutover_dir + "/" +  outer_7k, "a")
+					#f.write("! Enable sub interfaces to inner VDCs for VRF " + vrfmember +  '\n')
+					#f.write("interface Ethernet" + outer_int + "." + encap + '\n')
+					#f.write(" no shutdown" + '\n')
+					#f.write('\n')
+					#f.close()
 
 					# Rollback new sub interfaces on outer
 					if bool(re.search('outer',outer_7k, re.IGNORECASE)):
 						bgp_rb_outer[outer_7k]['subint'].append("no interface Ethernet" + outer_int + "." + encap)
 			
 		# Shutdown existing SVI on inner
-		fsvi = open(cutover_dir + "/" +  n7kname, "a")
-    		fsvi.write("! Shutdown inside SVI vrf " + vrfmember + " for firewall cluster" + '\n')
-    		fsvi.write("interface Vlan" + encap + '\n')
-    		fsvi.write(" shutdown" + '\n')
-    		fsvi.write('\n')
-		fsvi.close()
+		#fsvi = open(cutover_dir + "/" +  n7kname, "a")
+    		svi_inner_cutover[n7kname] = []
+    		svi_inner_cutover[n7kname].append("interface Vlan" + encap)
+    		svi_inner_cutover[n7kname].append(" shutdown")
+
+    		#fsvi.write("! Shutdown inside SVI vrf " + vrfmember + " for firewall cluster" + '\n')
+    		#fsvi.write("interface Vlan" + encap + '\n')
+    		#fsvi.write(" shutdown" + '\n')
+    		#fsvi.write('\n')
+		#fsvi.close()
 		
 		# Write rollback part
 		if bool(re.search('inner',n7kname, re.IGNORECASE)):
@@ -313,13 +343,33 @@ def write_new_n7k_configs(vrfmember,p2psubnets,dc,district,n7k_data):
 		f.write('\n')
 		f.close()
 	
-	for n7ks in bgp_shut_outer:
+    	for n7ks in bgp_shut_outer:
 		f = open(cutover_dir + "/" +  n7ks, "a")
+    		f.write("configure terminal" +  '\n')
+    		f.write("! Shutdown the BGP adjacency to the N7K Inner in VRF " +  vrfmember + '\n')
 		f.write(('\n'.join(bgp_shut_outer[n7ks])))
 		f.write('\n')
 		f.write('\n')
 		f.close()
 	
+    	for n7ks in subint_outer_cutover:
+		f = open(cutover_dir + "/" +  n7ks, "a")
+		f.write("! Enable sub interfaces to inner VDCs for VRF " + vrfmember +  '\n')
+		f.write(('\n'.join(subint_outer_cutover[n7ks])))
+		f.write('\n')
+		f.write('\n')
+		f.close()
+	
+	
+	for n7ks in svi_inner_cutover:
+		f = open(cutover_dir + "/" +  n7ks, "a")
+    		f.write(" configure terminal" + '\n')
+    		f.write("! Shutdown Inside SVI VRF " + vrfmember + " for firewall-cluster" + '\n')
+		f.write(('\n'.join(svi_inner_cutover[n7ks])))
+		f.write('\n')
+		f.write('\n')
+		f.close()
+
 	for n7ks in bgp_shut_inner:
 		for vrfs in bgp_shut_inner[n7ks]:
 			f = open(cutover_dir + "/" +  n7ks, "a")
@@ -327,6 +377,15 @@ def write_new_n7k_configs(vrfmember,p2psubnets,dc,district,n7k_data):
 			f.write('\n')
 			f.write('\n')
 			f.close()
+	
+    	for n7ks in subint_inner_cutover:
+		f = open(cutover_dir + "/" +  n7ks, "a")
+		f.write("! Bring up sub interfaces directly connected to the outer VDCs" + '\n')
+		f.write(('\n'.join(subint_inner_cutover[n7ks])))
+		f.write('\n')
+		f.write('\n')
+		f.close()
+
 		
 	for n7ks in bgp_rb_inner:
 		f = open(rollback_dir + "/" +  n7ks, "a")
@@ -338,14 +397,18 @@ def write_new_n7k_configs(vrfmember,p2psubnets,dc,district,n7k_data):
 		f.write(('\n'.join(bgp_rb_inner[n7ks]['subint'])))
 		f.write('\n')
 		f.write('\n')
-		f.write("! Remove direct BGP adjacencies to Outer VDCs and re-enable BGP Adjacencies to FW-Inner" + '\n')
-		f.write(('\n'.join(bgp_rb_inner[n7ks]['neighbors'])))
-		f.write('\n')
-		f.write('\n')
 		f.write("! Re-enable SVI to FW-Inner" + '\n')
 		f.write(('\n'.join(bgp_rb_inner[n7ks]['svi'])))
 		f.write('\n')
+		f.write('\n')
+		f.write("! Remove direct BGP adjacencies to Outer VDCs and re-enable BGP Adjacencies to FW-Inner" + '\n')
+		f.write(('\n'.join(bgp_rb_inner[n7ks]['neighbors'])))
+		f.write('\n')
 		f.close()
+
+    		f = open(dir_path + "/" + "N7K_ROLLBACK" + "/" +  "execute_rollback_" + vrfmember + ".sh", "a")
+                f.write("../push_to_n7k.py -f " + vrfmember + "/"  + n7ks + " -c ../" + n7ks + "_creds"  '\n')
+                f.close()
 	
 	for n7ks in bgp_rb_outer:
 		f = open(rollback_dir + "/" +  n7ks, "a")
@@ -365,6 +428,10 @@ def write_new_n7k_configs(vrfmember,p2psubnets,dc,district,n7k_data):
 		f.write(('\n'.join(bgp_rb_outer[n7ks]['svi'])))
 		f.write('\n')
 		f.close()
+    		
+		f = open(dir_path + "/" + "N7K_ROLLBACK" + "/" +  "execute_rollback_" + vrfmember + ".sh", "a")
+                f.write("../push_to_n7k.py -f " + vrfmember + "/"  + n7ks + " -c ../" + n7ks + "_creds"  '\n')
+                f.close()
 	
 	for n7ks in svi_cleanup:
 		f = open(cleanup_dir + "/" +  n7ks, "a")
@@ -374,6 +441,11 @@ def write_new_n7k_configs(vrfmember,p2psubnets,dc,district,n7k_data):
                 f.write("configure terminal" + '\n')
 		f.write(('\n'.join(svi_cleanup[n7ks]['svi'])))
                 f.write('\n')
+		f.close()
+
+		f = open(dir_path + "/" + "N7K_NEXT_CLEANUP" + "/" +  "execute_cleanup_" + vrfmember + ".sh", "a")
+                f.write("../push_to_n7k.py -f " + vrfmember + "/"  + n7ks + " -c ../" + n7ks + "_creds"  '\n')
+                f.close()
 
 	for n7ks in n7k_data:
 		if bool(re.search('inner',n7ks, re.IGNORECASE)):
@@ -396,7 +468,7 @@ def write_new_n7k_configs(vrfmember,p2psubnets,dc,district,n7k_data):
 		f.write("configure terminal" + '\n')
 		f.write(('\n'.join(bgp_cleanup_inner[n7ks]['neighbors'])))
 		f.write('\n')
-	f.close()	
+		f.close()	
 	
 	for n7ks in bgp_cleanup_outer:
 		f = open(cleanup_dir + "/" +  n7ks, "a")
@@ -406,7 +478,12 @@ def write_new_n7k_configs(vrfmember,p2psubnets,dc,district,n7k_data):
 		f.write("configure terminal" + '\n')
 		f.write(('\n'.join(bgp_cleanup_outer[n7ks]['neighbors'])))
 		f.write('\n')
-	f.close()	
+		f.close()
+
+
+		f = open(dir_path + "/" + "N7K_NEXT_CLEANUP" + "/" +  "execute_cleanup_" + vrfmember + ".sh", "a")
+                f.write("../push_to_n7k.py -f " + vrfmember + "/"  + n7ks + " -c ../" + n7ks + "_creds"  '\n')
+                f.close()	
 
 def get_inner_outer_mapping(dc):
 
@@ -1989,7 +2066,6 @@ def main(argv):
 				fmigr.write("Outer encap " + svi + " can be removed on " + n7k + "." + "  SVI shutdown config will be written to: " + sorted_d[-1][0] + " because it has the most EPGs in this VRF/SVI" + '\n')
 				fmigr.close()
 				f = open(cutover_dir + "/" + sorted_d[-1][0] + "/" + n7k, "a")
-				f.write("!! Shutdown VLAN and remove VLAN from firewall - All VRFs migrated " + '\n')
 				f.close()	
 
 			if len(stillexist) != 0 and targeted == 1:
@@ -2003,10 +2079,29 @@ def main(argv):
 	
 			if targeted == 1:
 				fwints = n7k_data[n7k][svi]['fw_trunk_int']
-				f = open(cutover_dir + "/" + sorted_d[-1][0] + "/" + n7k, "a")
-				f.write("interface Vlan" + svi + '\n')
-				f.write(" shutdown" + '\n')
+		
+				# write the shutdown for the outer VLAN in the middle of the file
+				foundintvl = 0
+				f = open(cutover_dir + "/" + sorted_d[-1][0] + "/" + n7k, "r")
+				contents = f.readlines()
 				f.close()
+				f = open(cutover_dir + "/" + sorted_d[-1][0] + "/" + n7k, "w")
+				for c in contents:
+					if c == '\n' and foundintvl == 0:
+                                		f.write(c)
+						f.write("!Shutdown Outer SVI for VRF " + sorted_d[-1][0]  + '\n')
+						f.write("interface Vlan" + svi + '\n')
+                                		f.write(" shutdown" + '\n')
+                                		f.write(c)
+						foundintvl = 1
+					else:
+						f.write(c)
+				foundintvl = 0
+					
+				#f = open(cutover_dir + "/" + sorted_d[-1][0] + "/" + n7k, "a")
+				#f.write("interface Vlan" + svi + '\n')
+				#f.write(" shutdown" + '\n')
+				#f.close()
 				f = open(cleanup_dir + "/" + sorted_d[-1][0] + "/" + n7k, "a")
 				f.write("!!Remove VLAN Interface for VRF " + sorted_d[-1][0]  + '\n')
 				f.write("no interface Vlan" + svi + '\n')
@@ -2289,7 +2384,7 @@ def main(argv):
 						
 						fverify = open(dir_path + "/ACI_CONTRACT_VERIFICATION/" + tenantdir + "-" + vrf, "a") 
 						fverify.write("EPG," + tenant + "," + ap + "," + epg + '\n')
-						f.close()
+						fverify.close()
 
 					if type == 'B':
 						fname = vrf + " 2 Type " + d['type'] + " - Assign new contract as provider and delete old contracts.csv"
@@ -2304,7 +2399,7 @@ def main(argv):
 
 						fverify = open(dir_path + "/ACI_CONTRACT_VERIFICATION/" + tenantdir + "-" + vrf, "a") 
 						fverify.write("EPG," + tenant + "," + ap + "," + epg + '\n')
-						f.close()
+						fverify.close()
     
     l3out = {}
     #Contract removal
@@ -2389,6 +2484,33 @@ def main(argv):
     f = open('write_to_aci_cfg.json', 'w') 
     f.write(json.dumps(write_to_aci_cfg) )
     f.close()
+
+    print "\n\n\n"
+    print "!" * 50
+    print "\n\nFollow the below steps as well\n\n"
+
+    # Put the 2 python scripts here.  If can't find it, print out warning for user to add it
+    if os.path.isfile("/Users/scascio/GitHub/ACI/getcontracts.py"):
+    	shutil.copyfile("/Users/scascio/GitHub/ACI/getcontracts.py", "./output/getcontracts.py")	
+    	os.chmod("./output/getcontracts.py",0755)
+
+    else:
+	print "Make sure to copy getcontracts.py to the output folder"
+    
+    if os.path.isfile("/Users/scascio/GitHub/ACI/push_to_n7k.py"):
+    	shutil.copyfile("/Users/scascio/GitHub/ACI/push_to_n7k.py", "./output/push_to_n7k.py")	
+    	os.chmod("./output/push_to_n7k.py",0755)
+
+    else:
+	print "Make sure to copy push_to_n7k.py to the output folder"
+
+    
+    print "\n\nDo not include the N7K_NEXT_CLEANUP as part of this change window.  It is to be used for the NEXT change window.  Running the commands in this folder will undo everything you have done!!"
+
+
+    print "\n\n\n"
+    print "!" * 50
+    print "\n\n\n"
 
 if __name__ == '__main__':
 	main(sys.argv[1:])
