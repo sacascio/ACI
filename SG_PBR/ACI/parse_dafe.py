@@ -2491,11 +2491,11 @@ def main(argv):
 
     # Put the 2 python scripts here.  If can't find it, print out warning for user to add it
     if os.path.isfile("/Users/scascio/GitHub/ACI/getcontracts.py"):
-    	shutil.copyfile("/Users/scascio/GitHub/ACI/getcontracts.py", "./output/getcontracts.py")	
-    	os.chmod("./output/getcontracts.py",0755)
+    	shutil.copyfile("/Users/scascio/GitHub/ACI/getcontracts.py", "./output/ACI_CONTRACT_VERIFICATION/getcontracts.py")	
+    	os.chmod("./output/ACI_CONTRACT_VERIFICATION/getcontracts.py",0755)
 
     else:
-	print "Make sure to copy getcontracts.py to the output folder"
+	print "Make sure to copy getcontracts.py to ./output/ACI_CONTRACT_VERIFICATION folder"
     
     if os.path.isfile("/Users/scascio/GitHub/ACI/push_to_n7k.py"):
     	shutil.copyfile("/Users/scascio/GitHub/ACI/push_to_n7k.py", "./output/push_to_n7k.py")	
