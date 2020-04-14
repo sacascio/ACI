@@ -485,8 +485,45 @@ def write_new_n7k_configs(vrfmember,p2psubnets,dc,district,n7k_data):
                 f.write("../push_to_n7k.py -f " + vrfmember + "/"  + n7ks + " -c ../" + n7ks + "_creds"  '\n')
                 f.close()	
 
-def get_inner_outer_mapping(dc):
+def get_inner_outer_mapping(dc,district):
 
+    mapping = {}
+
+    # Hard code GIS/SOE mapping because it does not exist in the port map file
+    
+    if district.upper() == 'GIS':
+    	numn7k = [1,2,3,4]
+    	outerint = ['5/29','5/30','5/31','5/32']
+    	innerint = ['2/31','2/32','2/33','2/34']
+
+    if district.upper() == 'SOE':
+    	numn7k = [1,2,3,4]
+    	outerint = ['5/25','5/26','5/27','5/28']
+    	innerint = ['2/15','2/16','2/17','2/18']
+    
+
+	# Inner to Outer Mapping - SOE GIS ONLY
+
+    if district.upper() == 'GIS' or district.upper() == 'SOE':
+
+    	for i in numn7k:
+                name = dc + 'dcinxc' + str(i) + district + 'inner'
+                mapping[name] = {}
+                for idx,j in enumerate(innerint):
+                        mapping[name][j] = {}
+                        mapping[name][j][outerint[i-1]] = {}
+                        mapping[name][j][outerint[i-1]][dc + 'dcinxc' + str(idx+1) + 'dciouter'] = {}
+
+	# Outer to inner mapping now
+    	for i in numn7k:
+                name = dc + 'dcinxc' + str(i) + 'dciouter'
+                mapping[name] = {}
+                for idx,j in enumerate(outerint):
+                        mapping[name][j] = {}
+                        mapping[name][j][innerint[i-1]] = {}
+                        mapping[name][j][innerint[i-1]][dc + 'dcinxc' + str(idx+1) + district +  'inner'] = {}    	
+
+ 	
     pattern = '*' + dc.upper() + '*Port Map*'
   
     files = os.listdir('.') 
@@ -507,7 +544,6 @@ def get_inner_outer_mapping(dc):
     row_start = ws.min_row
     row_end   = ws.max_row
 
-    mapping = {}
         
     for cells in ws.iter_rows(min_row=row_start, min_col=1, max_col=24): 
         for vals in cells:
@@ -526,6 +562,7 @@ def get_inner_outer_mapping(dc):
 
                 if bool(re.search("nxc(.*)inner",str(vals.value), re.IGNORECASE)) or bool(re.search("nxc(.*)outer",str(vals.value), re.IGNORECASE)):
                         remote_n7k = vals.value
+    			
                         local_interface = ws[vals.column + str(vals.row+1)].value
 
                         if local_interface is None:
@@ -543,14 +580,17 @@ def get_inner_outer_mapping(dc):
                                 local_n7k = dc + 'sde' + 'nxc' + str(n7k_local) + 'sdeinner'
 
                         if bool(re.search("gis",remote_n7k, re.IGNORECASE)) and bool(re.search("inner",remote_n7k, re.IGNORECASE)):
-                                local_n7k = dc + 'gis' + 'nxc' + str(n7k_local) + 'gisouter'
+                                #local_n7k = dc + 'gis' + 'nxc' + str(n7k_local) + 'gisouter'
+                                local_n7k =  dc + 'dcinxc' + str(n7k_local) + 'dciouter'
                         if bool(re.search("gis",remote_n7k, re.IGNORECASE)) and bool(re.search("outer",remote_n7k, re.IGNORECASE)):
-                                local_n7k = dc + 'gis' + 'nxc' + str(n7k_local) + 'gisinner'
+                                #local_n7k = dc + 'gis' + 'nxc' + str(n7k_local) + 'gisinner'
+                                local_n7k =  dc + 'dcinxc' + str(n7k_local) + 'gisinner'
 
                         if bool(re.search("soe",remote_n7k, re.IGNORECASE)) and bool(re.search("inner",remote_n7k, re.IGNORECASE)):
-                                local_n7k = dc + 'soe' + 'nxc' + str(n7k_local) + 'soeouter'
+                                local_n7k = dc + 'dcinxc' + str(n7k_local) + 'dciouter'
                         if bool(re.search("soe",remote_n7k, re.IGNORECASE)) and bool(re.search("outer",remote_n7k, re.IGNORECASE)):
-                                local_n7k = dc + 'soe' + 'nxc' + str(n7k_local) + 'soeinner'
+                                #local_n7k = dc + 'soe' + 'nxc' + str(n7k_local) + 'soeinner'
+                                local_n7k =  local_n7k =  dc + 'dcinxc' + str(n7k_local) + 'soeinner'
 
 
                         if local_n7k not in mapping:
@@ -570,7 +610,7 @@ def get_inner_outer_mapping(dc):
 def get_bgp_int_vlan(dc,district,vrfs):
 
     data = {}
-    p2p_n7k_mapping = get_inner_outer_mapping(dc)
+    p2p_n7k_mapping = get_inner_outer_mapping(dc,district)
  
     if district.lower() in ('sde'):
         numfiles = ['1','2']
@@ -579,12 +619,23 @@ def get_bgp_int_vlan(dc,district,vrfs):
 
     for i in numfiles:
         for j in ['inner','outer']:
-                filename = dc + district + 'nxc' + str(i) + district + j + '.log'
-                n7k = dc + district + 'nxc' + str(i) + district + j 
+		if district.upper() == 'SDE':
+                	filename = dc + district + 'nxc' + str(i) + district.lower() + j + '.log'
+                	n7k = dc + district + 'nxc' + str(i) + district + j 
+		else:
+			if j == 'inner':
+				filename = dc + 'dcinxc' + str(i) + district.lower() + j + '.log'
+				n7k = dc + 'dcinxc' + str(i) + district.lower() + j
+			else:
+				filename = dc + 'dcinxc' + str(i) + 'dciouter.log'
+				n7k = dc + 'dcinxc' + str(i) + 'dciouter'
+                	
+		# GIS/SOE shared - this does not apply.  Have to seperate names for each district
+                #n7k = dc + district + 'nxc' + str(i) + district + j 
 
                 # Need to code this
-                n7k_mapping = get_inner_outer_mapping(dc)
-
+                #n7k_mapping = get_inner_outer_mapping(dc)
+    		
                 data[n7k] = {}
                 parse = CiscoConfParse(filename)
 
@@ -756,18 +807,18 @@ def fix_type_x(write_to_aci_cfg):
 		for vrf in write_to_aci_cfg[tenant]:
 			for epg in write_to_aci_cfg[tenant][vrf]:
 				for e in write_to_aci_cfg[tenant][vrf][epg]:
-					if e['type'] != 'X':
+					if e['t_type'] != 'X':
 						tenant_vrf_type_key = tenant + "-" + vrf 
-						vrf_type[tenant_vrf_type_key] = e['type']
+						vrf_type[tenant_vrf_type_key] = e['t_type']
 						continue
 
 	for tenant in write_to_aci_cfg:
                 for vrf in write_to_aci_cfg[tenant]:
                         for epg in write_to_aci_cfg[tenant][vrf]:
                                 for e in write_to_aci_cfg[tenant][vrf][epg]:
-                                        if e['type'] == 'X':
+                                        if e['t_type'] == 'X':
 						tenant_vrf_type_key = tenant + "-" + vrf
-						e.update({'type' : vrf_type[tenant_vrf_type_key]})
+						e.update({'t_type' : vrf_type[tenant_vrf_type_key]})
 
 
 def usage():
@@ -1161,7 +1212,7 @@ def get_epg_type(epg):
                 value = ws[cell].value
                 if value == epg:
                         cell = 'D' + str(x)
-		        type = ws[cell].value
+		        t_type = ws[cell].value
 			continue
      
     for x in range(row_start,row_end+1):
@@ -1169,17 +1220,17 @@ def get_epg_type(epg):
                 value = ws[cell].value
                 if value == epg:
                         cell = 'J' + str(x)
-		        type = ws[cell].value
+		        t_type = ws[cell].value
 			continue
 
     wb.close()
     try:
-	type
+	t_type
     except NameError:
 	#print "WARNING: EPG %s not found in %s" % (epg,filename)
-	type='X'
+	t_type='X'
     
-    return type
+    return t_type
 
 def get_data(filename,epgs,dc,district,p2psubnets):
     p2psubnetvals = {}
@@ -1215,10 +1266,13 @@ def get_data(filename,epgs,dc,district,p2psubnets):
 	
 
 	new_list.sort()
-	cidr = cidr_merge(new_list)
-
+	#cidr = cidr_merge(new_list)
+    	# spanning_cidr gives the accurate summary prefix
+	cidr = spanning_cidr(new_list)
 	# Check for discontinuous networks
-	if len(cidr) != 1:
+	#if len(cidr) != 1:
+        # For GIS/SOE, the summary subnet of the 8 networks is /26
+    	if cidr.__str__()[-2:] != '26':
 		print "WARNING: Discontiguous subnets found for Tenant %s, VRF %s.  %s given" % (p_tenant,p_vrf,(', '.join(p_subnets)))
 	p = []
 	for ee in new_list:
@@ -1245,7 +1299,12 @@ def get_data(filename,epgs,dc,district,p2psubnets):
                 if not bool(re.search('^~',name, re.IGNORECASE)):
                         cabling_file = name
                         break
-    
+    try:
+    	cabling_file
+    except NameError:
+	print "ERROR: File DCT_" + district.upper() + "_PBR_Firewalls_Cabling&P2P_Info.xlsx not Found"
+    	sys.exit(9)
+
     wb2 = openpyxl.load_workbook(cabling_file, data_only=True)
 
     for sheet in wb2:
@@ -1671,7 +1730,7 @@ def get_data(filename,epgs,dc,district,p2psubnets):
         # if the argument passed to the script is by VRF, no need to check, we got it all and inner N7K config can be removed
 
 	# Get Type A or Type B.  Look at file VRF_EPG_Counts	
-	type = get_epg_type(epg)	
+	t_type = get_epg_type(epg)	
 
 	# Write to dictionary for printing config files
 	if tenant not in write_to_aci_cfg:
@@ -1728,7 +1787,7 @@ def get_data(filename,epgs,dc,district,p2psubnets):
 						'vrfmember' : vrfmember,
 						'l3out' : l3out,
 						'extepg' : externalepg,
-						'type' : type,
+						't_type' : t_type,
 						'ap'   : ap,
 						'fwbdsubnet' : fwbdsubnet,
 						'vrf'  : vrf,
@@ -1766,7 +1825,7 @@ def get_data(filename,epgs,dc,district,p2psubnets):
 	print "VRF Member: %s" % vrfmember
 	print "L3Out: %s" % l3out
 	print "External EPG: %s" % externalepg
-	print "Type: %s" % type
+	print "Type: %s" % t_type
 	print "Contracts to remove:"
 	print contracts_to_remove
 	print "********"
@@ -1787,7 +1846,7 @@ def get_data(filename,epgs,dc,district,p2psubnets):
 	del l3out_c_contracts
 	del l3out_p_contracts
 	del contracts_to_remove
-	del type 
+	del t_type 
 	del vlan
         del fwvip
         del fwbdip
@@ -1895,15 +1954,14 @@ def main(argv):
     	print "ERROR: Check input file. There must be at least 6 parameters (tenant, vrf, P2P Subnet 1, P2P Subnet 2, etc"
 	sys.exit(9)
  
-    if len(numparams) == 10 and (district.upper == 'SOE' or district.upper == 'GIS' ) :
+    if len(numparams) == 10 and (district.upper() == 'SOE' or district.upper() == 'GIS' ) :
 	with open (infile) as f:
 		vrfs = f.readlines()
 		epgs = get_epg_from_vrf(dafe_file,vrfs)	
-    
+   		
     if len(numparams) != 10 and ( district.upper == 'SOE' or district.upper == 'GIS' ) :
     	print "ERROR: Check input file. There must be at least 10 parameters (tenant, vrf, P2P Subnet 1, P2P Subnet 2, etc"
 	sys.exit(9)
-
 
     # Get N7K Data - to be used after ACI configs built
     n7k_data = get_bgp_int_vlan(dc,district,vrfs)
@@ -1925,7 +1983,7 @@ def main(argv):
 				bdip = e['bd_subnet']
 				isl3 = e['l3']
 				fw = e['fwaname']
-				vrftype = e['type']
+				vrftype = e['t_type']
 
 				if isl3 == 'yes':
 					f.write(epg + ',' + bdip + ',' + fw + ',' + vrftype + ',' + vrf + ',' + tenant + ',' + '\n')
@@ -2337,7 +2395,7 @@ def main(argv):
 				if d['remove_l3_contract'] == 'yes' and d['l3'] == 'yes' :
 					dirname = epg.split("-")
 					tenantdir = dirname[0]
-					fname = vrf + " 1 Type " + d['type'] +  " - Associate contracts to L3Out as consumer.csv"
+					fname = vrf + " 1 Type " + d['t_type'] +  " - Associate contracts to L3Out as consumer.csv"
 					if not os.path.isfile(dir_path + "/ACI_" + tenantdir + "-" + vrf + "/" + fname):
     						f = open(dir_path + "/ACI_" + tenantdir + "-" + vrf + "/" + fname, "a") 
     						f.write("TENANT,L3OUT,NETWORK,NEW_L3_CONTRACT" + '\n')
@@ -2370,10 +2428,10 @@ def main(argv):
 				if d['l3'] == 'yes' :
 					s = epg.split("-")
 					tenantdir = s[0]
-					type = d['type']
+					t_type = d['t_type']
 					ap = d['ap']
-					if type == 'A':
-						fname = vrf + " 2 Type " + d['type'] + " - Assign new contract as provider.csv"
+					if t_type == 'A':
+						fname = vrf + " 2 Type " + d['t_type'] + " - Assign new contract as provider.csv"
 						if not os.path.isfile(dir_path + "/ACI_" + tenantdir + "-" + vrf + "/" + fname):
     							f = open(dir_path + "/ACI_" + tenantdir + "-" + vrf + "/" + fname, "a") 
     							f.write("TENANT,AP,EPG,NEW_EPG_CONTRACT" + '\n')
@@ -2386,8 +2444,8 @@ def main(argv):
 						fverify.write("EPG," + tenant + "," + ap + "," + epg + '\n')
 						fverify.close()
 
-					if type == 'B':
-						fname = vrf + " 2 Type " + d['type'] + " - Assign new contract as provider and delete old contracts.csv"
+					if t_type == 'B':
+						fname = vrf + " 2 Type " + d['t_type'] + " - Assign new contract as provider and delete old contracts.csv"
 						if not os.path.isfile(dir_path + "/ACI_" + tenantdir + "-" + vrf + "/" + fname):
     							f = open(dir_path + "/ACI_" + tenantdir + "-" + vrf + "/" + fname, "a") 
     							f.write("TENANT,AP,EPG,NEW_EPG_CONTRACT,OLD_EPG_CONTRACT" + '\n')
@@ -2415,9 +2473,9 @@ def main(argv):
 					d_extepg = d['extepg']
 					ap = d['ap']
 					s = epg.split("-")
-					type = d['type']
+					t_type = d['t_type']
 					tenantdir = s[0]
-					fname = vrf + " 3 Type " + d['type'] + " - Remove contract from L3Out and EPG as provider_consumer.csv"	
+					fname = vrf + " 3 Type " + d['t_type'] + " - Remove contract from L3Out and EPG as provider_consumer.csv"	
 					if not os.path.isfile(dir_path + "/ACI_" + tenantdir + "-" + vrf + "/" + fname):
     						f = open(dir_path + "/ACI_" + tenantdir + "-" + vrf + "/" + fname, "a") 
     						f.write("TENANT,AP,EPG,OLD_EPG_CONTRACT,L3OUT,NETWORK,OLD_L3_CONTRACT" + '\n')
@@ -2457,7 +2515,7 @@ def main(argv):
     									f = open(dir_path + "/ACI_" + tenantdir + "-" + vrf + "/" + fname, "a") 
 									f.write(tenant + ",,,," + d_l3out +  "," + d_extepg + "," + c + '\n')
 									f.close()
-						if type == 'A':
+						if t_type == 'A':
     							f = open(dir_path + "/ACI_" + tenantdir + "-" + vrf + "/" + fname, "a") 
 							f.write(tenant + "," + ap + "," + epg + "," + c + '\n')
 						f.close()
@@ -2506,6 +2564,8 @@ def main(argv):
 
     
     print "\n\nDo not include the N7K_NEXT_CLEANUP as part of this change window.  It is to be used for the NEXT change window.  Running the commands in this folder will undo everything you have done!!"
+    print "\n\nMake sure you manually include any information regarding the L3Out for F5 load balancers"
+    print "\n\nCheck to make sure the generic 'Permit_Any' contract is removed from the L3Out for Type-B VRFs if not in use"
 
 
     print "\n\n\n"
