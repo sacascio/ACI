@@ -1271,8 +1271,12 @@ def get_data(filename,epgs,dc,district,p2psubnets):
 	cidr = spanning_cidr(new_list)
 	# Check for discontinuous networks
 	#if len(cidr) != 1:
-        # For GIS/SOE, the summary subnet of the 8 networks is /26
-    	if cidr.__str__()[-2:] != '26':
+        # For GIS/SOE, the summary subnet of the 8 networks is /26.  For SDE it is /28
+	
+    	if cidr.__str__()[-2:] != '26' and district.upper() in ['GIS','SOE'] :
+		print "WARNING: Discontiguous subnets found for Tenant %s, VRF %s.  %s given" % (p_tenant,p_vrf,(', '.join(p_subnets)))
+    	
+	if cidr.__str__()[-2:] != '28' and district.upper() == 'SDE' :
 		print "WARNING: Discontiguous subnets found for Tenant %s, VRF %s.  %s given" % (p_tenant,p_vrf,(', '.join(p_subnets)))
 	p = []
 	for ee in new_list:
