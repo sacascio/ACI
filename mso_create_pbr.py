@@ -55,12 +55,13 @@ def add_bd(data,schema_index,template_index,schema_id,bd_name,template_name,vrf_
 			'vrfRef' : vrfRef
 	})
 
-def add_sg(data,schema_index,template_index,schema_id,sg_name,template_name,all_sites):
+def add_sg(data,schema_index,template_index,schema_id,sg_name,template_name,tenant,l4l7device,all_sites):
 	
-	# create SG input file format: Schema_Name,template_name,sg_name
+	# create SG input file format: Schema_Name,template_name,sg_name,tenant,l4l7device
 
 	sgRef = '/schemas/' + schema_id + '/templates/' + template_name + '/serviceGraphs/' + sg_name
 	snRef =  '/schemas/' + schema_id + '/templates/' + template_name + '/serviceGraphs/' + sg_name + '/' + 'serviceNodes/node1'
+	device = 'uni/tn-' + tenant + '/lDevVip-' + l4l7device
 
 	data['schemas'][schema_index]['templates'][template_index]['serviceGraphs'].append({
 
@@ -77,6 +78,20 @@ def add_sg(data,schema_index,template_index,schema_id,sg_name,template_name,all_
 	})
 
 	# Site update
+	for i in all_sites:
+		sch_idx =  i[0]
+		site_idx = i[1]
+		data['schemas'][sch_idx]['sites'][site_idx]['serviceGraphs'].append({
+
+			'serviceGraphRef' : sgRef,
+			'serviceNodes' : [{
+				'serviceNodeRef' : snRef,
+				'device' : 
+					{ 
+						'dn' : device 
+					}
+			}]
+		})
 
 def main(argv):
 
@@ -89,6 +104,8 @@ def main(argv):
 	bd_name = 'TestAPI'
 	gw_ip = '1.1.1.1/24'
 	sg_name = 'TestAPISG'
+	tenant = 'Restricted'
+	l4l7device = 'L4L7'
 	all_sites = []
 
 	base_url = 'https://' + ip + '/api/v1'
@@ -127,10 +144,10 @@ def main(argv):
 	# May not need this.  getting it just in case
 	tenant_id = templates['tenantId']		
 
-	#add_bd(data,schema_index,template_index,schema_id,bd_name,template_name,vrf_name,gw_ip,all_sites)
-	#add_sg(data,schema_index,template_index,schema_id,sg_name,template_name)
-	print (json.dumps(data))
-	#put_schema_data(token,base_url,data['schemas'][schema_index],schema_name,template_name,bd_name,schema_id)
+	add_bd(data,schema_index,template_index,schema_id,bd_name,template_name,vrf_name,gw_ip)
+	add_sg(data,schema_index,template_index,schema_id,sg_name,template_name,tenant,l4l7device,all_sites)
+	#print (json.dumps(data))
+	put_schema_data(token,base_url,data['schemas'][schema_index],schema_name,template_name,bd_name,schema_id)
 	sys.exit(9)
 				
 
