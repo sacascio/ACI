@@ -24,21 +24,22 @@ def put_schema_data(token,base_url,data,schema,template,bd,schema_id):
 	response = requests.put(schema_url, headers=headers, json=data,verify=False, timeout=10)
 
 	if response.status_code == 200:
-		print (response.json())
+		print ("OK: Completed")
 	else:
 		print ("ERROR: Could not update schema data for schema: %s, template: %s, BD: %s" %(schema,template,bd))
 		print (response.json())
 		sys.exit(9)
 
-def add_bd(data,schema_index,template_index,schema_id,bd_name,template_name,vrf_name,gw_ip):
+def add_bd(data,schema_index,template_index,schema_id,bd_name,template_name,vrf_name,gw_ip,all_sites,add_to_template,add_to_site):
 	
 	# create BD input file format: Schema_Name,template_name,bd_name,vrf_name,gw_ip
-
-	# template update
 	bdRef = '/schemas/' + schema_id + '/templates/' + template_name + '/bds/' + bd_name
 	vrfRef =  '/schemas/' + schema_id + '/templates/' + template_name + '/vrfs/' + vrf_name
 
-	data['schemas'][schema_index]['templates'][template_index]['bds'].append({
+	if add_to_template is True:
+		# template update
+
+		data['schemas'][schema_index]['templates'][template_index]['bds'].append({
 
 			'name': bd_name,
 			'displayName' : bd_name,
@@ -53,9 +54,52 @@ def add_bd(data,schema_index,template_index,schema_id,bd_name,template_name,vrf_
 			'intersiteBumTrafficAllow' : False,
 			'l2Stretch' : True,
 			'vrfRef' : vrfRef
-	})
+		})
 
-def add_sg(data,schema_index,template_index,schema_id,sg_name,template_name,tenant,l4l7device,all_sites):
+	if add_to_site is True:
+		# add to sites
+		for i in all_sites:
+			sch_idx =  i[0]
+			site_idx = i[1]
+
+			data['schemas'][sch_idx]['sites'][site_idx]['bds'].append({
+
+				'bdRef' : bdRef,
+				'subnets' : [],
+				'l3Outs' : []
+			})
+		
+
+def add_filter(data,schema_index,template_index,schema_id,filter_name,template_name):
+
+	filterRef = '/schemas/' + schema_id + '/templates/' + template_name + '/filters/' + filter_name
+
+	data['schemas'][schema_index]['templates'][template_index]['filters'].append({
+		
+		'name' : filter_name,
+		'displayName' : filter_name,
+		'entries' : [{
+			
+				'name' : filter_name,
+				'displayName' : filter_name,
+				'description' : '',
+				'etherType' : 'unspecified',
+				'arpFlag' : 'unspecified',
+				'ipProtocol' : 'unspecified',
+				'matchOnlyFragments' : False,
+				'stateful' : False,
+				'sourceFrom' : 'unspecified',
+				'sourceTo' : 'unspecified',
+				'destinationFrom' : 'unspecified',
+				'destinationTo' : 'unspecified',
+				'tcpSessionRules' : [
+							'unspecified'
+				]
+		}]
+	})			
+	
+
+def add_sg(data,schema_index,template_index,schema_id,sg_name,template_name,tenant,l4l7device,all_sites,add_to_template,add_to_site):
 	
 	# create SG input file format: Schema_Name,template_name,sg_name,tenant,l4l7device
 
@@ -63,7 +107,8 @@ def add_sg(data,schema_index,template_index,schema_id,sg_name,template_name,tena
 	snRef =  '/schemas/' + schema_id + '/templates/' + template_name + '/serviceGraphs/' + sg_name + '/' + 'serviceNodes/node1'
 	device = 'uni/tn-' + tenant + '/lDevVip-' + l4l7device
 
-	data['schemas'][schema_index]['templates'][template_index]['serviceGraphs'].append({
+	if add_to_template is True:
+		data['schemas'][schema_index]['templates'][template_index]['serviceGraphs'].append({
 
 			'name': sg_name,
 			'displayName' : sg_name,
@@ -75,23 +120,24 @@ def add_sg(data,schema_index,template_index,schema_id,sg_name,template_name,tena
 					'serviceNodeTypeId' : '0000ffff0000000000000051',
 					'index' : 1
 			}]
-	})
+		})
 
 	# Site update
-	for i in all_sites:
-		sch_idx =  i[0]
-		site_idx = i[1]
-		data['schemas'][sch_idx]['sites'][site_idx]['serviceGraphs'].append({
+	if add_to_site is True:
+		for i in all_sites:
+			sch_idx =  i[0]
+			site_idx = i[1]
+			data['schemas'][sch_idx]['sites'][site_idx]['serviceGraphs'].append({
 
-			'serviceGraphRef' : sgRef,
-			'serviceNodes' : [{
-				'serviceNodeRef' : snRef,
-				'device' : 
-					{ 
-						'dn' : device 
-					}
-			}]
-		})
+				'serviceGraphRef' : sgRef,
+				'serviceNodes' : [{
+					'serviceNodeRef' : snRef,
+					'device' : 
+						{ 
+							'dn' : device 
+						}
+				}]
+			})
 
 def main(argv):
 
@@ -103,9 +149,11 @@ def main(argv):
 	vrf_name = 'DST'
 	bd_name = 'TestAPI'
 	gw_ip = '1.1.1.1/24'
-	sg_name = 'TestAPISG'
+	sg_name = 'TestAPISG_SALS'
 	tenant = 'Restricted'
 	l4l7device = 'L4L7'
+	filter_name = 'default'
+
 	all_sites = []
 
 	base_url = 'https://' + ip + '/api/v1'
@@ -144,10 +192,87 @@ def main(argv):
 	# May not need this.  getting it just in case
 	tenant_id = templates['tenantId']		
 
-	add_bd(data,schema_index,template_index,schema_id,bd_name,template_name,vrf_name,gw_ip)
-	add_sg(data,schema_index,template_index,schema_id,sg_name,template_name,tenant,l4l7device,all_sites)
-	#print (json.dumps(data))
+	# Add BD 
+	
+	add_bd_vals_templ = True	
+	for bds in data['schemas'][schema_index]['templates'][template_index]['bds']:
+		if bds['displayName'] == bd_name:
+			print ("OK: BD " + bd_name + " exists in template " + template_name + " - no need to create")
+			add_bd_vals_templ = False
+			break
+
+	# If BD does not exist, add it to the template ONLY for now
+	if add_bd_vals_templ is True:
+		add_bd(data,schema_index,template_index,schema_id,bd_name,template_name,vrf_name,gw_ip,all_sites,add_bd_vals_templ,False)
+		print ("OK: BD " + bd_name + " being added to template " + template_name)
+
+	# Check for BD at the site - if not there, create it.	
+	for i in all_sites:
+		add_bd_vals_site = True
+        
+		sch_idx =  i[0]
+		site_idx = i[1]
+	
+		for bds in data['schemas'][sch_idx]['sites'][site_idx]['bds']:
+			if bds['bdRef'] == "/schemas/" + schema_id + "/templates/" + template_name + "/bds/" + bd_name:
+				print ("OK: BD " + bd_name + " exists in site - no need to create")
+				add_bd_vals_site = False
+				break
+
+		if add_bd_vals_site is True:
+			print ("OK: BD " + bd_name + " being added to site")
+			add_bd(data,schema_index,template_index,schema_id,bd_name,template_name,vrf_name,gw_ip,all_sites,False,add_bd_vals_site)
+
+	# Add SG Template at template level
+	add_sgt_vals_templ = True	
+	for sgt in data['schemas'][schema_index]['templates'][template_index]['serviceGraphs']:
+		if sgt['displayName'] == sg_name:
+			print ("OK: SG Template " + sg_name + " exists in template " + template_name + " - no need to create")
+			add_sgt_vals_templ = False
+
+	if add_sgt_vals_templ is True:	
+		add_sg(data,schema_index,template_index,schema_id,sg_name,template_name,tenant,l4l7device,all_sites,add_sgt_vals_templ,False)
+		print ("OK: SG Template " + sg_name + " being added to template " + template_name)
+
+	# Check for SGT at site level	
+	for i in all_sites:
+		add_sgt_vals_site = True
+        
+		sch_idx =  i[0]
+		site_idx = i[1]
+	
+		for sgt in data['schemas'][sch_idx]['sites'][site_idx]['serviceGraphs']:
+			if sgt['serviceGraphRef'] == "/schemas/" + schema_id + "/templates/" + template_name + "/serviceGraphs/" + sg_name:
+				print ("OK: SG Template " + sg_name + " exists in site " + template_name + " - no need to create")
+				add_sgt_vals_site = False
+				break
+
+		if add_sgt_vals_site is True:
+			print ("OK: SG Template " + sg_name + " being added to site")
+			add_sg(data,schema_index,template_index,schema_id,sg_name,template_name,tenant,l4l7device,all_sites,False,add_sgt_vals_site)
+
+	# Add filters
+	add_filter_vals = True
+	
+	for filters in data['schemas'][schema_index]['templates'][template_index]['filters']:
+		if filters['displayName'] == filter_name:
+			print ("OK: Filter " + filter_name + " exists in template " + template_name + " - no need to create")
+			add_filter_vals = False
+			break
+
+	if add_filter_vals is True:
+		add_filter(data,schema_index,template_index,schema_id,filter_name,template_name)
+
+
+	# Create Contracts
+
+	#create_contract(data,schema_index,template_index,schema_id,contract_name,filter_name
+	#cut_over_contract_epgs(data,schema_index,template_index,schema_id,contract_name,filter_name,bdRef,sg_name)
+
+
 	put_schema_data(token,base_url,data['schemas'][schema_index],schema_name,template_name,bd_name,schema_id)
+	data = get_schema_data(token,base_url)
+	#print (json.dumps(data))
 	sys.exit(9)
 				
 
