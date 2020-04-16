@@ -142,9 +142,16 @@ def write_new_n7k_configs(vrfmember,p2psubnets,dc,district,n7k_data):
 		numn7k = ['1','2']
 	else:
 		numn7k = ['1','2','3','4']
-		
+	
+	
+	
 	for i in numn7k:
-		n7kname = dc + district + 'nxc' + i + district +  'inner'
+		if district.upper() == 'SDE':
+			n7kname = dc + district + 'nxc' + i + district +  'inner'
+
+		else:
+			n7kname = dc + 'dcinxc' + i + district.lower() + 'inner'
+
 		f = open(dir_path + "/" + "N7K_CUTOVER" + "/" +  "execute_cutover_" + vrfmember + ".sh", "a")
 		f.write("../push_to_n7k.py -f " + vrfmember + "/"  + n7kname + " -c ../" + n7kname + "_creds"  '\n')
 		f.close()
@@ -228,9 +235,9 @@ def write_new_n7k_configs(vrfmember,p2psubnets,dc,district,n7k_data):
 						ipinner = p2psubnets[3]
 					elif k == 3 and district.upper() == 'SDE':
 						ipinner = p2psubnets[2]
-					else:	
+					else:
 						ipinner = p2psubnets[k]
-
+						
 					ipinnerx = ipinner.split('/')
 					ipinner = IPAddress(ipinnerx[0])
 					mask = ipinnerx[1]
@@ -826,8 +833,8 @@ def usage():
     print ""
     print "-f|--file:   Pass input file to use for configuration.   Format:"
     print "1 value per line - assume its an EPG"
-    print "6 to 10 values per line (depending on district) - assume by VRF: Tenant,VRF,P2P Subnet IP 1, P2P IP Subnet 2, etc"
-    print "4 subnets for SDE, 8 subnets for GIS/SOE"
+    print "6 to 18 values per line (depending on district) - assume by VRF: Tenant,VRF,P2P Subnet IP 1, P2P IP Subnet 2, etc"
+    print "4 subnets for SDE, 16 subnets for GIS/SOE"
     print "-d|--district: indicates district name, must be <SOE|GIS|SDE>"
     print "-c|--datacenter: indicates datacenter name, must be <DC1 or DC2>"
     print "-x|--exclude: exclude EPGs from the migration.  File format expected is: tenant,vrf,epg (per line)"
@@ -1000,7 +1007,7 @@ def get_epg_from_vrf(dafe_file,vrfs):
 
     for v in vrfs:
 	vs = v.split(",")
-	if len(vs) != 6 and len(vs) != 10:
+	if len(vs) != 6 and len(vs) != 18:
 		print "ERROR: Check input file, must be in format <tenant,vrf,p2p ips subnet1, p2p ip subnet 2, etc. Found %s" % v
 		sys.exit(9)
         tenant = vs[0]
@@ -1271,9 +1278,10 @@ def get_data(filename,epgs,dc,district,p2psubnets):
 	cidr = spanning_cidr(new_list)
 	# Check for discontinuous networks
 	#if len(cidr) != 1:
-        # For GIS/SOE, the summary subnet of the 8 networks is /26.  For SDE it is /28
 	
-    	if cidr.__str__()[-2:] != '26' and district.upper() in ['GIS','SOE'] :
+        # For GIS/SOE, the summary subnet of the 16 networks is /25.  For SDE it is /28
+	
+    	if cidr.__str__()[-2:] != '25' and district.upper() in ['GIS','SOE'] :
 		print "WARNING: Discontiguous subnets found for Tenant %s, VRF %s.  %s given" % (p_tenant,p_vrf,(', '.join(p_subnets)))
     	
 	if cidr.__str__()[-2:] != '28' and district.upper() == 'SDE' :
@@ -1958,13 +1966,13 @@ def main(argv):
     	print "ERROR: Check input file. There must be at least 6 parameters (tenant, vrf, P2P Subnet 1, P2P Subnet 2, etc"
 	sys.exit(9)
  
-    if len(numparams) == 10 and (district.upper() == 'SOE' or district.upper() == 'GIS' ) :
+    if len(numparams) == 18 and (district.upper() == 'SOE' or district.upper() == 'GIS' ) :
 	with open (infile) as f:
 		vrfs = f.readlines()
 		epgs = get_epg_from_vrf(dafe_file,vrfs)	
    		
-    if len(numparams) != 10 and ( district.upper == 'SOE' or district.upper == 'GIS' ) :
-    	print "ERROR: Check input file. There must be at least 10 parameters (tenant, vrf, P2P Subnet 1, P2P Subnet 2, etc"
+    if len(numparams) != 18 and ( district.upper() == 'SOE' or district.upper() == 'GIS' ) :
+    	print "ERROR: Check input file. There must be at least 18 parameters (tenant, vrf, P2P Subnet 1, P2P Subnet 2, etc"
 	sys.exit(9)
 
     # Get N7K Data - to be used after ACI configs built
