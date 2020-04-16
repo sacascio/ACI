@@ -142,7 +142,6 @@ def main(argv):
 			
 		
     		url="https://" + f_ip + "/api/node/mo/uni/tn-" + tenant + middle_part + epgname + ".json?query-target=subtree&target-subtree-class=fvRsCons&target-subtree-class=fvRsConsIf,fvRsProtBy,fvRsProv"
-	
     		response = requests.get("%s" % (url),
                		     cookies=cookie,
                              verify=False,  # disable SSH certificate verification
