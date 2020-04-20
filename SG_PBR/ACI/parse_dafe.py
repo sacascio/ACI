@@ -153,7 +153,9 @@ def write_new_n7k_configs(vrfmember,p2psubnets,dc,district,n7k_data):
 			n7kname = dc + 'dcinxc' + i + district.lower() + 'inner'
 
 		f = open(dir_path + "/" + "N7K_CUTOVER" + "/" +  "execute_cutover_" + vrfmember + ".sh", "a")
-		f.write("../push_to_n7k.py -f " + vrfmember + "/"  + n7kname + " -c ../" + n7kname + "_creds"  '\n')
+		f.write("../push_to_n7k.py -f " + vrfmember + "/"  + n7kname + " -c ../" + n7kname + "_creds" +  '\n')
+		f.write("echo FINISHED UPDATING "  + n7kname + '\n')
+		f.write("../push_to_n7k.py -f " + vrfmember + "/"  + n7kname + "_inner_show_commands" + " -c ../" + n7kname + "_creds" + ' > ' +  n7kname + "_inner_output" +  '\n\n')
 		f.close()
 		encap = n7k_data[n7kname][vrfmember]['svi']
 		inner_bgp_as = n7k_data[n7kname][vrfmember]['local_as']
@@ -178,7 +180,8 @@ def write_new_n7k_configs(vrfmember,p2psubnets,dc,district,n7k_data):
 			f.close()
 
 			f = open(dir_path + "/" + "N7K_PREWORK" + "/" +  "execute_prework.sh", "a")
-        		f.write("../push_to_n7k.py -f "  + n7kname + " -c ../" + n7kname + "_creds"  '\n')
+        		f.write("../push_to_n7k.py -f "  + n7kname + " -c ../" + n7kname + "_creds" +  '\n')
+			f.write("echo FINISHED UPDATING " + n7kname + '\n\n')
         		f.close()
 		else:
     			f = open(dir_path + "/" + "N7K_PREWORK" + "/" +  n7kname, "a")
@@ -195,7 +198,9 @@ def write_new_n7k_configs(vrfmember,p2psubnets,dc,district,n7k_data):
 				for outer_7k in n7k_data[n7kname]['P2P'][inner_int][outer_int]:
     					if outer_7k not in subint_outer_cutover:
 						f = open(dir_path + "/" + "N7K_CUTOVER" + "/" +  "execute_cutover_" + vrfmember + ".sh", "a")
-						f.write("../push_to_n7k.py -f " + vrfmember + "/"  + outer_7k + " -c ../" + outer_7k + "_creds"  '\n')
+						f.write("../push_to_n7k.py -f " + vrfmember + "/"  + outer_7k + " -c ../" + outer_7k + "_creds" +  '\n')
+						f.write("echo FINISHED UPDATING "  + outer_7k + '\n')
+						f.write("../push_to_n7k.py -f " + vrfmember + "/"  + outer_7k + "_outer_show_commands" + " -c ../" + outer_7k + "_creds" + ' > ' +  outer_7k + "_outer_output" +  '\n\n')
 						f.close()
 						subint_outer_cutover[outer_7k] = []
 
@@ -278,7 +283,8 @@ def write_new_n7k_configs(vrfmember,p2psubnets,dc,district,n7k_data):
 						f.close()
 
 						f = open(dir_path + "/" + "N7K_PREWORK" + "/" +  "execute_prework.sh", "a")
-                        			f.write("../push_to_n7k.py -f "  + outer_7k + " -c ../" + outer_7k + "_creds"  '\n')
+                        			f.write("../push_to_n7k.py -f "  + outer_7k + " -c ../" + outer_7k + "_creds" +  '\n')
+						f.write("echo FINISHED UPDATING "  + outer_7k + '\n\n')
                         			f.close()
 						
 					f = open(dir_path + "/" + "N7K_PREWORK" + "/" +  outer_7k, "a")
@@ -414,7 +420,9 @@ def write_new_n7k_configs(vrfmember,p2psubnets,dc,district,n7k_data):
 		f.close()
 
     		f = open(dir_path + "/" + "N7K_ROLLBACK" + "/" +  "execute_rollback_" + vrfmember + ".sh", "a")
-                f.write("../push_to_n7k.py -f " + vrfmember + "/"  + n7ks + " -c ../" + n7ks + "_creds"  '\n')
+                f.write("../push_to_n7k.py -f " + vrfmember + "/"  + n7ks + " -c ../" + n7ks + "_creds" +  '\n')
+		f.write("echo FINISHED UPDATING "  + n7ks + '\n')
+		f.write("../push_to_n7k.py -f " + vrfmember + "/"  + n7ks + "_inner_show_commands" + " -c ../" + n7ks + "_creds" + ' > ' +  n7ks + "_inner_output" +  '\n\n')
                 f.close()
 	
 	for n7ks in bgp_rb_outer:
@@ -437,7 +445,9 @@ def write_new_n7k_configs(vrfmember,p2psubnets,dc,district,n7k_data):
 		f.close()
     		
 		f = open(dir_path + "/" + "N7K_ROLLBACK" + "/" +  "execute_rollback_" + vrfmember + ".sh", "a")
-                f.write("../push_to_n7k.py -f " + vrfmember + "/"  + n7ks + " -c ../" + n7ks + "_creds"  '\n')
+                f.write("../push_to_n7k.py -f " + vrfmember + "/"  + n7ks + " -c ../" + n7ks + "_creds" + '\n')
+		f.write("echo FINISHED UPDATING "  + n7ks + '\n')
+		f.write("../push_to_n7k.py -f " + vrfmember + "/"  + n7ks + "_outer_show_commands" + " -c ../" + n7ks + "_creds" + ' > ' +  n7ks + "_outer_output" +  '\n\n')
                 f.close()
 	
 	for n7ks in svi_cleanup:
@@ -451,7 +461,8 @@ def write_new_n7k_configs(vrfmember,p2psubnets,dc,district,n7k_data):
 		f.close()
 
 		f = open(dir_path + "/" + "N7K_NEXT_CLEANUP" + "/" +  "execute_cleanup_" + vrfmember + ".sh", "a")
-                f.write("../push_to_n7k.py -f " + vrfmember + "/"  + n7ks + " -c ../" + n7ks + "_creds"  '\n')
+                f.write("../push_to_n7k.py -f " + vrfmember + "/"  + n7ks + " -c ../" + n7ks + "_creds" +  '\n')
+		f.write("echo FINISHED UPDATING "  + n7ks + '\n\n')
                 f.close()
 
 	for n7ks in n7k_data:
@@ -489,8 +500,60 @@ def write_new_n7k_configs(vrfmember,p2psubnets,dc,district,n7k_data):
 
 
 		f = open(dir_path + "/" + "N7K_NEXT_CLEANUP" + "/" +  "execute_cleanup_" + vrfmember + ".sh", "a")
-                f.write("../push_to_n7k.py -f " + vrfmember + "/"  + n7ks + " -c ../" + n7ks + "_creds"  '\n')
+                f.write("../push_to_n7k.py -f " + vrfmember + "/"  + n7ks + " -c ../" + n7ks + "_creds"   + '\n')
+		f.write("echo FINISHED UPDATING " + n7ks + '\n\n')
                 f.close()	
+
+
+	# Show commands
+	# Inner SVI,BGP and P2P Links - cutover and rollback
+	for n7k in svi_inner_cutover:
+		f = open(cutover_dir + "/" +  n7k + "_inner_show_commands", "a")
+		frb = open(rollback_dir + "/" +  n7k + "_inner_show_commands", "a")
+		f.write("! Show commands" + '\n')
+		f.write("show ip interface brief vrf " + vrfmember + '\n')
+		f.write("show ip bgp summary vrf " + vrfmember + '\n')
+		frb.write("! Show commands" + '\n')
+		frb.write("show ip interface brief vrf " + vrfmember + '\n')
+		frb.write("show ip bgp summary vrf " + vrfmember + '\n')
+		f.close()
+		frb.close()
+	
+	# Outer SVI, BGP and P2P Links show commands	
+	# bgp_rb_outer has all the IP info we need -  no need to worry about name of variable
+	for n7ks in bgp_rb_outer:
+
+		for cmds in bgp_rb_outer[n7ks]['neighbors']:
+			if bool(re.search('neighbor \d+',cmds,re.IGNORECASE)):
+				ip = re.findall( r'[0-9]+(?:\.[0-9]+){3}', cmds )
+				f = open(cutover_dir + "/" +  n7ks + "_outer_show_commands", "a")
+                		frb = open(rollback_dir + "/" +  n7ks + "_outer_show_commands", "a")
+				f.write("show ip bgp summary | inc " + ip[0] + '\n' )
+				frb.write("show ip bgp summary | inc " + ip[0] + '\n' )
+				f.close()
+				frb.close()
+
+		for svis in  bgp_rb_outer[n7ks]['svi']:
+			if bool(re.search('interface Vlan',svis,re.IGNORECASE)):
+				svi_num = re.findall( r'[0-9]+', svis )
+				f = open(cutover_dir + "/" +  n7ks + "_outer_show_commands", "a")
+                                frb = open(rollback_dir + "/" +  n7ks + "_outer_show_commands", "a")			
+				f.write("show int status | inc Vlan" + svi_num[0] + '\n' )
+				frb.write("show int status | inc Vlan" + svi_num[0] + '\n' )
+				f.close()
+				frb.close()
+
+	for n7ks in subint_outer_cutover:
+		for cmds in subint_outer_cutover[n7ks]:
+			if bool(re.search('interface ethernet',cmds,re.IGNORECASE)):
+				cmds = cmds.replace('interface ','show interface status | inc ')
+				f = open(cutover_dir + "/" +  n7ks + "_outer_show_commands", "a")
+                                frb = open(rollback_dir + "/" +  n7ks + "_outer_show_commands", "a")			
+				f.write(cmds + '\n' )
+				frb.write(cmds + '\n' )
+				f.close()
+				frb.close()
+		
 
 def get_inner_outer_mapping(dc,district):
 
