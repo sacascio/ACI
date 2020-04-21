@@ -57,6 +57,9 @@ def write_new_n7k_configs(vrfmember,p2psubnets,dc,district,n7k_data):
 
 	# Get Inner BGP Details
 	for n7k in n7k_data:
+		# Create empty creds file - used for later
+		open(dir_path + "/" + n7k + '_creds', 'a').close()		
+
 		if bool(re.search('outer',n7k, re.IGNORECASE)):
 			continue
 		bgp_rb_inner[n7k] = {}
@@ -97,6 +100,9 @@ def write_new_n7k_configs(vrfmember,p2psubnets,dc,district,n7k_data):
 
 	# Get outer VDC BGP details
 	for n7k in n7k_data:
+		# Create empty creds file - used for later
+		open(dir_path + "/" + n7k + '_creds', 'a').close()	
+	
 		if bool(re.search('inner',n7k, re.IGNORECASE)):
 			continue
 		bgp_rb_outer[n7k] = {}
@@ -547,6 +553,7 @@ def write_new_n7k_configs(vrfmember,p2psubnets,dc,district,n7k_data):
 		for cmds in subint_outer_cutover[n7ks]:
 			if bool(re.search('interface ethernet',cmds,re.IGNORECASE)):
 				cmds = cmds.replace('interface ','show interface status | inc ')
+				cmds = cmds.replace('Ethernet','Eth')
 				f = open(cutover_dir + "/" +  n7ks + "_outer_show_commands", "a")
                                 frb = open(rollback_dir + "/" +  n7ks + "_outer_show_commands", "a")			
 				f.write(cmds + '\n' )
@@ -2266,6 +2273,8 @@ def main(argv):
     os.mkdir(dir_path + "/" + "ACI_PRE_WORK")
     os.mkdir(dir_path + "/" + "ACI_CONTRACT_VERIFICATION")
    
+    # Create empty creds file - used for later
+    open(dir_path + "/" + "ACI_CONTRACT_VERIFICATION" + "/" + "aci_creds", 'a').close()
 
     # Pre work
     # Create port channel  and interface selectors
