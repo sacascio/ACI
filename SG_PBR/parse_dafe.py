@@ -2632,22 +2632,22 @@ def main(argv):
     print "\n\nFollow the below steps as well\n\n"
 
     # Put the 3 python scripts here.  If can't find it, print out warning for user to add it
-    if os.path.isfile("/Users/scascio/GitHub/ACI/getcontracts.py"):
-    	shutil.copyfile("/Users/scascio/GitHub/ACI/getcontracts.py", "./output/ACI_CONTRACT_VERIFICATION/getcontracts.py")	
+    if os.path.isfile("./getcontracts.py"):
+    	shutil.copyfile("./getcontracts.py", "./output/ACI_CONTRACT_VERIFICATION/getcontracts.py")	
     	os.chmod("./output/ACI_CONTRACT_VERIFICATION/getcontracts.py",0755)
 
     else:
 	print "Make sure to copy getcontracts.py to ./output/ACI_CONTRACT_VERIFICATION folder"
     
-    if os.path.isfile("/Users/scascio/GitHub/ACI/push_to_n7k.py"):
-    	shutil.copyfile("/Users/scascio/GitHub/ACI/push_to_n7k.py", "./output/push_to_n7k.py")	
+    if os.path.isfile("./push_to_n7k.py"):
+    	shutil.copyfile("./push_to_n7k.py", "./output/push_to_n7k.py")	
     	os.chmod("./output/push_to_n7k.py",0755)
 
     else:
 	print "Make sure to copy push_to_n7k.py to the output folder"
     
-    if os.path.isfile("/Users/scascio/GitHub/ACI/f5_typeA_l3out.py"):
-    	shutil.copyfile("/Users/scascio/GitHub/ACI/f5_typeA_l3out.py", "./output/f5_typeA_l3out.py")	
+    if os.path.isfile("./f5_typeA_l3out.py"):
+    	shutil.copyfile("./f5_typeA_l3out.py", "./output/f5_typeA_l3out.py")	
     	os.chmod("./output/f5_typeA_l3out.py",0755)
 
     else:
