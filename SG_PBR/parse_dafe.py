@@ -777,7 +777,10 @@ def get_bgp_int_vlan(dc,district,vrfs):
                 # Get BGP Neighbors
                 for obj in parse.find_objects("router bgp"):
                         local_as = obj.text
+			if bool((re.search('asn',local_as,re.IGNORECASE))):
+				continue
                         local_as = local_as.replace("router bgp ","")
+			
                         if obj.hash_children != 0:
                                 # For inner VDC
                                 if obj.re_search_children("vrf"):
@@ -807,6 +810,7 @@ def get_bgp_int_vlan(dc,district,vrfs):
                                                                                 data[n7k][vrfmember]['local_as'] = local_as
                                 # For outer VDC
                                 if bool((re.search('outer',filename,re.IGNORECASE))):
+					print "Outer AS: " + local_as
                                         for c in obj.children:
                                                 if bool((re.search('neighbor ',c.text,re.IGNORECASE))):
                                                         attribs = c.text
@@ -1351,9 +1355,9 @@ def get_data(filename,epgs,dc,district,p2psubnets):
 	
         # For GIS/SOE, the summary subnet of the 16 networks is /25.  For SDE it is /28
 	
-    	if cidr.__str__()[-2:] != '25' and district.upper() in ['GIS','SOE'] :
+    	if (cidr.__str__()[-2:] != '25' and cidr.__str__()[-2:] != '26') and district.upper() in ['GIS','SOE'] :
 		print "WARNING: Discontiguous subnets found for Tenant %s, VRF %s.  %s given" % (p_tenant,p_vrf,(', '.join(p_subnets)))
-    	
+    		
 	if cidr.__str__()[-2:] != '28' and district.upper() == 'SDE' :
 		print "WARNING: Discontiguous subnets found for Tenant %s, VRF %s.  %s given" % (p_tenant,p_vrf,(', '.join(p_subnets)))
 	p = []
