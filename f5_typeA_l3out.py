@@ -18,6 +18,81 @@ def usage():
 	print ("-h|--help: print help message\n\n")
 	sys.exit(1)
 
+def getextepg(l3out,ip,cookie,tenant):
+
+	url = "https://" + ip + "/api/node/mo/uni/tn-" + tenant + "/out-" + l3out + ".json?query-target=children&target-subtree-class=l3extInstP"
+	response = requests.get("%s" % (url), cookies=cookie, verify=False,  timeout=10)
+	data = response.json()
+
+	if response.status_code == 200:
+		if data['totalCount'] != '1':
+			print ("WARNING: %s External EPG's found in L3Out %s"  % (data['totalCount'],l3out))
+
+		else:
+			for ext in data['imdata']:
+				extepg = ext['l3extInstP']['attributes']['name']
+				return extepg
+
+
+def remove_quad_zero(subnet,ip,cookie,tenant,extepg,l3out):
+	
+	url = "https://" + ip + "/api/node/mo/uni/tn-" + tenant + "/out-" + l3out + "/instP-" + extepg + ".json"
+	json = { 
+		"l3extInstP":
+		{
+				"attributes":
+				{ 
+						"dn":"uni/tn-" + tenant + "/out-" + l3out + "/instP-" + extepg,
+						"status":"modified"
+				},
+		"children" : [
+				{
+					"l3extSubnet":
+					{
+						"attributes":
+						{
+							"dn":"uni/tn-" + tenant + "/out-" + l3out + "/instP-" + extepg + "/extsubnet-[0.0.0.0/0]",
+							"status":"deleted"
+						},
+							"children":[]
+					}
+				}
+				]
+			}
+		}
+
+	response = requests.post("%s" % (url), cookies=cookie, json=json,verify=False,  timeout=10)
+
+	if response.status_code == 200:
+                print ("OK: Subnet 0.0.0.0/0 removed from external EPG %s " % (extepg))
+	else:
+		print (response.json())
+
+def add_subnet(subnet,ip,cookie,tenant,extepg,l3out):
+	
+	url = "https://" + ip + "/api/node/mo/uni/tn-" + tenant + "/out-" + l3out + "/instP-" + extepg + "/extsubnet-[" + subnet + "].json"
+	json = { 
+		"l3extSubnet":
+		{
+				"attributes":
+				{ 
+						"dn":"uni/tn-" + tenant + "/out-" + l3out + "/instP-" + extepg + "/extsubnet-[" + subnet + "]",
+						"ip":subnet,"aggregate":"",
+						"rn":"extsubnet-[" + subnet + "]",
+						"status":"created"
+				},
+		"children":[]
+		}
+	}	
+
+	response = requests.post("%s" % (url), cookies=cookie, json=json,verify=False,  timeout=10)
+
+	if response.status_code == 200:
+                print ("OK: Subnet %s added to external EPG %s " % (subnet,extepg))
+	else:
+		print (response.json())
+
+
 def get_subnets(data,subnets,np):
 	if data['totalCount'] == '0':
 		print ("WARNING: No subnets found for node profile " + np )
@@ -160,8 +235,12 @@ def main(argv):
 		if len(subnets) == 0:
 			print ("ERROR: No subnets found in Node profiles for L3Out %s" % l3out)	
 		else:
+			extepg = getextepg(l3out,f_ip,cookie,tenant)
 			sorted_subnets = sorted(set(subnets))
-			print (len(sorted_subnets))
+			for s in sorted_subnets:
+				add_subnet(s,f_ip,cookie,tenant,extepg,l3out)
+
+		remove_quad_zero(s,f_ip,cookie,tenant,extepg,l3out)
 
 	else:
 		print ("Failed to get Node Profile for L3Out: %s" % l3out)
