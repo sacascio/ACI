@@ -2622,7 +2622,7 @@ def main(argv):
     print "!" * 50
     print "\n\nFollow the below steps as well\n\n"
 
-    # Put the 2 python scripts here.  If can't find it, print out warning for user to add it
+    # Put the 3 python scripts here.  If can't find it, print out warning for user to add it
     if os.path.isfile("/Users/scascio/GitHub/ACI/getcontracts.py"):
     	shutil.copyfile("/Users/scascio/GitHub/ACI/getcontracts.py", "./output/ACI_CONTRACT_VERIFICATION/getcontracts.py")	
     	os.chmod("./output/ACI_CONTRACT_VERIFICATION/getcontracts.py",0755)
@@ -2636,10 +2636,17 @@ def main(argv):
 
     else:
 	print "Make sure to copy push_to_n7k.py to the output folder"
+    
+    if os.path.isfile("/Users/scascio/GitHub/ACI/f5_typeA_l3out.py"):
+    	shutil.copyfile("/Users/scascio/GitHub/ACI/f5_typeA_l3out.py", "./output/f5_typeA_l3out.py")	
+    	os.chmod("./output/f5_typeA_l3out.py",0755)
+
+    else:
+	print "Make sure to copy f5_typeA_l3out.py to the output folder"
 
     
     print "\n\nDo not include the N7K_NEXT_CLEANUP as part of this change window.  It is to be used for the NEXT change window.  Running the commands in this folder will undo everything you have done!!"
-    print "\n\nMake sure you manually include any information regarding the L3Out for F5 load balancers"
+    print "\n\nDuring migration, run the script f5_typeA_l3out.py to add the static routes to the external EPG. For Type-B VRF's, use the postman scripts"
     print "\n\nCheck to make sure the generic 'Permit_Any' contract is removed from the L3Out for Type-B VRFs if not in use"
 
 
