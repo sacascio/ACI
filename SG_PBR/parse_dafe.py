@@ -810,7 +810,7 @@ def get_bgp_int_vlan(dc,district,vrfs):
                                                                                 data[n7k][vrfmember]['local_as'] = local_as
                                 # For outer VDC
                                 if bool((re.search('outer',filename,re.IGNORECASE))):
-					print "Outer AS: " + local_as
+					
                                         for c in obj.children:
                                                 if bool((re.search('neighbor ',c.text,re.IGNORECASE))):
                                                         attribs = c.text
