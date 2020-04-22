@@ -199,7 +199,7 @@ def write_new_n7k_configs(vrfmember,p2psubnets,dc,district,n7k_data):
 		#	f.write("configure terminal" + '\n')
 		#	f.close()
 
-		for inner_int in n7k_data[n7kname]['P2P']:
+		for inner_int in sorted(n7k_data[n7kname]['P2P']):
 			for outer_int in n7k_data[n7kname]['P2P'][inner_int]:
 				for outer_7k in n7k_data[n7kname]['P2P'][inner_int][outer_int]:
     					if outer_7k not in subint_outer_cutover:
@@ -256,7 +256,9 @@ def write_new_n7k_configs(vrfmember,p2psubnets,dc,district,n7k_data):
 					ipouter = ipinner + 1
 					ipinner = str(IPAddress(ipinner))
 					ipouter = str(IPAddress(ipouter))
-
+					fcfg = open(dir_path + "/" + "N7K_IP_MAPPING_" + vrfmember + ".txt", "a")
+					fcfg.write(n7kname + "," + inner_int + "." + encap + "," + ipinner + "---" + outer_7k +  "," + outer_int + "." + encap + "," + ipouter + '\n')
+					fcfg.close()
 					inner_bgp_config[n7kname].append("  neighbor " + ipouter + " remote-as " + outer_bgp_as)
 					inner_bgp_config[n7kname].append("   description TO_" + outer_7k)
 					inner_bgp_config[n7kname].append("   address-family ipv4 unicast")
