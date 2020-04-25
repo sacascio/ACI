@@ -66,14 +66,15 @@ def send_to_n7k_api(ip,commands,username,password):
     			else:
     				if 'body' in data['ins_api']['outputs']['output'] and len(data['ins_api']['outputs']['output']['body']) > 0:
                                 	print (data['ins_api']['outputs']['output']['body'])	
-    	else:	
+    	else:
     		for d in data['ins_api']['outputs']['output']:
     			for k in d.keys():
     				if int(d['code']) != 200:
     					cmd_number =  data['ins_api']['outputs']['output'].index(d)
-    					if k != 'code': 
-    						d[k] = d[k].rstrip()
-    						print ("ERROR: %s, %s.  Command is: %s" % (k, d[k], allcmds[cmd_number]))
+    					if k != 'code':
+    						if not isinstance(d[k],dict):
+    							d[k] = d[k].rstrip()
+    							print ("ERROR: %s, %s.  Command is: %s" % (k, d[k], allcmds[cmd_number]))
     			if 'body' in d and len(d['body']) > 0:
     					print (d['body'])
                	             
