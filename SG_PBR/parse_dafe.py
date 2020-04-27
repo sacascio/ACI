@@ -530,7 +530,15 @@ def write_new_n7k_configs(vrfmember,p2psubnets,dc,district,n7k_data):
 	# Outer SVI, BGP and P2P Links show commands	
 	# bgp_rb_outer has all the IP info we need -  no need to worry about name of variable
 	for n7ks in bgp_rb_outer:
-
+		f = open(cutover_dir + "/" +  n7ks + "_outer_show_commands", "a")
+                frb = open(rollback_dir + "/" +  n7ks + "_outer_show_commands", "a")
+                f.write("show ip bgp summary" + '\n' )
+                frb.write("show ip bgp summary"  + '\n' )
+                f.write("show interface status" + '\n' )
+                frb.write("show interface status"  + '\n' )
+                f.close()
+                frb.close()
+	"""
 		for cmds in bgp_rb_outer[n7ks]['neighbors']:
 			if bool(re.search('neighbor \d+',cmds,re.IGNORECASE)):
 				ip = re.findall( r'[0-9]+(?:\.[0-9]+){3}', cmds )
@@ -562,7 +570,7 @@ def write_new_n7k_configs(vrfmember,p2psubnets,dc,district,n7k_data):
 				frb.write(cmds + '\n' )
 				f.close()
 				frb.close()
-		
+	"""	
 
 def get_inner_outer_mapping(dc,district):
 
@@ -797,6 +805,8 @@ def get_bgp_int_vlan(dc,district,vrfs):
                                                                                 if bool((re.search('address-family',d.text,re.IGNORECASE))):
                                                                                         continue
                                                                                 if bool((re.search('NonAff',vrfmember,re.IGNORECASE))):
+                                                                                        continue
+                                                                                if bool((re.search('timers bgp',d.text,re.IGNORECASE))):
                                                                                         continue
                                                                                 attribs = d.text
                                                                                 attribs = attribs.lstrip()
