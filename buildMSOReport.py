@@ -7,7 +7,6 @@ from openpyxl import Workbook
 from openpyxl.utils import get_column_letter
 
 def reconcileL3out(dc,bd,tenant):
-	print ("checking " + bd)
 	dafe = 'SG_PBR/' + dc + '_GIS_DAFE.xlsx'
 	worksheets = []
 	l3out_list = []
