@@ -66,6 +66,7 @@ def loadSchemas(schemafile,tenantData,siteData) :
 			schemaData[schemaID][schemaName][templateName]['anp'] = []
 			schemaData[schemaID][schemaName][templateName]['sites'] = []
 			schemaData[schemaID][schemaName][templateName]['epgs'] = []
+			schemaData[schemaID][schemaName][templateName]['l3out'] = []
 			schemaData[schemaID][schemaName][templateName]['tenant'].append(tenantName)
 
 			if len(j['bds']) != 1:
@@ -73,6 +74,9 @@ def loadSchemas(schemafile,tenantData,siteData) :
 			
 			if len(j['anps']) != 1:
 				print ("WARNING: %s ANP's found in schema %s, template %s" % (len(j['anps']), schemaName, templateName))
+			
+			if len(j['vrfs']) != 0:
+				print ("WARNING: %s VRFs found in schema %s, template %s" % (len(j['vrfs']), schemaName, templateName))
 
 			for k in j['anps']:
 				anpName = k['name']
@@ -121,33 +125,67 @@ def loadSchemas(schemafile,tenantData,siteData) :
 				vrf = k['vrfRef']['vrfName']
 				schemaData[schemaID][schemaName][templateName]['vrf'].append(vrf)
 
-		for j in i['sites']:
-			siteName = siteData[j['siteId']]
-			siteTemplateName = j['templateName'] 
 
-			if siteTemplateName not in schemaData[schemaID][schemaName]:
-				print ("WARNING: Site template name %s not found in list of templates" %(siteTemplateName))	
+			for j in i['sites']:
+				siteName = siteData[j['siteId']]
+				siteTemplateName = j['templateName'] 
+
+				if siteTemplateName == templateName:
+					schemaData[schemaID][schemaName][siteTemplateName]['sites'].append(siteName)
+				else:
+					continue
+
+				if len(j['anps']) != 1:
+					print ("WARNING: %s ANP's found in schema %s, template %s IN SITE section" % (len(j['anps']), schemaName, siteTemplateName))
 			
-			else:
-				schemaData[schemaID][schemaName][siteTemplateName]['sites'].append(siteName)
+				if len(j['vrfs']) != 0:
+					print ("WARNING: %s VRFs found in schema %s, template %s IN SITE section" % (len(j['vrfs']), schemaName, siteTemplateName))
+			
+				if len(j['bds']) != 1:
+					print ("WARNING: %s BDs found in schema %s, template %s IN SITE section" % (len(j['bds']), schemaName, siteTemplateName))
 
-			if len(j['anps']) != 1:
-				print ("WARNING: %s ANP's found in schema %s, template %s IN SITE section" % (len(j['anps']), schemaName, templateName))
+				for k in j['anps']:
 
-			for k in j['anps']:
+					if k['anpRef']['schemaId'] != schemaID:
+						print ("WARNING: Schema ID for schema %s in SITE ANPREF of template %s not the same as schemaID found previously" % (schemaName,siteTemplateName))
+				
+					if k['anpRef']['templateName'] != siteTemplateName:
+						print ("WARNING: Template name %s in SITE ANPREF is not the same as template Name found previously" % (siteTemplateName))
+				
+					if k['anpRef']['anpName'] != anpName:
+						print ("WARNING: ANP name %s in SITE ANPREF in template %s is not the same as ANP Name found previously" % (anpName,siteTemplateName))
+				
+					for l in k['epgs']:
 
-				if k['anpRef']['schemaId'] != schemaID:
-					print ("WARNING: Schema ID for schema %s in ANPREF of template %s not the same as schemaID found previously" % (schemaName,templateName))
+						if l['epgRef']['schemaId'] != schemaID:
+							print ("WARNING: Schema ID for schema %s in SITE EPGREF of template %s not the same as schemaID found previously" % (schemaName,siteTemplateName))
 				
-				if k['anpRef']['templateName'] != siteTemplateName:
-					print ("WARNING: Template name %s in ANPREF is not the same as template Name found previously" % (templateName))
+						if l['epgRef']['templateName'] != siteTemplateName:
+							print ("WARNING: Template name %s in SITE EPGREF is not the same as template Name found previously" % (siteTemplateName))
+					
+						if l['epgRef']['anpName'] != anpName:
+							print ("WARNING: ANP name %s in SITE EPGREF is not the same as ANP Name found previously" % (anpName))
+					
+						if l['epgRef']['epgName'] != epgName:
+							print ("WARNING: EPG name %s in SITE EPGREF is not the same as EPG Name found previously" % (epgName))
+			
+				for k in j['bds']:
+
+					if k['bdRef']['schemaId'] != schemaID:
+						print ("WARNING: Schema ID for schema %s in SITE BDREF of template %s not the same as schemaID found previously" % (schemaName,siteTemplateName))
+
+					if k['bdRef']['templateName'] != siteTemplateName:
+						# have to circle back on this one - why multiple BDs at site level
+						continue
+						print ("WARNING: Template name %s in SITE BDREF is not the same as template Name found previously" % (siteTemplateName))
 				
-				if k['anpRef']['anpName'] != anpName:
-					print ("WARNING: ANP name %s in ANPREF in template %s is not the same as ANP Name found previously" % (anpName,templateName))
+					if k['bdRef']['bdName'] != bdName:
+						print ("WARNING: BD name %s in SITE BDREF in template %s is not the same as BD Name found previously" % (bdName,siteTemplateName))
+
+					for l in k['l3Outs']:
+						schemaData[schemaID][schemaName][siteTemplateName]['l3out'].append(l)
 				
-			# finish EPG section in SITES
-			# add check for VRF length (template and site section)
-			# add check for BDs	
+			
 	return schemaData
 
 
@@ -156,7 +194,7 @@ def main(argv):
 	siteData = loadSites('site.json')
 	tenantData = loadTenants('tenant.json')
 	schemaData = loadSchemas('schema.json',tenantData, siteData)
-	#print (json.dumps(schemaData))	
+	print (json.dumps(schemaData))	
 
 if __name__ == '__main__':
 	main(sys.argv[1:])
