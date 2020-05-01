@@ -6,6 +6,64 @@ import openpyxl
 from openpyxl import Workbook
 from openpyxl.utils import get_column_letter
 
+def set_col_width(ws):
+
+	dims = {}
+	for row in ws.rows:
+    		for cell in row:
+        		if cell.value:
+            			dims[cell.column] = max((dims.get(cell.column, 0), len(cell.value)))
+	for col, value in dims.items():
+		ws.column_dimensions[get_column_letter(col)].width = value
+
+def get_l2_l3_value():
+
+	l2_l3_vals = {}
+
+	for dafe in ('SG_PBR/DC1_GIS_DAFE.xlsx', 'SG_PBR/DC2_GIS_DAFE.xlsx'):
+		dc = dafe[7:10]
+		l2_l3_vals[dc] = {}
+		worksheets = []
+		l3out_list = []
+		wb = openpyxl.load_workbook(dafe, data_only=True)
+
+		for sheet in wb:
+			worksheets.append(sheet.title)
+		wb.close()
+	
+		wb.active = worksheets.index('bridge_domain')
+		ws = wb.active
+
+
+		row_start = ws.min_row
+		row_end   = ws.max_row
+
+		
+		for x in range(row_start+1,row_end+1):
+			cell = 'A' + str(x)
+			bd_name = ws[cell].value
+		
+			cell = 'C' + str(x)
+			tenant_name = ws[cell].value
+
+			cell = 'D' + str(x)
+			vrf_name = ws[cell].value
+
+			cell = 'K' + str(x)
+			isL3 = ws[cell].value
+
+			if bd_name not in l2_l3_vals[dc]:
+				l2_l3_vals[dc][bd_name] = {}
+			if tenant_name not in l2_l3_vals[dc][bd_name]:
+				l2_l3_vals[dc][bd_name][tenant_name] = {}
+			if vrf_name not in l2_l3_vals[dc][bd_name][tenant_name]:
+				l2_l3_vals[dc][bd_name][tenant_name][vrf_name] = {}
+
+			l2_l3_vals[dc][bd_name][tenant_name][vrf_name] = isL3
+
+	return l2_l3_vals
+			
+
 def reconcileL3out(dc,bd,tenant):
 	dafe = 'SG_PBR/' + dc + '_GIS_DAFE.xlsx'
 	worksheets = []
@@ -279,7 +337,7 @@ def loadSchemas(schemafile,tenantData,siteData) :
 
 
 def main(argv):
-
+	l2_l3_vals = get_l2_l3_value()
 	siteData = loadSites('site.json')
 	tenantData = loadTenants('tenant.json')
 	schemaData = loadSchemas('schema.json',tenantData, siteData)
@@ -292,9 +350,10 @@ def main(argv):
 
 	dc2_ws = wb.create_sheet(title='DC2')
 
-	fields = ['Schema_ID','Schema_Name','Template_Name','BD_NAME','VRF_Name','Tenant_Name','ANP_Name','site_name','EPG_Name','L3Out_Name']
+	fields = ['Schema_ID','Schema_Name','Template_Name','BD_NAME','VRF_Name','Tenant_Name','ANP_Name','site_name','EPG_Name','L3Out_Name','isL3Network']
+
 	row = 1
-	for col in range (1,11):	
+	for col in range (1,12):	
 		cell = dc1_ws.cell(column=col, row=row)
 		cell.value = fields[col-1]
 	
@@ -395,6 +454,13 @@ def main(argv):
 					cell = dc1_ws.cell(column=10, row=dc1_row)
 					cell.value = l3outName
 
+					cell = dc1_ws.cell(column=11, row=dc1_row)
+
+					if bdName != 'N/A':
+						cell.value = l2_l3_vals['DC1'][bdName][tenantName][vrfName]
+					else:
+						cell.value = 'N/A'
+							
 
 					dc1_row = dc1_row + 1
 
@@ -432,12 +498,30 @@ def main(argv):
 					cell = dc2_ws.cell(column=10, row=dc2_row)
 					cell.value = l3outName
 					
-
+					cell = dc2_ws.cell(column=11, row=dc2_row)
+	
+					if bdName != 'N/A':
+						cell.value = l2_l3_vals['DC2'][bdName][tenantName][vrfName]
+					else:
+						cell.value = 'N/A'
+					
 					dc2_row = dc2_row + 1
 							
 	print ("Excel file saved to name " + file)
-	print ("Load ACI config and check L3Out")
+	#print ("Load ACI config and check L3Out")
+
+	set_col_width(dc1_ws)
+	set_col_width(dc2_ws)
+
+	dc1_ws.sheet_view.zoomScale = 125
+	dc2_ws.sheet_view.zoomScale = 125
+
+	# add filters
+	dc1_ws.auto_filter.ref = 'A1:K900'
+	dc2_ws.auto_filter.ref = 'A1:K900'
+
 	wb.save(filename = file)
+    		
 
 if __name__ == '__main__':
 	main(sys.argv[1:])
