@@ -131,7 +131,6 @@ def main(argv):
 	template_name = 'RES-DST-TMP-DC1'
 	vrf_name = 'MMP'
 	bd_name = 'BD-FW'
-	gw_ip = '1.1.1.1/24'
 	sg_name = 'SG-FW'
 	tenant = 'Restricted'
 	l4l7device = 'L4L7'
