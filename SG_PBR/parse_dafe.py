@@ -21,6 +21,8 @@ warnings.filterwarnings("ignore")
 
 
 def write_new_n7k_configs(vrfmember,p2psubnets,dc,district,n7k_data):
+	district = district.lower()
+	dc = dc.lower()
         dir_path = './output'
 	inner_bgp_config = {}
 	outer_bgp_config = {}
@@ -58,7 +60,10 @@ def write_new_n7k_configs(vrfmember,p2psubnets,dc,district,n7k_data):
 	# Get Inner BGP Details
 	for n7k in n7k_data:
 		# Create empty creds file - used for later
-		open(dir_path + "/" + n7k + '_creds', 'a').close()		
+		# Modified so that there is 1 Creds file for N7K
+		
+		open(dir_path + "/" + 'n7k_creds', 'a').close()		
+		#open(dir_path + "/" + n7k + '_creds', 'a').close()		
 
 		if bool(re.search('outer',n7k, re.IGNORECASE)):
 			continue
@@ -101,7 +106,8 @@ def write_new_n7k_configs(vrfmember,p2psubnets,dc,district,n7k_data):
 	# Get outer VDC BGP details
 	for n7k in n7k_data:
 		# Create empty creds file - used for later
-		open(dir_path + "/" + n7k + '_creds', 'a').close()	
+		# Not needed - already created in the inner which will apply to all VDC's
+		#open(dir_path + "/" + n7k + '_creds', 'a').close()	
 	
 		if bool(re.search('inner',n7k, re.IGNORECASE)):
 			continue
@@ -159,9 +165,9 @@ def write_new_n7k_configs(vrfmember,p2psubnets,dc,district,n7k_data):
 			n7kname = dc + 'dcinxc' + i + district.lower() + 'inner'
 
 		f = open(dir_path + "/" + "N7K_CUTOVER" + "/" +  "execute_cutover_" + vrfmember + ".sh", "a")
-		f.write("../push_to_n7k.py -f " + vrfmember + "/"  + n7kname + " -c ../" + n7kname + "_creds" +  '\n')
+		f.write("../push_to_n7k.py -f " + vrfmember + "/"  + n7kname + " -c ../" + "n7k_creds" +  '\n')
 		f.write("echo FINISHED UPDATING "  + n7kname + '\n')
-		f.write("../push_to_n7k.py -f " + vrfmember + "/"  + n7kname + "_inner_show_commands" + " -c ../" + n7kname + "_creds" + ' > ' +  n7kname + "_inner_output" +  '\n\n')
+		f.write("../push_to_n7k.py -f " + vrfmember + "/"  + n7kname + "_inner_show_commands" + " -c ../" + "n7k_creds" + ' > ' +  n7kname + "_inner_output" +  '\n\n')
 		f.close()
 		encap = n7k_data[n7kname][vrfmember]['svi']
 		inner_bgp_as = n7k_data[n7kname][vrfmember]['local_as']
@@ -186,7 +192,7 @@ def write_new_n7k_configs(vrfmember,p2psubnets,dc,district,n7k_data):
 			f.close()
 
 			f = open(dir_path + "/" + "N7K_PREWORK" + "/" +  "execute_prework.sh", "a")
-        		f.write("../push_to_n7k.py -f "  + n7kname + " -c ../" + n7kname + "_creds" +  '\n')
+        		f.write("../push_to_n7k.py -f "  + n7kname + " -c ../" + "n7k_creds" +  '\n')
 			f.write("echo FINISHED UPDATING " + n7kname + '\n\n')
         		f.close()
 		else:
@@ -204,9 +210,9 @@ def write_new_n7k_configs(vrfmember,p2psubnets,dc,district,n7k_data):
 				for outer_7k in n7k_data[n7kname]['P2P'][inner_int][outer_int]:
     					if outer_7k not in subint_outer_cutover:
 						f = open(dir_path + "/" + "N7K_CUTOVER" + "/" +  "execute_cutover_" + vrfmember + ".sh", "a")
-						f.write("../push_to_n7k.py -f " + vrfmember + "/"  + outer_7k + " -c ../" + outer_7k + "_creds" +  '\n')
+						f.write("../push_to_n7k.py -f " + vrfmember + "/"  + outer_7k + " -c ../" + "n7k_creds" +  '\n')
 						f.write("echo FINISHED UPDATING "  + outer_7k + '\n')
-						f.write("../push_to_n7k.py -f " + vrfmember + "/"  + outer_7k + "_outer_show_commands" + " -c ../" + outer_7k + "_creds" + ' > ' +  outer_7k + "_outer_output" +  '\n\n')
+						f.write("../push_to_n7k.py -f " + vrfmember + "/"  + outer_7k + "_outer_show_commands" + " -c ../" + "n7k_creds" + ' > ' +  outer_7k + "_outer_output" +  '\n\n')
 						f.close()
 						subint_outer_cutover[outer_7k] = []
 
@@ -291,7 +297,7 @@ def write_new_n7k_configs(vrfmember,p2psubnets,dc,district,n7k_data):
 						f.close()
 
 						f = open(dir_path + "/" + "N7K_PREWORK" + "/" +  "execute_prework.sh", "a")
-                        			f.write("../push_to_n7k.py -f "  + outer_7k + " -c ../" + outer_7k + "_creds" +  '\n')
+                        			f.write("../push_to_n7k.py -f "  + outer_7k + " -c ../" + "n7k_creds" +  '\n')
 						f.write("echo FINISHED UPDATING "  + outer_7k + '\n\n')
                         			f.close()
 						
@@ -428,9 +434,9 @@ def write_new_n7k_configs(vrfmember,p2psubnets,dc,district,n7k_data):
 		f.close()
 
     		f = open(dir_path + "/" + "N7K_ROLLBACK" + "/" +  "execute_rollback_" + vrfmember + ".sh", "a")
-                f.write("../push_to_n7k.py -f " + vrfmember + "/"  + n7ks + " -c ../" + n7ks + "_creds" +  '\n')
+                f.write("../push_to_n7k.py -f " + vrfmember + "/"  + n7ks + " -c ../" + "n7k_creds" +  '\n')
 		f.write("echo FINISHED UPDATING "  + n7ks + '\n')
-		f.write("../push_to_n7k.py -f " + vrfmember + "/"  + n7ks + "_inner_show_commands" + " -c ../" + n7ks + "_creds" + ' > ' +  n7ks + "_inner_output" +  '\n\n')
+		f.write("../push_to_n7k.py -f " + vrfmember + "/"  + n7ks + "_inner_show_commands" + " -c ../" + "n7k_creds" + ' > ' +  n7ks + "_inner_output" +  '\n\n')
                 f.close()
 	
 	for n7ks in bgp_rb_outer:
@@ -453,9 +459,9 @@ def write_new_n7k_configs(vrfmember,p2psubnets,dc,district,n7k_data):
 		f.close()
     		
 		f = open(dir_path + "/" + "N7K_ROLLBACK" + "/" +  "execute_rollback_" + vrfmember + ".sh", "a")
-                f.write("../push_to_n7k.py -f " + vrfmember + "/"  + n7ks + " -c ../" + n7ks + "_creds" + '\n')
+                f.write("../push_to_n7k.py -f " + vrfmember + "/"  + n7ks + " -c ../" + "n7k_creds" + '\n')
 		f.write("echo FINISHED UPDATING "  + n7ks + '\n')
-		f.write("../push_to_n7k.py -f " + vrfmember + "/"  + n7ks + "_outer_show_commands" + " -c ../" + n7ks + "_creds" + ' > ' +  n7ks + "_outer_output" +  '\n\n')
+		f.write("../push_to_n7k.py -f " + vrfmember + "/"  + n7ks + "_outer_show_commands" + " -c ../" + "n7k_creds" + ' > ' +  n7ks + "_outer_output" +  '\n\n')
                 f.close()
 	
 	for n7ks in svi_cleanup:
@@ -469,7 +475,7 @@ def write_new_n7k_configs(vrfmember,p2psubnets,dc,district,n7k_data):
 		f.close()
 
 		f = open(dir_path + "/" + "N7K_NEXT_CLEANUP" + "/" +  "execute_cleanup_" + vrfmember + ".sh", "a")
-                f.write("../push_to_n7k.py -f " + vrfmember + "/"  + n7ks + " -c ../" + n7ks + "_creds" +  '\n')
+                f.write("../push_to_n7k.py -f " + vrfmember + "/"  + n7ks + " -c ../" + "n7k_creds" +  '\n')
 		f.write("echo FINISHED UPDATING "  + n7ks + '\n\n')
                 f.close()
 
@@ -508,7 +514,7 @@ def write_new_n7k_configs(vrfmember,p2psubnets,dc,district,n7k_data):
 
 
 		f = open(dir_path + "/" + "N7K_NEXT_CLEANUP" + "/" +  "execute_cleanup_" + vrfmember + ".sh", "a")
-                f.write("../push_to_n7k.py -f " + vrfmember + "/"  + n7ks + " -c ../" + n7ks + "_creds"   + '\n')
+                f.write("../push_to_n7k.py -f " + vrfmember + "/"  + n7ks + " -c ../" + "n7k_creds"   + '\n')
 		f.write("echo FINISHED UPDATING " + n7ks + '\n\n')
                 f.close()	
 
@@ -573,6 +579,8 @@ def write_new_n7k_configs(vrfmember,p2psubnets,dc,district,n7k_data):
 	"""	
 
 def get_inner_outer_mapping(dc,district):
+    dc = dc.lower()
+    district = district.lower()
 
     mapping = {}
 
@@ -695,7 +703,7 @@ def get_inner_outer_mapping(dc,district):
     return mapping
 
 def get_bgp_int_vlan(dc,district,vrfs):
-
+    dc = dc.lower()
     data = {}
     p2p_n7k_mapping = get_inner_outer_mapping(dc,district)
  
@@ -1110,8 +1118,9 @@ def get_epg_from_vrf(dafe_file,vrfs):
             if tenantvalue == tenant and vrfvalue == vrf:
 		cell = 'A' + str(x)
                 bdvalue = ws[cell].value
-		bds.append(bdvalue)
-		found = 1
+		if bdvalue.endswith("-FW") is False and bdvalue.endswith("-VMFW") is False :
+			bds.append(bdvalue)
+			found = 1
      
         if found == 0: 
         	print "ERROR: Could not find any BD for Tenant: %s, VRF: %s" % (tenant,vrf)
@@ -1129,13 +1138,13 @@ def get_epg_from_vrf(dafe_file,vrfs):
     	for x in range(row_start,row_end+1):
             cell = 'E' + str(x)
             bdvalue = ws[cell].value
-	
+	    
 	    if bdvalue == b:
 		epgs.append(b)
 		found = 1
 
 	if found == 0:
-		print "ERROR: Could not find any EPGs for BD: %s" % (bd)
+		print "ERROR: Could not find any EPGs for BD: %s" % (b)
                 sys.exit(9)
 	else:
 		found = 0       
@@ -1192,7 +1201,7 @@ def get_vrf_to_fw(zones_vl_ip_file,dc,district):
 				firewall = firewall.replace('dc1','dc2')
 			
 			# One off - ACI config has Audit/DDT -Zones vlans and IPs has Audit/DAT.  Changing to what ACI has
-			if tenant == 'Audit' and vrf == 'DAT':
+			if tenant == 'Audit' and vrf == 'DAT' and district.upper() == 'SDE':
 				vrf = 'DDT'
 
 			# Another One off - ACI config has Audit/DDT -Zones vlans and IPs has User Access.  Changing to what ACI has
@@ -1269,8 +1278,8 @@ def get_all_epg_from_dafe(tenant,vrf,file):
 		epgl.append(epgvalue)
     return epgl
 
-def get_epg_type(epg):
-
+def get_epg_type(epg,district):
+    
     worksheets = []
 
     pattern = 'VRF_EPG_Counts*'
@@ -1288,12 +1297,15 @@ def get_epg_type(epg):
         worksheets.append(sheet.title)
     wb.close()
 
-    if bool((re.search('sde',epg,re.IGNORECASE))):
-                tab = 'SDE'
-    if bool((re.search('gis',epg,re.IGNORECASE))):
-                tab = 'GIS'
-    if bool((re.search('soe',epg,re.IGNORECASE))):
-                tab = 'SOE'
+    #if bool((re.search('sde',epg,re.IGNORECASE))):
+    #            tab = 'SDE'
+    #if bool((re.search('gis',epg,re.IGNORECASE))):
+    #            tab = 'GIS'
+    #if bool((re.search('soe',epg,re.IGNORECASE))):
+    #            tab = 'SOE'
+
+    # Passed in district  - no need to determine from EPG name
+    tab = district.upper()
 
     wb.active = worksheets.index(tab)
     ws = wb.active
@@ -1654,6 +1666,11 @@ def get_data(filename,epgs,dc,district,p2psubnets):
                 tenantvalue = ws[cell].value
                 if vrfvalue == vrf and tenantvalue == tenant:
                         vrfmember = ws['H' + str(x)].value
+			# Services/Common has 2 bgpAddressFamilyContext values.  Picking first one
+			
+			if vrfvalue == 'Common' and tenantvalue == 'Services':
+				two_vals = vrfmember.split(",")
+				vrfmember = two_vals[0]
                         continue
 
         try:
@@ -1828,7 +1845,7 @@ def get_data(filename,epgs,dc,district,p2psubnets):
         # if the argument passed to the script is by VRF, no need to check, we got it all and inner N7K config can be removed
 
 	# Get Type A or Type B.  Look at file VRF_EPG_Counts	
-	t_type = get_epg_type(epg)	
+	t_type = get_epg_type(epg,district)	
 
 	# Write to dictionary for printing config files
 	if tenant not in write_to_aci_cfg:
@@ -1839,12 +1856,25 @@ def get_data(filename,epgs,dc,district,p2psubnets):
 	write_to_aci_cfg[tenant][vrf][epg] = {}
 
 	# One off - rename AUD-DDT to AUD-DAT temporarily
-	if bool((re.search('AUD-DDT',vrfmember,re.IGNORECASE))):
+	if bool((re.search('AUD-DDT',vrfmember,re.IGNORECASE))) and district.upper() == 'SDE':
 		vrfmember = vrfmember.replace('DDT','DAT')
 
 	# One off - rename DMZ-DVT-DC[1 or2]-SDE  to DMZ-WEB-DC[1 or 2]-SDE-CELL1 temporarily
 	if vrfmember == 'DMZ-DVT-' + dc.upper()+ '-SDE':
 		vrfmember = 'DMZ-WEB-' + dc.upper() + '-SDE-CELL1'
+	
+	# One off - rename SVF-TFR to SVC-TRF temporarily
+	if bool((re.search('SVC-TRF',vrfmember,re.IGNORECASE))) and district.upper() == 'SOE':
+		vrfmember = vrfmember.replace('TRF','TFR')
+	
+	# One off - all CELL1 to VRF Name
+	if bool((re.search('AUD-ACC-DC2',vrfmember,re.IGNORECASE))) and district.upper() == 'SOE':
+		vrfmember = vrfmember + "-CELL1"
+	
+	# One off - all CELL1 to VRF Name
+	if bool((re.search('AUD-DAT-DC2',vrfmember,re.IGNORECASE))) and district.upper() == 'SOE':
+		vrfmember = vrfmember + "-CELL1"
+	
 	
         if vrfmember in pre_build:
 		vlan = pre_build[vrfmember]['vlan']
@@ -1871,13 +1901,25 @@ def get_data(filename,epgs,dc,district,p2psubnets):
 		leafa_int = 'N/A'
 		leafb_int = 'N/A' 
 
-	if bool((re.search('AUD-DAT',vrfmember,re.IGNORECASE))):
+	if bool((re.search('AUD-DAT',vrfmember,re.IGNORECASE))) and district.upper() == 'SDE':
 		vrfmember = vrfmember.replace('DAT','DDT')
 	
 	# Change back the One off
 	if vrfmember == 'DMZ-WEB-' + dc.upper() + '-SDE-CELL1':
 		vrfmember = 'DMZ-DVT-' + dc.upper() + '-SDE'
 	
+	# One off - rename SVF-TFR to SVC-TRF temporarily
+	if bool((re.search('SVC-TFR',vrfmember,re.IGNORECASE))) and district.upper() == 'SOE':
+		vrfmember = vrfmember.replace('TFR','TRF')
+	
+	# Change back the One off
+	if vrfmember == 'AUD-ACC-' + dc.upper() + '-' + district.upper() + '-CELL1' and district.upper() == 'SOE':
+		vrfmember = 'AUD-ACC-' + dc.upper() + '-' + district.upper()
+	
+	# Change back the One off
+	if vrfmember == 'AUD-DAT-' + dc.upper() + '-' + district.upper() + '-CELL1' and district.upper() == 'SOE':
+		vrfmember = 'AUD-DAT-' + dc.upper() + '-' + district.upper()
+
 	write_to_aci_cfg[tenant][vrf][epg] = [{
 
 						'bd' : bd,
@@ -2164,7 +2206,12 @@ def main(argv):
 					vrfmember = write_to_aci_cfg[tenant][vrf][ep][0]['vrfmember']
 					p2psubnets =  write_to_aci_cfg[tenant][vrf][ep][0]['p2psubnets']
 					break
+		
+			#if district.upper() == 'SOE' and tenant == 'Limited' and vrf == 'BLD':
+			#	vrf_to_fw[tenant]['Build']['to_delete'] = 1
+			#else:	
 			vrf_to_fw[tenant][vrf]['to_delete'] = 1
+
 			for n7k in n7k_data:
 				if bool((re.search('inner',n7k,re.IGNORECASE))) :	
 					n7k_data[n7k][vrfmember]['shutdown'] = 'Y'
