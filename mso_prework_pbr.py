@@ -207,7 +207,8 @@ def main(argv):
 		token = response.json()['token']
 	
 	data = get_schema_data(token,base_url)
-	
+	#print (json.dumps(data))
+	#sys.exit(9)	
 	for i,j in enumerate(data['schemas']):
 		if j['displayName'] == schema_name:
 			schema_id = j['id']
