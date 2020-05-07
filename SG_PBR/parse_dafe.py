@@ -1178,15 +1178,25 @@ def get_vrf_to_fw(zones_vl_ip_file,dc,district):
 		if tenant == 'Tn_NonAff':
 			continue
     		cell = 'C' + str(x)
+		tenant = tenant.rstrip()
 		vrf = ws[cell].value
 		if vrf == 'N/A':
 			continue
 		if vrf is not None:
+
 			cell = 'E' + str(x)
 			firewall = ws[cell].value 
 
 			cell = 'I' + str(x)
 			vrfmember = ws[cell].value
+		
+			# For DMZ Cells, get the last number of the vrfmember.  If DC2, add 2	
+			if bool(re.search('#',vrf,re.IGNORECASE)) and district.upper() == 'SOE' and dc.upper() == 'DC1':
+				vrf = vrf.replace('<Cell #>', vrfmember[-1:])
+			if bool(re.search('#',vrf,re.IGNORECASE)) and district.upper() == 'SOE' and dc.upper() == 'DC2':
+				plus2 = int(vrfmember[-1:]) + 2
+				vrf = vrf.replace('<Cell #>', str(plus2))
+
 		
 			cell = 'P' + str(x)
 			outerencap = getValueWithMergeLookup(ws,cell)
@@ -1203,6 +1213,14 @@ def get_vrf_to_fw(zones_vl_ip_file,dc,district):
 			# One off - ACI config has Audit/DDT -Zones vlans and IPs has Audit/DAT.  Changing to what ACI has
 			if tenant == 'Audit' and vrf == 'DAT' and district.upper() == 'SDE':
 				vrf = 'DDT'
+
+			# One off - Zones, VLANs and IPs has Limited/Build. ACI has Limited/BLD.  Changing to what ACI has
+			if tenant == 'Limited' and vrf == 'Build' and district.upper() == 'SOE':
+				vrf = 'BLD'
+			
+			# One off - Zones, VLANs and IPs has Services/TFR. ACI has Services/TRF.  Changing to what ACI has
+			if tenant == 'Services' and vrf == 'TFR':
+				vrf = 'TRF'
 
 			# Another One off - ACI config has Audit/DDT -Zones vlans and IPs has User Access.  Changing to what ACI has
 			if tenant == 'User Access':
@@ -1432,9 +1450,14 @@ def get_data(filename,epgs,dc,district,p2psubnets):
         fwvalue = ws2[cell].value
 	
 	if fwvalue is not None:
-		fw = fwvalue[:-1]
-		fwa = fw + 'a'
-		fwb = fw + 'b'
+		#fw = fwvalue[:-1]
+		if fwvalue[-1:] == 'a':
+			fwa = fwvalue
+		else:
+			fwb = fwvalue
+		#fwa = fw + 'a'
+		#fwb = fw + 'b'
+	
 
 	cell = 'G' + str(x)
         vrfmember = ws2[cell].value 
@@ -1538,7 +1561,7 @@ def get_data(filename,epgs,dc,district,p2psubnets):
 		if pre_build[vrfmember]['fwb'] == fwvalue:
 			pre_build[vrfmember]['leafb'] = leaf
 			pre_build[vrfmember]['leafb_int'] = intf_range
-    
+
 
     ########
 
@@ -1858,14 +1881,14 @@ def get_data(filename,epgs,dc,district,p2psubnets):
 	# One off - rename AUD-DDT to AUD-DAT temporarily
 	if bool((re.search('AUD-DDT',vrfmember,re.IGNORECASE))) and district.upper() == 'SDE':
 		vrfmember = vrfmember.replace('DDT','DAT')
+	
+	# One off - rename SVC-TRF to SVC-TFR temporarily
+	if bool((re.search('SVC-TRF',vrfmember,re.IGNORECASE))) and district.upper() == 'SOE':
+		vrfmember = vrfmember.replace('TRF','TFR')
 
 	# One off - rename DMZ-DVT-DC[1 or2]-SDE  to DMZ-WEB-DC[1 or 2]-SDE-CELL1 temporarily
 	if vrfmember == 'DMZ-DVT-' + dc.upper()+ '-SDE':
 		vrfmember = 'DMZ-WEB-' + dc.upper() + '-SDE-CELL1'
-	
-	# One off - rename SVF-TFR to SVC-TRF temporarily
-	if bool((re.search('SVC-TRF',vrfmember,re.IGNORECASE))) and district.upper() == 'SOE':
-		vrfmember = vrfmember.replace('TRF','TFR')
 	
 	# One off - all CELL1 to VRF Name
 	if bool((re.search('AUD-ACC-DC2',vrfmember,re.IGNORECASE))) and district.upper() == 'SOE':
@@ -1908,10 +1931,6 @@ def get_data(filename,epgs,dc,district,p2psubnets):
 	if vrfmember == 'DMZ-WEB-' + dc.upper() + '-SDE-CELL1':
 		vrfmember = 'DMZ-DVT-' + dc.upper() + '-SDE'
 	
-	# One off - rename SVF-TFR to SVC-TRF temporarily
-	if bool((re.search('SVC-TFR',vrfmember,re.IGNORECASE))) and district.upper() == 'SOE':
-		vrfmember = vrfmember.replace('TFR','TRF')
-	
 	# Change back the One off
 	if vrfmember == 'AUD-ACC-' + dc.upper() + '-' + district.upper() + '-CELL1' and district.upper() == 'SOE':
 		vrfmember = 'AUD-ACC-' + dc.upper() + '-' + district.upper()
@@ -1919,6 +1938,10 @@ def get_data(filename,epgs,dc,district,p2psubnets):
 	# Change back the One off
 	if vrfmember == 'AUD-DAT-' + dc.upper() + '-' + district.upper() + '-CELL1' and district.upper() == 'SOE':
 		vrfmember = 'AUD-DAT-' + dc.upper() + '-' + district.upper()
+	
+	# Change back one off - rename SVC-TFR to SVC-TRF
+	if bool((re.search('SVC-TFR',vrfmember,re.IGNORECASE))) and district.upper() == 'SOE':
+		vrfmember = vrfmember.replace('TFR','TRF')
 
 	write_to_aci_cfg[tenant][vrf][epg] = [{
 
@@ -2209,9 +2232,8 @@ def main(argv):
 		
 			#if district.upper() == 'SOE' and tenant == 'Limited' and vrf == 'BLD':
 			#	vrf_to_fw[tenant]['Build']['to_delete'] = 1
-			#else:	
+			#else:
 			vrf_to_fw[tenant][vrf]['to_delete'] = 1
-
 			for n7k in n7k_data:
 				if bool((re.search('inner',n7k,re.IGNORECASE))) :	
 					n7k_data[n7k][vrfmember]['shutdown'] = 'Y'
@@ -2387,7 +2409,7 @@ def main(argv):
 	aeppol = tmp[1]
 	leafid = pc_creation[pc_key]['leafid']
 	intf = pc_creation[pc_key]['intf']
-
+	#print json.dumps(pc_creation)
 	swprofname = get_sw_prof_name(dafe_file,leafid)
 
 	# if port channel policy group is created, skip creating it
