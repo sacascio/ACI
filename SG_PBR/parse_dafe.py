@@ -1124,7 +1124,7 @@ def get_epg_from_vrf(dafe_file,vrfs):
      
         if found == 0: 
         	print "ERROR: Could not find any BD for Tenant: %s, VRF: %s" % (tenant,vrf)
-		sys.exit(9)
+		#sys.exit(9)
 	else:
 	    found = 0 
     
@@ -1148,7 +1148,8 @@ def get_epg_from_vrf(dafe_file,vrfs):
                 sys.exit(9)
 	else:
 		found = 0       
-
+   
+   
     return epgs
 
 def get_vrf_to_fw(zones_vl_ip_file,dc,district):
@@ -2129,6 +2130,15 @@ def main(argv):
     # Get N7K Data - to be used after ACI configs built
     n7k_data = get_bgp_int_vlan(dc,district,vrfs)
 
+    # Major one off - CTL/PA0 has no BDs but is in scope.
+    for v in vrfs:
+	xxz = v.split(',')
+        if xxz[0] == 'Control' and xxz[1] == 'PA0' and dc.upper() == 'DC2' and district.upper() == 'SOE':
+    		p2psubnets = []
+    		for i in range(2,18):
+    			p2psubnets.append(xxz[i].rstrip())
+    		write_new_n7k_configs('CTL-PA0-DC2-SOE',p2psubnets,dc,district,n7k_data)
+    p2psubnets = []
 
     (aepname,linkpolname,cdppolname,lldpolname,stpolname,lacpolname,mcpolname) = get_pc_params(dafe_file)
     (write_to_aci_cfg,write_back_contract) = get_data(dafe_file,epgs,dc,district,vrfs)
