@@ -913,6 +913,9 @@ def fix_type_x(write_to_aci_cfg):
 						vrf_type[tenant_vrf_type_key] = e['t_type']
 						continue
 
+	# One off - theres one EPG in CTL-PA0-DC1 and can't determine if its type A or B - will assume 'A'
+	write_to_aci_cfg['Control']['PA0']['CTL-PA0-DC1-SOE-TEST'][0]['t_type'] = 'A'
+	
 	for tenant in write_to_aci_cfg:
                 for vrf in write_to_aci_cfg[tenant]:
                         for epg in write_to_aci_cfg[tenant][vrf]:
@@ -1145,7 +1148,7 @@ def get_epg_from_vrf(dafe_file,vrfs):
 
 	if found == 0:
 		print "ERROR: Could not find any EPGs for BD: %s" % (b)
-                sys.exit(9)
+                #sys.exit(9)
 	else:
 		found = 0       
    
@@ -1892,11 +1895,11 @@ def get_data(filename,epgs,dc,district,p2psubnets):
 		vrfmember = 'DMZ-WEB-' + dc.upper() + '-SDE-CELL1'
 	
 	# One off - all CELL1 to VRF Name
-	if bool((re.search('AUD-ACC-DC2',vrfmember,re.IGNORECASE))) and district.upper() == 'SOE':
+	if bool((re.search('AUD-ACC-DC',vrfmember,re.IGNORECASE))) and district.upper() == 'SOE':
 		vrfmember = vrfmember + "-CELL1"
 	
 	# One off - all CELL1 to VRF Name
-	if bool((re.search('AUD-DAT-DC2',vrfmember,re.IGNORECASE))) and district.upper() == 'SOE':
+	if bool((re.search('AUD-DAT-DC',vrfmember,re.IGNORECASE))) and district.upper() == 'SOE':
 		vrfmember = vrfmember + "-CELL1"
 	
 	
