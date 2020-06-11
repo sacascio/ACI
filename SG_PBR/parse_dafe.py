@@ -16,7 +16,7 @@ import json
 #from fileinput import filename
 import warnings
 from ciscoconfparse import CiscoConfParse
-# added comment v2
+
 warnings.filterwarnings("ignore")
 
 
