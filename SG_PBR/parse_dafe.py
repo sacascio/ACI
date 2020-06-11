@@ -16,7 +16,7 @@ import json
 #from fileinput import filename
 import warnings
 from ciscoconfparse import CiscoConfParse
-
+# added comment
 warnings.filterwarnings("ignore")
 
 
@@ -914,7 +914,10 @@ def fix_type_x(write_to_aci_cfg):
 						continue
 
 	# One off - theres one EPG in CTL-PA0-DC1 and can't determine if its type A or B - will assume 'A'
-	write_to_aci_cfg['Control']['PA0']['CTL-PA0-DC1-SOE-TEST'][0]['t_type'] = 'A'
+	#write_to_aci_cfg['Control']['PA0'] = {}
+	#write_to_aci_cfg['Control']['PA0']['CTL-PA0-DC1-SOE-TEST'] = []
+	#write_to_aci_cfg['Control']['PA0']['CTL-PA0-DC1-SOE-TEST'].append({'t_type' : 'A' })
+	
 	
 	for tenant in write_to_aci_cfg:
                 for vrf in write_to_aci_cfg[tenant]:
