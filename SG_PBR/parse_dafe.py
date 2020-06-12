@@ -1675,7 +1675,8 @@ def get_data(filename,epgs,dc,district,p2psubnets):
         	try:
                 	bd_subnet
         	except NameError:
-                	print "WARNING: %s, BD Subnet Not found - unicast routing enabled" % epg
+			if not bool(re.search('DCX',epg, re.IGNORECASE)):
+                		print "WARNING: %s, BD Subnet Not found - unicast routing enabled" % epg
                 	bd_subnet = 'N/A'
 	else:
 		bd_subnet = 'N/A'
