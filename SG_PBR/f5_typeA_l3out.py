@@ -9,7 +9,7 @@ import os
 import ipaddress
 
 def usage():
-	print ("\n\nUsage: " +  sys.argv[0] + " -f|file <inputfile>")
+	print ("\n\nUsage: " +  sys.argv[0] + " -l|--l3out <l3out> -t|--tenant <tenant> -c|--creds <aci_creds_file>" )
 	print ("")
 	print ("-l|--l3out:   L3out Name")
 	print ("-t|--tenant:  tenant Name")
