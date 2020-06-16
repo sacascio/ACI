@@ -166,37 +166,40 @@ def write_new_n7k_configs(vrfmember,p2psubnets,dc,district,n7k_data):
 
 		f = open(dir_path + "/" + "N7K_CUTOVER" + "/" +  "execute_cutover_" + vrfmember + ".sh", "a")
 		f.write("../push_to_n7k.py -f " + vrfmember + "/"  + n7kname + " -c ../" + n7kname + "_creds" +  '\n')
-		f.write("echo FINISHED UPDATING "  + n7kname + '\n')
-		f.write("../push_to_n7k.py -f " + vrfmember + "/"  + n7kname + "_inner_show_commands" + " -c ../" + n7kname + "_creds" + ' > ' +  n7kname + "_inner_output" +  '\n\n')
+		f.write("echo FINISHED UPDATING "  + n7kname + '\n\n')
 		f.close()
+		fshowc = open(dir_path + "/" + "N7K_CUTOVER" + "/" +  "execute_show_commands_" + vrfmember + ".sh", "a")
+		fshowc.write("../push_to_n7k.py -f " + vrfmember + "/"  + n7kname + "_inner_show_commands" + " -c ../" + n7kname + "_creds" + ' > ' +  n7kname + "_inner_output" +  '\n\n')
+		fshowc.close()
 		encap = n7k_data[n7kname][vrfmember]['svi']
 		inner_bgp_as = n7k_data[n7kname][vrfmember]['local_as']
 		outer_bgp_as = n7k_data[n7kname][vrfmember]['remote_as']
-		inner_bgp_config[n7kname] = []
+		inner_bgp_config[n7kname] = {}
+		inner_bgp_config[n7kname][vrfmember] = []
     		subint_inner_cutover[n7kname] = []
 
 		# Start preparing inner/outer BGP config
-		inner_bgp_config[n7kname].append("! Add new BGP neighbors to VRF " + vrfmember + " using the N7K Outer VDC IP addresses")	
-		inner_bgp_config[n7kname].append("! These adjacencies will not come up until the N7K Outer VDCs are configured and enabled" + '\n')	
+		inner_bgp_config[n7kname][vrfmember].append("! Add new BGP neighbors to VRF " + vrfmember + " using the N7K Outer VDC IP addresses")	
+		inner_bgp_config[n7kname][vrfmember].append("! These adjacencies will not come up until the N7K Outer VDCs are configured and enabled" + '\n')	
 
-		inner_bgp_config[n7kname].append("router bgp " + inner_bgp_as)	
-		inner_bgp_config[n7kname].append(" vrf " + vrfmember)	
-		inner_bgp_config[n7kname].append("  address-family ipv4 unicast")	
-		inner_bgp_config[n7kname].append("   maximum-paths 8")	
+		inner_bgp_config[n7kname][vrfmember].append("router bgp " + inner_bgp_as)	
+		inner_bgp_config[n7kname][vrfmember].append(" vrf " + vrfmember)	
+		inner_bgp_config[n7kname][vrfmember].append("  address-family ipv4 unicast")	
+		inner_bgp_config[n7kname][vrfmember].append("   maximum-paths 8")	
 		
 
-		if not os.path.exists(dir_path + "/" + "N7K_PREWORK" + "/" +  n7kname):
-			f = open(dir_path + "/" + "N7K_PREWORK" + "/" +  n7kname, "a")
+		if not os.path.exists(dir_path + "/" + "N7K_PREWORK" + "/" +  n7kname + "_" + vrfmember):
+			f = open(dir_path + "/" + "N7K_PREWORK" + "/" +  n7kname + "_" + vrfmember, "a")
     			f.write("! Create sub interfaces to outer VDCs in VRF " + vrfmember + " in a shutdown state" + '\n')
                         f.write("configure terminal" +  '\n')
 			f.close()
 
 			f = open(dir_path + "/" + "N7K_PREWORK" + "/" +  "execute_prework.sh", "a")
-        		f.write("../push_to_n7k.py -f "  + n7kname + " -c ../" + n7kname + "_creds" +  '\n')
-			f.write("echo FINISHED UPDATING " + n7kname + '\n\n')
+        		f.write("../push_to_n7k.py -f "  + n7kname + "_" + vrfmember + " -c ../" + n7kname + "_creds" +  '\n')
+			f.write("echo FINISHED UPDATING VRF " + vrfmember + " ON " + n7kname + '\n\n')
         		f.close()
 		else:
-    			f = open(dir_path + "/" + "N7K_PREWORK" + "/" +  n7kname, "a")
+    			f = open(dir_path + "/" + "N7K_PREWORK" + "/" +  n7kname + "_" + vrfmember, "a")
     			f.write("! Create sub interfaces to outer VDCs in VRF " + vrfmember + " in a shutdown state" + '\n')
 			f.close()
 
@@ -211,20 +214,24 @@ def write_new_n7k_configs(vrfmember,p2psubnets,dc,district,n7k_data):
     					if outer_7k not in subint_outer_cutover:
 						f = open(dir_path + "/" + "N7K_CUTOVER" + "/" +  "execute_cutover_" + vrfmember + ".sh", "a")
 						f.write("../push_to_n7k.py -f " + vrfmember + "/"  + outer_7k + " -c ../" + outer_7k + "_creds" +  '\n')
-						f.write("echo FINISHED UPDATING "  + outer_7k + '\n')
-						f.write("../push_to_n7k.py -f " + vrfmember + "/"  + outer_7k + "_outer_show_commands" + " -c ../" + outer_7k + "_creds" + ' > ' +  outer_7k + "_outer_output" +  '\n\n')
+						f.write("echo FINISHED UPDATING "  + outer_7k + '\n\n')
 						f.close()
+						fshowc = open(dir_path + "/" + "N7K_CUTOVER" + "/" +  "execute_show_commands_" + vrfmember + ".sh", "a")
+						fshowc.write("../push_to_n7k.py -f " + vrfmember + "/"  + outer_7k + "_outer_show_commands" + " -c ../" + outer_7k + "_creds" + ' > ' +  outer_7k + "_outer_output" +  '\n\n')
+						fshowc.close()
 						subint_outer_cutover[outer_7k] = []
 
 					if outer_7k not in outer_bgp_config:
-						outer_bgp_config[outer_7k] = []
-						outer_bgp_config[outer_7k].append("! Add new BGP neighbors to VRF " + vrfmember + " using the N7K Inner VDC IP addresses")	
-						outer_bgp_config[outer_7k].append("! These adjacencies will not come up until the N7K Inner VDCs are configured and enabled" + '\n')	
-						outer_bgp_config[outer_7k].append("router bgp " + outer_bgp_as)	
+						outer_bgp_config[outer_7k] = {}
+					if vrfmember not in outer_bgp_config[outer_7k]:
+						outer_bgp_config[outer_7k][vrfmember] = []
+						outer_bgp_config[outer_7k][vrfmember].append("! Add new BGP neighbors to VRF " + vrfmember + " using the N7K Inner VDC IP addresses")	
+						outer_bgp_config[outer_7k][vrfmember].append("! These adjacencies will not come up until the N7K Inner VDCs are configured and enabled" + '\n')	
+						outer_bgp_config[outer_7k][vrfmember].append("router bgp " + outer_bgp_as)	
 					
 
 					# Write Inner config
-					f = open(dir_path + "/" + "N7K_PREWORK" + "/" +  n7kname, "a")
+					f = open(dir_path + "/" + "N7K_PREWORK" + "/" +  n7kname + "_" + vrfmember, "a")
     					f.write("interface Ethernet" + inner_int + "." + encap + '\n')
     					f.write(" description To_" + outer_7k + "_E" + outer_int + "." + encap + '\n')
     					f.write(" shutdown" + '\n')
@@ -265,21 +272,21 @@ def write_new_n7k_configs(vrfmember,p2psubnets,dc,district,n7k_data):
 					fcfg = open(dir_path + "/" + "N7K_IP_MAPPING_" + vrfmember + ".txt", "a")
 					fcfg.write(n7kname + "," + inner_int + "." + encap + "," + ipinner + "---" + outer_7k +  "," + outer_int + "." + encap + "," + ipouter + '\n')
 					fcfg.close()
-					inner_bgp_config[n7kname].append("  neighbor " + ipouter + " remote-as " + outer_bgp_as)
-					inner_bgp_config[n7kname].append("   description TO_" + outer_7k)
-					inner_bgp_config[n7kname].append("   address-family ipv4 unicast")
-					inner_bgp_config[n7kname].append("    send-community both")
+					inner_bgp_config[n7kname][vrfmember].append("  neighbor " + ipouter + " remote-as " + outer_bgp_as)
+					inner_bgp_config[n7kname][vrfmember].append("   description TO_" + outer_7k)
+					inner_bgp_config[n7kname][vrfmember].append("   address-family ipv4 unicast")
+					inner_bgp_config[n7kname][vrfmember].append("    send-community both")
 		
 					# Write rollback part for inner BGP config and write it later
 					if bool(re.search('inner',n7kname, re.IGNORECASE)):
 						bgp_rb_inner[n7kname]['neighbors'].append("   no neighbor " + ipouter + " remote-as " + outer_bgp_as) 
 					
-					outer_bgp_config[outer_7k].append("  neighbor " + ipinner + " remote-as " + inner_bgp_as)
-					outer_bgp_config[outer_7k].append("   description TO_" + n7kname)
-					outer_bgp_config[outer_7k].append("   address-family ipv4 unicast")
-					outer_bgp_config[outer_7k].append("    send-community both")
-					outer_bgp_config[outer_7k].append("    route-map PERMIT_DEFAULT_ONLY out")
-					outer_bgp_config[outer_7k].append("    default-originate")
+					outer_bgp_config[outer_7k][vrfmember].append("  neighbor " + ipinner + " remote-as " + inner_bgp_as)
+					outer_bgp_config[outer_7k][vrfmember].append("   description TO_" + n7kname)
+					outer_bgp_config[outer_7k][vrfmember].append("   address-family ipv4 unicast")
+					outer_bgp_config[outer_7k][vrfmember].append("    send-community both")
+					outer_bgp_config[outer_7k][vrfmember].append("    route-map PERMIT_DEFAULT_ONLY out")
+					outer_bgp_config[outer_7k][vrfmember].append("    default-originate")
 					
 					# Write rollback part for outer BGP config and write it later
 					if bool(re.search('outer',outer_7k, re.IGNORECASE)):
@@ -291,17 +298,17 @@ def write_new_n7k_configs(vrfmember,p2psubnets,dc,district,n7k_data):
 					f.close()
 				
 					# Write outer config
-					if not os.path.exists(dir_path + "/" + "N7K_PREWORK" + "/" +  outer_7k):
-						f = open(dir_path + "/" + "N7K_PREWORK" + "/" +  outer_7k, "a")
+					if not os.path.exists(dir_path + "/" + "N7K_PREWORK" + "/" +  outer_7k + "_" + vrfmember):
+						f = open(dir_path + "/" + "N7K_PREWORK" + "/" +  outer_7k + "_" + vrfmember, "a")
 						f.write("configure terminal" + '\n')
 						f.close()
 
 						f = open(dir_path + "/" + "N7K_PREWORK" + "/" +  "execute_prework.sh", "a")
-                        			f.write("../push_to_n7k.py -f "  + outer_7k + " -c ../" + outer_7k + "_creds" +  '\n')
-						f.write("echo FINISHED UPDATING "  + outer_7k + '\n\n')
+                        			f.write("../push_to_n7k.py -f "  + outer_7k + "_" + vrfmember + " -c ../" + outer_7k + "_creds" +  '\n')
+						f.write("echo FINISHED UPDATING VRF " + vrfmember + " ON "  + outer_7k + '\n\n')
                         			f.close()
 						
-					f = open(dir_path + "/" + "N7K_PREWORK" + "/" +  outer_7k, "a")
+					f = open(dir_path + "/" + "N7K_PREWORK" + "/" +  outer_7k + "_" + vrfmember, "a")
 					f.write("! Create sub interfaces to inner VDCs for VRF " + vrfmember + " in a shutdown state" + '\n')
 					f.write("interface Ethernet" + outer_int + "." + encap + '\n')
                                         f.write(" description To_" + n7kname + "_E" + inner_int + "." + encap + '\n')
@@ -357,18 +364,21 @@ def write_new_n7k_configs(vrfmember,p2psubnets,dc,district,n7k_data):
 				
 					
 	for n7ks in inner_bgp_config:
-		f = open(dir_path + "/" + "N7K_PREWORK" + "/" +  n7ks, "a")
-		f.write(('\n'.join(inner_bgp_config[n7ks])))
-		f.write('\n')
-		f.write('\n')
-		f.close()
+        	for vrfmember in inner_bgp_config[n7ks]:
+			f = open(dir_path + "/" + "N7K_PREWORK" + "/" +  n7ks + "_" + vrfmember, "a")
+			f.write('\n')
+			f.write(('\n'.join(inner_bgp_config[n7ks][vrfmember])))
+			f.write('\n')
+			f.write('\n')
+			f.close()
 
 	for n7ks in outer_bgp_config:
-		f = open(dir_path + "/" + "N7K_PREWORK" + "/" +  n7ks, "a")
-		f.write(('\n'.join(outer_bgp_config[n7ks])))
-		f.write('\n')
-		f.write('\n')
-		f.close()
+		for vrfmember in outer_bgp_config[n7ks]:
+			f = open(dir_path + "/" + "N7K_PREWORK" + "/" +  n7ks + "_" + vrfmember, "a")
+			f.write(('\n'.join(outer_bgp_config[n7ks][vrfmember])))
+			f.write('\n')
+			f.write('\n')
+			f.close()
 	
     	for n7ks in bgp_shut_outer:
 		f = open(cutover_dir + "/" +  n7ks, "a")
@@ -435,9 +445,11 @@ def write_new_n7k_configs(vrfmember,p2psubnets,dc,district,n7k_data):
 
     		f = open(dir_path + "/" + "N7K_ROLLBACK" + "/" +  "execute_rollback_" + vrfmember + ".sh", "a")
                 f.write("../push_to_n7k.py -f " + vrfmember + "/"  + n7ks + " -c ../" + n7ks + "_creds" +  '\n')
-		f.write("echo FINISHED UPDATING "  + n7ks + '\n')
-		f.write("../push_to_n7k.py -f " + vrfmember + "/"  + n7ks + "_inner_show_commands" + " -c ../" + n7ks + "_creds" + ' > ' +  n7ks + "_inner_output" +  '\n\n')
-                f.close()
+		f.write("echo FINISHED UPDATING "  + n7ks + '\n\n')
+		f.close()
+		fshowc =  open(dir_path + "/" + "N7K_ROLLBACK" + "/" +  "execute_show_commands_" + vrfmember + ".sh", "a")	
+		fshowc.write("../push_to_n7k.py -f " + vrfmember + "/"  + n7ks + "_inner_show_commands" + " -c ../" + n7ks + "_creds" + ' > ' +  n7ks + "_inner_output" +  '\n\n')
+                fshowc.close()
 	
 	for n7ks in bgp_rb_outer:
 		f = open(rollback_dir + "/" +  n7ks, "a")
@@ -460,9 +472,11 @@ def write_new_n7k_configs(vrfmember,p2psubnets,dc,district,n7k_data):
     		
 		f = open(dir_path + "/" + "N7K_ROLLBACK" + "/" +  "execute_rollback_" + vrfmember + ".sh", "a")
                 f.write("../push_to_n7k.py -f " + vrfmember + "/"  + n7ks + " -c ../" + n7ks + "_creds" + '\n')
-		f.write("echo FINISHED UPDATING "  + n7ks + '\n')
-		f.write("../push_to_n7k.py -f " + vrfmember + "/"  + n7ks + "_outer_show_commands" + " -c ../" + n7ks + "_creds" + ' > ' +  n7ks + "_outer_output" +  '\n\n')
-                f.close()
+		f.write("echo FINISHED UPDATING "  + n7ks + '\n\n')
+		f.close()
+		fshowc = open(dir_path + "/" + "N7K_ROLLBACK" + "/" +  "execute_show_commands_" + vrfmember + ".sh", "a")
+		fshowc.write("../push_to_n7k.py -f " + vrfmember + "/"  + n7ks + "_outer_show_commands" + " -c ../" + n7ks + "_creds" + ' > ' +  n7ks + "_outer_output" +  '\n\n')
+                fshowc.close()
 	
 	for n7ks in svi_cleanup:
 		f = open(cleanup_dir + "/" +  n7ks, "a")
@@ -902,7 +916,7 @@ def get_sw_prof_name(dafe_file,leafid):
     return prof
 	
 
-def fix_type_x(write_to_aci_cfg):
+def fix_type_x(write_to_aci_cfg,dc,district):
 	vrf_type = {}
 	for tenant in write_to_aci_cfg:
 		for vrf in write_to_aci_cfg[tenant]:
@@ -914,6 +928,8 @@ def fix_type_x(write_to_aci_cfg):
 						continue
 
 	# One off - theres one EPG in CTL-PA0-DC1 and can't determine if its type A or B - will assume 'A'
+	if dc.upper() == 'DC1' and district.upper() == 'SOE':
+		write_to_aci_cfg['Control']['PA0']['CTL-PA0-DC1-SOE-TEST'][0]['t_type'] = 'A'
 	#write_to_aci_cfg['Control']['PA0'] = {}
 	#write_to_aci_cfg['Control']['PA0']['CTL-PA0-DC1-SOE-TEST'] = []
 	#write_to_aci_cfg['Control']['PA0']['CTL-PA0-DC1-SOE-TEST'].append({'t_type' : 'A' })
@@ -2366,7 +2382,7 @@ def main(argv):
     # Can't remove contract from L3Out if all EPG's aren't being migrated
 
     # Fix EPGs/VRFs that have type = 'X'
-    fix_type_x(write_to_aci_cfg)
+    fix_type_x(write_to_aci_cfg,dc,district)
 
     # Associate leaf interfaces to PC and create leaf selectors.  Already done, not needed for 3/13.  Again check previous files
 
