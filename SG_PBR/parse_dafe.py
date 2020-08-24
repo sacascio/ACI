@@ -2404,6 +2404,7 @@ def main(argv):
 
     os.mkdir(dir_path + "/" + "ACI_PRE_WORK")
     os.mkdir(dir_path + "/" + "ACI_CONTRACT_VERIFICATION")
+    os.mkdir(dir_path + "/" + "ACI_ROLLBACK")
 
     # Create empty creds file - used for later
     open(dir_path + "/" + "ACI_CONTRACT_VERIFICATION" + "/" + "aci_creds", 'a').close()
@@ -2620,6 +2621,7 @@ def main(argv):
                 dirname = epg.split("-")
                 tenantdir = dirname[0]
                 os.mkdir(dir_path + "/ACI_" + tenantdir + "-" + vrf)
+                os.mkdir(dir_path + "/ACI_ROLLBACK" +  "/ACI_" + tenantdir + "-" + vrf)
                 break
 
     # MIGRATION STEPS - PRINT CONTRACTS
@@ -2633,9 +2635,16 @@ def main(argv):
                         dirname = epg.split("-")
                         tenantdir = dirname[0]
                         fname = vrf + " 1 Type " + d['t_type'] + " - Associate contracts to L3Out as consumer.csv"
+                        fname_rb = vrf + " 3 Type " + d['t_type'] + " - Remove SG PBR from L3Out as consumer.csv"
                         if not os.path.isfile(dir_path + "/ACI_" + tenantdir + "-" + vrf + "/" + fname):
                             f = open(dir_path + "/ACI_" + tenantdir + "-" + vrf + "/" + fname, "a")
                             f.write("TENANT,L3OUT,NETWORK,NEW_L3_CONTRACT" + '\n')
+                            f.close()
+                       
+			# ROLLBACK ACI HEADER
+			if not os.path.isfile(dir_path + "/ACI_ROLLBACK" + "/ACI_" + tenantdir + "-" + vrf + "/" + fname_rb):
+                            f = open(dir_path + "/ACI_ROLLBACK" + "/ACI_" + tenantdir + "-" + vrf + "/" + fname_rb, "a")
+                            f.write("TENANT,L3OUT,NETWORK,OLD_L3_CONTRACT" + '\n')
                             f.close()
 
                         l3out_name = d['l3out']
@@ -2646,12 +2655,16 @@ def main(argv):
                             l3out[newcontract_key] = {}
                             f = open(dir_path + "/ACI_" + tenantdir + "-" + vrf + "/" + fname, "a")
                             fverify = open(dir_path + "/ACI_CONTRACT_VERIFICATION/" + tenantdir + "-" + vrf, "a")
+                            facirb = open(dir_path + "/ACI_ROLLBACK" +  "/ACI_" + tenantdir + "-" + vrf + "/" + fname_rb, "a")
 
                             f.write(tenant + "," + l3out_name + "," + ext_epg + "," + newcontract + '\n')
                             fverify.write("L3Out," + tenant + "," + l3out_name + "," + ext_epg + '\n')
+                            facirb.write(tenant + "," + l3out_name + "," + ext_epg + "," + newcontract + '\n')
 
                             fverify.close()
                             f.close()
+                            facirb.close()
+
 
     # Print EPG associate new contract
     # For type-B, remove OLD EPG contract
@@ -2669,31 +2682,51 @@ def main(argv):
                         ap = d['ap']
                         if t_type == 'A':
                             fname = vrf + " 2 Type " + d['t_type'] + " - Assign new contract as provider.csv"
+                            fname_rb = vrf + " 2 Type " + d['t_type'] + " - Remove new contract from EPG as provider.csv"
                             if not os.path.isfile(dir_path + "/ACI_" + tenantdir + "-" + vrf + "/" + fname):
                                 f = open(dir_path + "/ACI_" + tenantdir + "-" + vrf + "/" + fname, "a")
                                 f.write("TENANT,AP,EPG,NEW_EPG_CONTRACT" + '\n')
                                 f.close()
+
+			    # ACI RB - TYPE-A
+                            if not os.path.isfile(dir_path + "/ACI_ROLLBACK"  + "/ACI_" + tenantdir + "-" + vrf + "/" + fname_rb):
+                                f = open(dir_path + "/ACI_ROLLBACK" + "/ACI_" + tenantdir + "-" + vrf + "/" + fname_rb, "a")
+                                f.write("TENANT,AP,EPG,OLD_EPG_CONTRACT" + '\n')
+                                f.close()
+
                             f = open(dir_path + "/ACI_" + tenantdir + "-" + vrf + "/" + fname, "a")
-                            f.write(
-                                tenant + "," + ap + "," + epg + "," + tenantdir + "-" + vrf + "-" + "SG-PBR-Permit_Any" + '\n')
+                            facirb = open(dir_path + "/ACI_ROLLBACK" +  "/ACI_" + tenantdir + "-" + vrf + "/" + fname_rb, "a")
+
+                            f.write(tenant + "," + ap + "," + epg + "," + tenantdir + "-" + vrf + "-" + "SG-PBR-Permit_Any" + '\n')
+                            facirb.write(tenant + "," + ap + "," + epg + "," + tenantdir + "-" + vrf + "-" + "SG-PBR-Permit_Any" + '\n')
                             f.close()
+                            facirb.close()
 
                             fverify = open(dir_path + "/ACI_CONTRACT_VERIFICATION/" + tenantdir + "-" + vrf, "a")
                             fverify.write("EPG," + tenant + "," + ap + "," + epg + '\n')
                             fverify.close()
 
                         if t_type == 'B':
-                            fname = vrf + " 2 Type " + d[
-                                't_type'] + " - Assign new contract as provider and delete old contracts.csv"
+                            fname = vrf + " 2 Type " + d['t_type'] + " - Assign new contract as provider and delete old contracts.csv"
+                            fname_rb = vrf + " 2 Type " + d['t_type'] + " - Remove new contract as provider and add old contracts.csv"
                             if not os.path.isfile(dir_path + "/ACI_" + tenantdir + "-" + vrf + "/" + fname):
                                 f = open(dir_path + "/ACI_" + tenantdir + "-" + vrf + "/" + fname, "a")
                                 f.write("TENANT,AP,EPG,NEW_EPG_CONTRACT,OLD_EPG_CONTRACT" + '\n')
                                 f.close()
+                            
+			    # ACI RB 
+			    if not os.path.isfile(dir_path + "/ACI_ROLLBACK" + "/ACI_" + tenantdir + "-" + vrf + "/" + fname_rb):
+                                f = open(dir_path + "/ACI_ROLLBACK" + "/ACI_" + tenantdir + "-" + vrf + "/" + fname_rb, "a")
+                                f.write("TENANT,AP,EPG,OLD_EPG_CONTRACT,NEW_EPG_CONTRACT" + '\n')
+                                f.close()
+
                             f = open(dir_path + "/ACI_" + tenantdir + "-" + vrf + "/" + fname, "a")
+                            facirb = open(dir_path + "/ACI_ROLLBACK" + "/ACI_" + tenantdir + "-" + vrf + "/" + fname_rb, "a")
                             for c in d['contract']:
-                                f.write(
-                                    tenant + "," + ap + "," + epg + "," + tenantdir + "-" + vrf + "-" + "SG-PBR-Permit_Any" + "," + c + '\n')
+                                f.write(tenant + "," + ap + "," + epg + "," + tenantdir + "-" + vrf + "-" + "SG-PBR-Permit_Any" + "," + c + '\n')
+                                facirb.write(tenant + "," + ap + "," + epg + "," + tenantdir + "-" + vrf + "-" + "SG-PBR-Permit_Any" + "," + c + '\n')
                             f.close()
+                            facirb.close()
 
                             fverify = open(dir_path + "/ACI_CONTRACT_VERIFICATION/" + tenantdir + "-" + vrf, "a")
                             fverify.write("EPG," + tenant + "," + ap + "," + epg + '\n')
@@ -2715,11 +2748,25 @@ def main(argv):
                         s = epg.split("-")
                         t_type = d['t_type']
                         tenantdir = s[0]
-                        fname = vrf + " 3 Type " + d[
-                            't_type'] + " - Remove contract from L3Out and EPG as provider_consumer.csv"
+                        fname = vrf + " 3 Type " + d['t_type'] + " - Remove contract from L3Out and EPG as provider_consumer.csv"
+                        l3outfname_rb = vrf + " 1 Type " + d['t_type'] + " - Add contract to L3out provider_consumer.csv"
+                        epgfname_rb = vrf + " 1 Type " + d['t_type'] + " - Add contract to EPG provider_consumer.csv"
+
                         if not os.path.isfile(dir_path + "/ACI_" + tenantdir + "-" + vrf + "/" + fname):
                             f = open(dir_path + "/ACI_" + tenantdir + "-" + vrf + "/" + fname, "a")
                             f.write("TENANT,AP,EPG,OLD_EPG_CONTRACT,L3OUT,NETWORK,OLD_L3_CONTRACT" + '\n')
+                            f.close()
+                       
+			# ACI ROLLBACK - EPG ( Type-A only ; Type-B will be done in one shot)
+			if not os.path.isfile(dir_path + "/ACI_ROLLBACK" + "/ACI_" + tenantdir + "-" + vrf + "/" + epgfname_rb) and t_type == 'A':
+                            f = open(dir_path + "/ACI_ROLLBACK" + "/ACI_" + tenantdir + "-" + vrf + "/" + epgfname_rb, "a")
+                            f.write("TENANT,AP,EPG,NEW_EPG_CONTRACT" + '\n')
+                            f.close()
+			
+			# ACI ROLLBACK - L3OUT
+			if not os.path.isfile(dir_path + "/ACI_ROLLBACK" + "/ACI_" + tenantdir + "-" + vrf + "/" + l3outfname_rb):
+                            f = open(dir_path + "/ACI_ROLLBACK" + "/ACI_" + tenantdir + "-" + vrf + "/" + l3outfname_rb, "a")
+                            f.write("TENANT,L3OUT,NETWORK,NEW_L3_CONTRACT" + '\n')
                             f.close()
 
                         # temp fix
@@ -2737,18 +2784,10 @@ def main(argv):
                                     f = open(dir_path + "/ACI_" + tenantdir + "-" + vrf + "/" + fname, "a")
                                     f.write(tenant + ",,,," + d_l3out + "," + d_extepg + "," + c + '\n')
                                     f.close()
-                                if d_extepg in l3out[d_l3out]:
-                                    if c not in l3out[d_l3out][d_extepg]:
-                                        l3out[d_l3out][d_extepg][c] = {}
-                                        f = open(dir_path + "/ACI_" + tenantdir + "-" + vrf + "/" + fname, "a")
-                                        f.write(tenant + ",,,," + d_l3out + "," + d_extepg + "," + c + '\n')
-                                        f.close()
-                            if d_l3out in l3out:
-                                if d_extepg not in l3out[d_l3out]:
-                                    l3out[d_l3out][d_extepg] = {}
-                                    l3out[d_l3out][d_extepg][c] = {}
-                                    f = open(dir_path + "/ACI_" + tenantdir + "-" + vrf + "/" + fname, "a")
-                                    f.write(tenant + ",,,," + d_l3out + "," + d_extepg + "," + c + '\n')
+                                   
+				    # ACI ROLLBACK 
+				    f = open(dir_path + "/ACI_ROLLBACK" + "/ACI_" + tenantdir + "-" + vrf + "/" + l3outfname_rb, "a")
+                                    f.write(tenant + "," + d_l3out + "," + d_extepg + "," + c + '\n')
                                     f.close()
                                 if d_extepg in l3out[d_l3out]:
                                     if c not in l3out[d_l3out][d_extepg]:
@@ -2756,10 +2795,48 @@ def main(argv):
                                         f = open(dir_path + "/ACI_" + tenantdir + "-" + vrf + "/" + fname, "a")
                                         f.write(tenant + ",,,," + d_l3out + "," + d_extepg + "," + c + '\n')
                                         f.close()
+
+  				    # ACI ROLLBACK
+                                    if c not in l3out[d_l3out][d_extepg]:
+                                        l3out[d_l3out][d_extepg][c] = {}
+                                        f = open(dir_path + "/ACI_ROLLBACK" + "/ACI_" + tenantdir + "-" + vrf + "/" + l3outfname_rb, "a")
+                                        f.write(tenant + "," + d_l3out + "," + d_extepg + "," + c + '\n')
+                                        f.close()
+	
+                            if d_l3out in l3out:
+                                if d_extepg not in l3out[d_l3out]:
+                                    l3out[d_l3out][d_extepg] = {}
+                                    l3out[d_l3out][d_extepg][c] = {}
+                                    f = open(dir_path + "/ACI_" + tenantdir + "-" + vrf + "/" + fname, "a")
+                                    f.write(tenant + ",,,," + d_l3out + "," + d_extepg + "," + c + '\n')
+                                    f.close()
+
+				# ACI ROLLBACK
+                                    f = open(dir_path + "/ACI_ROLLBACK" + "/ACI_" + tenantdir + "-" + vrf + "/" + l3outfname_rb, "a")
+                                    f.write(tenant + "," + d_l3out + "," + d_extepg + "," + c + '\n')
+                                    f.close()
+
+                                if d_extepg in l3out[d_l3out]:
+                                    if c not in l3out[d_l3out][d_extepg]:
+                                        l3out[d_l3out][d_extepg][c] = {}
+                                        f = open(dir_path + "/ACI_" + tenantdir + "-" + vrf + "/" + fname, "a")
+                                        f.write(tenant + ",,,," + d_l3out + "," + d_extepg + "," + c + '\n')
+                                        f.close()
+
+
+				    # ACI ROLLBACK
+                                        f = open(dir_path + "/ACI_ROLLBACK" + "/ACI_" + tenantdir + "-" + vrf + "/" + l3outfname_rb, "a")
+                                        f.write(tenant + "," + d_l3out + "," + d_extepg + "," + c + '\n')
+                                        f.close()
                             if t_type == 'A':
                                 f = open(dir_path + "/ACI_" + tenantdir + "-" + vrf + "/" + fname, "a")
                                 f.write(tenant + "," + ap + "," + epg + "," + c + '\n')
-                            f.close()
+                                f.close()
+                               
+				# ACI ROLLBACK 
+   				f = open(dir_path + "/ACI_ROLLBACK" + "/ACI_" + tenantdir + "-" + vrf + "/" + epgfname_rb, "a")
+                                f.write(tenant + "," + ap + "," + epg + "," + c + '\n')
+                                f.close()
 
     # Remove contracts that exist on the EPG but not on the L3 Out
 
@@ -2769,16 +2846,27 @@ def main(argv):
                 xx = epg.split("-")
                 shorttenant = xx[0]
                 shortvrf = xx[1]
+		if shortvrf[0] == 'V' and shortvrf[1] == 'N' and shorttenant == 'LTD':
+			shortvrf = 'VND'
 
                 fname = shortvrf + " 4 " + " - Remove contract from EPG as provider_consumer.csv"
+                fname_rb = shortvrf + " 4 " + " - Add contract to EPG as provider_consumer.csv"
+
                 if not os.path.isfile(dir_path + "/ACI_" + shorttenant + "-" + shortvrf + "/" + fname):
                     f = open(dir_path + "/ACI_" + shorttenant + "-" + shortvrf + "/" + fname, "a")
                     f.write("TENANT,AP,EPG,OLD_EPG_CONTRACT" + '\n')
                     f.close()
+                if not os.path.isfile(dir_path + "/ACI_ROLLBACK" + "/ACI_" + shorttenant + "-" + shortvrf + "/" + fname_rb):
+                    f = open(dir_path + "/ACI_ROLLBACK" + "/ACI_" + shorttenant + "-" + shortvrf + "/" + fname_rb, "a")
+                    f.write("TENANT,AP,EPG,NEW_EPG_CONTRACT" + '\n')
+                    f.close()
                 f = open(dir_path + "/ACI_" + shorttenant + "-" + shortvrf + "/" + fname, "a")
+                facirb = open(dir_path + "/ACI_ROLLBACK" + "/ACI_" + shorttenant + "-" + shortvrf + "/" + fname_rb, "a")
                 for c in write_back_contract[tenant][ap][epg]:
                     f.write(tenant + ',' + ap + ',' + epg + ',' + c + '\n')
+                    facirb.write(tenant + ',' + ap + ',' + epg + ',' + c + '\n')
                 f.close()
+                facirb.close()
 
     f = open('write_to_aci_cfg.json', 'w')
     f.write(json.dumps(write_to_aci_cfg))
