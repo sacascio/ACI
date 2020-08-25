@@ -253,7 +253,10 @@ def write_new_n7k_configs(vrfmember, p2psubnets, dc, district, n7k_data):
 
                     # Write Rollback part for inner
                     if bool(re.search('inner', n7kname, re.IGNORECASE)):
-                        bgp_rb_inner[n7kname]['subint'].append("no interface Ethernet" + inner_int + "." + encap)
+		        # Updated 8-24-2020: Shut down inner/outer sub ints, do not remove it
+                        #bgp_rb_inner[n7kname]['subint'].append("no interface Ethernet" + inner_int + "." + encap)
+                        bgp_rb_inner[n7kname]['subint'].append("interface Ethernet" + inner_int + "." + encap)
+                        bgp_rb_inner[n7kname]['subint'].append(" shutdown")
 
                     # Custom IP addressing for SDE because we already started this way
                     if k == 2 and district.upper() == 'SDE':
@@ -280,9 +283,10 @@ def write_new_n7k_configs(vrfmember, p2psubnets, dc, district, n7k_data):
                     inner_bgp_config[n7kname][vrfmember].append("    send-community both")
 
                     # Write rollback part for inner BGP config and write it later
-                    if bool(re.search('inner', n7kname, re.IGNORECASE)):
-                        bgp_rb_inner[n7kname]['neighbors'].append(
-                            "   no neighbor " + ipouter + " remote-as " + outer_bgp_as)
+		    # Updated 8-24-2020: No longer remove BGP neighbors for P2P link, just shut down inner/outer sub ints
+                    #if bool(re.search('inner', n7kname, re.IGNORECASE)):
+                    #    bgp_rb_inner[n7kname]['neighbors'].append(
+                    #        "   no neighbor " + ipouter + " remote-as " + outer_bgp_as)
 
                     outer_bgp_config[outer_7k][vrfmember].append("  neighbor " + ipinner + " remote-as " + inner_bgp_as)
                     outer_bgp_config[outer_7k][vrfmember].append("   description TO_" + n7kname)
@@ -292,9 +296,10 @@ def write_new_n7k_configs(vrfmember, p2psubnets, dc, district, n7k_data):
                     outer_bgp_config[outer_7k][vrfmember].append("    default-originate")
 
                     # Write rollback part for outer BGP config and write it later
-                    if bool(re.search('outer', outer_7k, re.IGNORECASE)):
-                        bgp_rb_outer[outer_7k]['neighbors'].append(
-                            "   no neighbor " + ipinner + " remote-as " + inner_bgp_as)
+		    # Updated 8-24-2020: No longer remove BGP neighbors for P2P link, just shut down inner/outer sub ints
+                    #if bool(re.search('outer', outer_7k, re.IGNORECASE)):
+                    #    bgp_rb_outer[outer_7k]['neighbors'].append(
+                    #        "   no neighbor " + ipinner + " remote-as " + inner_bgp_as)
 
                     f.write(" ip address " + ipinner + "/" + mask + '\n')
                     f.write('\n')
@@ -342,7 +347,10 @@ def write_new_n7k_configs(vrfmember, p2psubnets, dc, district, n7k_data):
 
                     # Rollback new sub interfaces on outer
                     if bool(re.search('outer', outer_7k, re.IGNORECASE)):
-                        bgp_rb_outer[outer_7k]['subint'].append("no interface Ethernet" + outer_int + "." + encap)
+		        # Updated 8-24-2020: Shut down inner/outer sub ints, do not remove it
+                        #bgp_rb_outer[outer_7k]['subint'].append("no interface Ethernet" + outer_int + "." + encap)
+                        bgp_rb_outer[outer_7k]['subint'].append("interface Ethernet" + outer_int + "." + encap)
+                        bgp_rb_outer[outer_7k]['subint'].append(" shutdown")
 
         # Shutdown existing SVI on inner
         # fsvi = open(cutover_dir + "/" +  n7kname, "a")
@@ -433,7 +441,7 @@ def write_new_n7k_configs(vrfmember, p2psubnets, dc, district, n7k_data):
         f.write("!! N7K VDC - VRF " + vrfmember + '\n')
         f.write("!!" + '\n')
         f.write("configure terminal" + '\n')
-        f.write("! Remove new sub interfaces to Outer VDCs" + '\n')
+        f.write("! Shutdown new sub interfaces to Outer VDCs" + '\n')
         f.write(('\n'.join(bgp_rb_inner[n7ks]['subint'])))
         f.write('\n')
         f.write('\n')
@@ -461,7 +469,7 @@ def write_new_n7k_configs(vrfmember, p2psubnets, dc, district, n7k_data):
         f.write("!! N7K Outer VDC - VRF " + vrfmember + '\n')
         f.write("!!" + '\n')
         f.write("configure terminal" + '\n')
-        f.write("! Remove new sub interfaces to Inner VDCs" + '\n')
+        f.write("! Shutdown new sub interfaces to Inner VDCs" + '\n')
         f.write(('\n'.join(bgp_rb_outer[n7ks]['subint'])))
         f.write('\n')
         f.write('\n')
