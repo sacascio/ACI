@@ -1472,7 +1472,7 @@ def get_data(filename, epgs, dc, district, p2psubnets):
     except NameError:
         print "ERROR: File DCT_" + district.upper() + "_PBR_Firewalls_Cabling&P2P_Info.xlsx not Found"
         sys.exit(9)
-
+    
     wb2 = openpyxl.load_workbook(cabling_file, data_only=True)
 
     for sheet in wb2:
@@ -1504,6 +1504,12 @@ def get_data(filename, epgs, dc, district, p2psubnets):
         if vrfmember is not None:
             cell = 'B' + str(x)
             vlan = ws2[cell].value
+
+	    # Work around for UAC-ENT-VM Security zone
+            if vlan is None:
+	       vlan = unicode("ae1.3327")
+ 	  
+	    
             z = vlan.split('.')
             vlan = z[1]
 
@@ -2370,9 +2376,9 @@ def main(argv):
                     for c in contents:
                         if c == '\n' and foundintvl == 0:
                             f.write(c)
-                            f.write("!Shutdown Outer SVI for VRF " + sorted_d[-1][0] + '\n')
-                            f.write("interface Vlan" + svi + '\n')
-                            f.write(" shutdown" + '\n')
+                            #f.write("!Shutdown Outer SVI for VRF " + sorted_d[-1][0] + '\n')
+                            #f.write("interface Vlan" + svi + '\n')
+                            #f.write(" shutdown" + '\n')
                             f.write(c)
                             foundintvl = 1
                         else:
@@ -2902,9 +2908,15 @@ def main(argv):
     if os.path.isfile("./f5_typeA_l3out.py"):
         shutil.copyfile("./f5_typeA_l3out.py", "./output/f5_typeA_l3out.py")
         os.chmod("./output/f5_typeA_l3out.py", 0755)
-
     else:
         print "Make sure to copy f5_typeA_l3out.py to the output folder"
+    
+    if os.path.isfile("./f5_typeA_l3out_rollback.py"):
+        shutil.copyfile("./f5_typeA_l3out_rollback.py", "./output/f5_typeA_l3out_rollback.py")
+        os.chmod("./output/f5_typeA_l3out_rollback.py", 0755)
+    else:
+        print "Make sure to copy f5_typeA_l3out_rollback.py to the output folder"
+
 
     print "\n\nDo not include the N7K_NEXT_CLEANUP as part of this change window.  It is to be used for the NEXT change window.  Running the commands in this folder will undo everything you have done!!"
     print "\n\nDuring migration, run the script f5_typeA_l3out.py to add the static routes to the external EPG. For Type-B VRF's, use the postman scripts"
