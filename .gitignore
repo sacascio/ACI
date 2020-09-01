@@ -805,6 +805,8 @@ SG_PBR/output/N7K_ROLLBACK/UAC-ENT-DC2-SOE/dc2dcinxc4soeinner
 SG_PBR/output/N7K_ROLLBACK/UAC-ENT-DC2-SOE/dc2dcinxc4soeinner_inner_show_commands
 SG_PBR/output/PRE_MIGRATION_PLANNING.txt
 SG_PBR/output/
+SG_PBR/aug_23_dmz/
+SG_PBR/.idea/
 SG_PBR/test_dc1_uac_ent/
 SG_PBR/output/push_to_n7k.py
 SG_PBR/vrflist_soe_uac_ent_dc1
