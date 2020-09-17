@@ -33,6 +33,107 @@ def getextepg(l3out,ip,cookie,tenant):
 				extepg = ext['l3extInstP']['attributes']['name']
 				return extepg
 
+def getextepgcontracts(l3out,ip,cookie,tenant,extepg):
+	extepgcontracts  = {}
+	extepgcontracts['fvRsProv'] = []
+	extepgcontracts['fvRsCons'] = []
+
+	for p in ('fvRsProv','fvRsCons'):
+		url = "https://" + ip + "/api/node/mo/uni/tn-" + tenant + "/out-" + l3out  + "/instP-" + extepg + ".json?query-target=children&target-subtree-class=" + p
+		response = requests.get("%s" % (url), cookies=cookie, verify=False,  timeout=10)
+		data = response.json()
+
+		if response.status_code == 200:
+			if data['totalCount'] == '0':
+				print ("WARNING: External EPG %s has no %s contracts"  % (extepg,p))
+			else:
+				for d in data['imdata']:
+					extepgcontracts[p].append(d[p]['attributes']['tnVzBrCPName'])
+		else:
+			print ("ERROR: Could not get contracts for L3out %s"  % (l3out))
+
+	return extepgcontracts
+
+def removeextepgcontracts(l3out,ip,cookie,tenant,extepg,extepgcontracts):
+	ttype_map = {}
+	ttype_map['fvRsProv'] = 'rsprov'
+	ttype_map['fvRsCons'] = 'rscons'
+
+	for t in extepgcontracts:
+		for c in extepgcontracts[t]:
+			url = "https://" + ip + "/api/node/mo/uni/tn-" + tenant + "/out-" + l3out  + "/instP-" + extepg + ".json"
+
+			payload = {
+				  "l3extInstP": {
+    					"attributes": {
+      					"dn": "uni/tn-" + tenant + "/out-" + l3out  + "/instP-" + extepg,
+					"status": "modified"
+					},
+    					"children": [
+      					{
+						t : {
+          						"attributes": {
+							"dn": "uni/tn-" + tenant + "/out-" + l3out  + "/instP-" + extepg + "/" + ttype_map[t] + "-" + c,
+							"status": "deleted"
+							},
+          						"children": []
+        					}
+      					}
+    					]
+  				}
+			}
+	
+			response = requests.post("%s" % (url), cookies=cookie, json=payload,verify=False,  timeout=10)
+
+			if response.status_code == 200:
+                		print ("OK: %s Contract %s removed from External EPG %s" % (t,c,extepg))
+			else:
+				print (response.json())
+			
+def addextepgcontracts(l3out,ip,cookie,tenant,extepg,sgcontract):
+	url = "https://" + ip + "/api/node/mo/uni/tn-" + tenant + "/out-" + l3out  + "/instP-" + extepg + ".json"
+
+	payload = {
+			'fvRsProv' : {
+          				"attributes": {
+					"status": "created,modified",
+					"tnVzBrCPName" : sgcontract
+					},
+          				"children": []
+        		}
+      		}
+	
+	response = requests.post("%s" % (url), cookies=cookie, json=payload,verify=False,  timeout=10)
+
+	if response.status_code == 200:
+       		print ("OK: Provide Contract %s added to External EPG %s" % (sgcontract,extepg))
+	else:
+		print (response.json())
+
+def add_extepg_to_pg(tenant,l3out,extepg,ip,cookie):
+	
+	url = "https://" + ip + "/api/node/mo/uni/tn-" + tenant + "/out-" + l3out + "/instP-" + extepg + ".json"
+
+	json = { 
+		"l3extInstP":
+		{
+			"attributes":
+			{
+				"dn":"uni/tn-" + tenant + "/out-" + l3out + "/instP-" + extepg,
+				"prefGrMemb":"include"
+			},
+			"children" : 
+				[]
+		}
+		}	
+	
+	response = requests.post("%s" % (url), cookies=cookie, json=json,verify=False,  timeout=10)
+
+	if response.status_code == 200:
+                print ("OK: External EPG %s added to the Preferred Group " % (extepg))
+	else:
+		print (response.json())
+
 
 def remove_quad_zero(subnet,ip,cookie,tenant,extepg,l3out):
 	
@@ -122,7 +223,7 @@ def main(argv):
 
 
 	try:
-		opts,args = getopt.getopt(argv,"l:c:ht:",["l3out=","creds=","help","tenant"])
+		opts,args = getopt.getopt(argv,"l:c:ht:a:",["l3out=","creds=","help","tenant","contract"])
 	except getopt.GetoptError as err:
 		print (str(err))
 		sys.exit(2)
@@ -134,6 +235,8 @@ def main(argv):
 				l3out = arg
 			if opt in ("-t","--tenant"):
 				tenant = arg
+			if opt in ("-a","--contract"):
+				sgcontract = arg
 			if opt in ("-c","--creds"):
 				creds = arg
 				if not os.path.isfile(creds):
@@ -175,6 +278,11 @@ def main(argv):
 		l3out
 	except NameError:
 		print ("L3Out name not specified (-l|--l3out)")
+		sys.exit(9)
+	try:
+		sgcontract
+	except NameError:
+		print ("SG contract not specified (-a|--contract)")
 		sys.exit(9)
 	try:
 		tenant
@@ -241,6 +349,11 @@ def main(argv):
 				add_subnet(s,f_ip,cookie,tenant,extepg,l3out)
 
 		remove_quad_zero(s,f_ip,cookie,tenant,extepg,l3out)
+		add_extepg_to_pg(tenant,l3out,extepg,f_ip,cookie)
+
+		extepgcontracts = getextepgcontracts(l3out,f_ip,cookie,tenant,extepg)
+		removeextepgcontracts(l3out,f_ip,cookie,tenant,extepg,extepgcontracts)
+		addextepgcontracts(l3out,f_ip,cookie,tenant,extepg,sgcontract)
 
 	else:
 		print ("Failed to get Node Profile for L3Out: %s" % l3out)
