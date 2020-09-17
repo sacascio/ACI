@@ -54,13 +54,17 @@ def getextepgcontracts(l3out,ip,cookie,tenant,extepg):
 
 	return extepgcontracts
 
-def removeextepgcontracts(l3out,ip,cookie,tenant,extepg,extepgcontracts):
+def removeextepgcontracts(l3out,ip,cookie,tenant,extepg,extepgcontracts,sgcontract):
 	ttype_map = {}
 	ttype_map['fvRsProv'] = 'rsprov'
 	ttype_map['fvRsCons'] = 'rscons'
 
 	for t in extepgcontracts:
 		for c in extepgcontracts[t]:
+			if c == sgcontract:
+				#print ("OK: Skipping %s" % (sgcontract))
+				continue
+
 			url = "https://" + ip + "/api/node/mo/uni/tn-" + tenant + "/out-" + l3out  + "/instP-" + extepg + ".json"
 
 			payload = {
@@ -352,8 +356,8 @@ def main(argv):
 		add_extepg_to_pg(tenant,l3out,extepg,f_ip,cookie)
 
 		extepgcontracts = getextepgcontracts(l3out,f_ip,cookie,tenant,extepg)
-		removeextepgcontracts(l3out,f_ip,cookie,tenant,extepg,extepgcontracts)
 		addextepgcontracts(l3out,f_ip,cookie,tenant,extepg,sgcontract)
+		removeextepgcontracts(l3out,f_ip,cookie,tenant,extepg,extepgcontracts,sgcontract)
 
 	else:
 		print ("Failed to get Node Profile for L3Out: %s" % l3out)
