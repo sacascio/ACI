@@ -19,6 +19,113 @@ from ciscoconfparse import CiscoConfParse
 
 warnings.filterwarnings("ignore")
 
+def add_other_l3outs_to_vrfl3out(total_l3_contracts,l3out):
+	pass
+
+def check_epgs_for_contracts(write_to_aci_cfg,c):
+
+	for t_epg in write_to_aci_cfg:
+        	for v_epg in write_to_aci_cfg[t_epg]:
+                	for e_epg in write_to_aci_cfg[t_epg][v_epg]:
+                        	for e_data in write_to_aci_cfg[t_epg][v_epg][e_epg]:
+                                	if c in e_data['curr_c_contracts'] or c in e_data['curr_p_contracts']:
+                                        	return True
+
+	return False
+
+def check_other_l3_outs(total_l3_contracts,c,l3outs,externalepg):
+	retval = 'no'
+	for tenant in total_l3_contracts:
+		for vrf in total_l3_contracts[tenant]:
+			for l3out in total_l3_contracts[tenant][vrf]:
+				for extepg in total_l3_contracts[tenant][vrf][l3out]:
+					if c in total_l3_contracts[tenant][vrf][l3out][extepg]['provider']:
+						if l3outs != l3out and extepg != externalepg:
+							#print "Contract %s exists on external EPG %s as provider" % (c,extepg)
+							retval = 'yes'
+					if c in total_l3_contracts[tenant][vrf][l3out][extepg]['consumer']:
+						if l3outs != l3out and extepg != externalepg:
+							#print "Contract %s exists on external EPG %s as consumer" % (c,extepg)
+							retval = 'yes'
+	return retval
+
+def write_contract_removal(tenant,vrf,c):
+	pass
+
+def get_total_l3_contracts(dafe_file):
+	worksheets = []
+	d_l3out = {}
+
+	wb = openpyxl.load_workbook(dafe_file, data_only=True)
+
+    	for sheet in wb:
+        	worksheets.append(sheet.title)
+    	wb.close()
+
+    	wb.active = worksheets.index('l3out')
+    	ws = wb.active
+    	row_start = ws.min_row
+    	row_end = ws.max_row
+
+    	for x in range(row_start + 1, row_end + 1):
+        	cell = 'B' + str(x)
+        	tenant = ws[cell].value
+        	
+		cell = 'C' + str(x)
+        	vrf = ws[cell].value
+
+		cell = 'A' + str(x)
+        	l3out = ws[cell].value
+
+		if tenant not in d_l3out:
+			d_l3out[tenant] = {}
+		if vrf not in d_l3out[tenant]:
+			d_l3out[tenant][vrf] = {}
+		if l3out not in d_l3out[tenant][vrf]:
+			d_l3out[tenant][vrf][l3out] = {}
+
+	wb.active = worksheets.index('external_epg')
+    	ws = wb.active
+    	row_start = ws.min_row
+    	row_end = ws.max_row
+	
+	for x in range(row_start + 1, row_end + 1):
+		cell = 'A' + str(x)
+        	tenant = ws[cell].value
+		
+		cell = 'B' + str(x)
+        	l3out = ws[cell].value
+
+		cell = 'D' + str(x)
+        	extepg = ws[cell].value
+		
+		cell = 'G' + str(x)
+        	c_contracts = ws[cell].value
+
+		cell = 'I' + str(x)
+        	p_contracts = ws[cell].value
+
+		for t in d_l3out:
+			for v in d_l3out[t]:
+				for l in d_l3out[t][v]:
+					if l == l3out:
+						d_l3out[t][v][l][extepg] = {}
+						d_l3out[t][v][l][extepg]['provider'] = []
+						d_l3out[t][v][l][extepg]['consumer'] = []
+
+						if c_contracts is not None:
+							x = c_contracts.split(",")
+							for i in x:
+								d_l3out[t][v][l][extepg]['consumer'].append(i)	
+
+						if p_contracts is not None:
+							x = p_contracts.split(",")
+							for i in x:
+								d_l3out[t][v][l][extepg]['provider'].append(i)	
+
+
+	return d_l3out
+
 def write_new_n7k_configs(vrfmember, p2psubnets, dc, district, n7k_data):
     district = district.lower()
     dc = dc.lower()
@@ -942,9 +1049,9 @@ def fix_type_x(write_to_aci_cfg, dc, district):
     # One off - theres one EPG in CTL-PA0-DC1 and can't determine if its type A or B - will assume 'A'
     #if dc.upper() == 'DC1' and district.upper() == 'SOE' and 'Control' in write_to_aci_cfg:
     #    write_to_aci_cfg['Control']['PA0']['CTL-PA0-DC1-SOE-TEST'][0]['t_type'] = 'A'
-    # write_to_aci_cfg['Control']['PA0'] = {}
-    # write_to_aci_cfg['Control']['PA0']['CTL-PA0-DC1-SOE-TEST'] = []
-    # write_to_aci_cfg['Control']['PA0']['CTL-PA0-DC1-SOE-TEST'].append({'t_type' : 'A' })
+    #  	 write_to_aci_cfg['Control']['PA0'] = {}
+    # 	 write_to_aci_cfg['Control']['PA0']['CTL-PA0-DC1-SOE-TEST'] = []
+    # 	 write_to_aci_cfg['Control']['PA0']['CTL-PA0-DC1-SOE-TEST'].append({'t_type' : 'A' })
 
     for tenant in write_to_aci_cfg:
         for vrf in write_to_aci_cfg[tenant]:
@@ -1177,7 +1284,7 @@ def get_epg_from_vrf(dafe_file, vrfs):
                 found = 1
 
         if found == 0:
-            print "ERROR: Could not find any EPGs for BD: %s" % (b)
+            print "ERROR: Could not find any EPGs for BD: %s. build L3out configs manually for now" % (b)
             # sys.exit(9)
         else:
             found = 0
@@ -1392,6 +1499,7 @@ def get_epg_type(epg, district):
 def get_data(filename, epgs, dc, district, p2psubnets):
     p2psubnetvals = {}
     write_back_contract = {}
+    all_l3_contracts = {}
 
     for p in p2psubnets:
         p = p.rstrip()
@@ -1661,6 +1769,8 @@ def get_data(filename, epgs, dc, district, p2psubnets):
                 tenant = ws['C' + str(x)].value
                 vrf = ws['D' + str(x)].value
                 l3routing = ws['K' + str(x)].value
+                l2_unknown_unicast = ws['F' + str(x)].value
+                arp_flood = ws['J' + str(x)].value
                 continue
 
         try:
@@ -1679,6 +1789,18 @@ def get_data(filename, epgs, dc, district, p2psubnets):
             l3routing
         except NameError:
             print "ERROR: l3routing Not found for EPG %s.  Check dafe file" % epg
+            sys.exit(9)
+        
+	try:
+            l2_unknown_unicast
+        except NameError:
+            print "ERROR: l2_unknown_unicast Not found for EPG %s.  Check dafe file" % epg
+            sys.exit(9)
+	
+	try:
+            arp_flood
+        except NameError:
+            print "ERROR: arp_flood Not found for EPG %s.  Check dafe file" % epg
             sys.exit(9)
 
         # Get BD Subnet
@@ -1843,6 +1965,16 @@ def get_data(filename, epgs, dc, district, p2psubnets):
                 cell = 'I' + str(x)
                 pcontracts = str(ws[cell].value)
                 l3out_p_contracts = pcontracts.split(",")
+		if tenant not in all_l3_contracts:
+			all_l3_contracts[tenant] = {}
+		if vrf not in all_l3_contracts[tenant]:
+			all_l3_contracts[tenant][vrf] = {}
+		if l3out not in all_l3_contracts[tenant][vrf]:
+			all_l3_contracts[tenant][vrf][l3out] = {}
+		if externalepg not in all_l3_contracts[tenant][vrf][l3out]:
+			all_l3_contracts[tenant][vrf][l3out][externalepg] = {}
+			all_l3_contracts[tenant][vrf][l3out][externalepg]['provider'] = l3out_p_contracts
+			all_l3_contracts[tenant][vrf][l3out][externalepg]['consumer'] = l3out_c_contracts
                 continue
 
         # Got all the contract info for the EPG, now identify the ones to remove or are an issue:
@@ -1988,6 +2120,8 @@ def get_data(filename, epgs, dc, district, p2psubnets):
             'bd': bd,
             'l3': l3routing,
             'vrfmember': vrfmember,
+            'l2_unknown_unicast': l2_unknown_unicast,
+            'arp_flood': arp_flood,
             'l3out': l3out,
             'extepg': externalepg,
             't_type': t_type,
@@ -2036,6 +2170,8 @@ def get_data(filename, epgs, dc, district, p2psubnets):
         """
         del tenant
         del epg
+        del l2_unknown_unicast
+        del arp_flood
         del bd
         del vrf
         del l3routing
@@ -2060,12 +2196,11 @@ def get_data(filename, epgs, dc, district, p2psubnets):
         del leafb_int
         del bd_subnet
 
-    return (write_to_aci_cfg, write_back_contract)
+    return (write_to_aci_cfg, write_back_contract,all_l3_contracts)
 
 
 def main(argv):
     dir_path = './output'
-
     if os.path.isdir(dir_path):
         shutil.rmtree(dir_path)
 
@@ -2179,7 +2314,7 @@ def main(argv):
     p2psubnets = []
 
     (aepname, linkpolname, cdppolname, lldpolname, stpolname, lacpolname, mcpolname) = get_pc_params(dafe_file)
-    (write_to_aci_cfg, write_back_contract) = get_data(dafe_file, epgs, dc, district, vrfs)
+    (write_to_aci_cfg, write_back_contract,all_l3_contracts) = get_data(dafe_file, epgs, dc, district, vrfs)
 
     # Print out pre-migration planning info
     migration_planning_file = './output/PRE_MIGRATION_PLANNING.txt'
@@ -2195,8 +2330,9 @@ def main(argv):
                     isl3 = e['l3']
                     fw = e['fwaname']
                     vrftype = e['t_type']
-
-                    if isl3 == 'yes':
+		    arp_flood = e['arp_flood']
+		    l2_unknown_unicast = e['l2_unknown_unicast']
+                    if isl3 == 'yes' or ( l2_unknown_unicast == 'proxy' and arp_flood == 'no' ) or bool(re.search('DCX', epg, re.IGNORECASE)):
                         f.write(epg + ',' + bdip + ',' + fw + ',' + vrftype + ',' + vrf + ',' + tenant + ',' + '\n')
                         ecount = ecount + 1
                     else:
@@ -2670,7 +2806,9 @@ def main(argv):
                     print "OK: Excluding EPG " + epg + " from new contract association"
                     continue
                 for d in write_to_aci_cfg[tenant][vrf][epg]:
-                    if d['l3'] == 'yes':
+                    if d['l3'] == 'yes' or ( d['l2_unknown_unicast'] == 'proxy' and d['arp_flood'] == 'no' ) or bool(re.search('DCX', epg, re.IGNORECASE)):
+			if d['l3'] == 'no' and d['l2_unknown_unicast'] == 'proxy' and d['arp_flood'] == 'no':
+				print "WARNING: EPG %s has unicast routing disabled, but ARP flooding set to %s and L2 Unknown unicast set to %s" % (epg,d['arp_flood'],d['l2_unknown_unicast'])
                         s = epg.split("-")
                         tenantdir = s[0]
                         t_type = d['t_type']
@@ -2682,8 +2820,7 @@ def main(argv):
                                 f.write("TENANT,AP,EPG,NEW_EPG_CONTRACT" + '\n')
                                 f.close()
                             f = open(dir_path + "/ACI_" + tenantdir + "-" + vrf + "/" + fname, "a")
-                            f.write(
-                                tenant + "," + ap + "," + epg + "," + tenantdir + "-" + vrf + "-" + "SG-PBR-Permit_Any" + '\n')
+                            f.write(tenant + "," + ap + "," + epg + "," + tenantdir + "-" + vrf + "-" + "SG-PBR-Permit_Any" + '\n')
                             f.close()
 
                             fverify = open(dir_path + "/ACI_CONTRACT_VERIFICATION/" + tenantdir + "-" + vrf, "a")
@@ -2691,17 +2828,26 @@ def main(argv):
                             fverify.close()
 
                         if t_type == 'B':
-                            fname = vrf + " 2 Type " + d[
-                                't_type'] + " - Assign new contract as provider and delete old contracts.csv"
+                            fname = vrf + " 2 Type " + d['t_type'] + " - Assign new contract as provider and delete old contracts.csv"
                             if not os.path.isfile(dir_path + "/ACI_" + tenantdir + "-" + vrf + "/" + fname):
                                 f = open(dir_path + "/ACI_" + tenantdir + "-" + vrf + "/" + fname, "a")
                                 f.write("TENANT,AP,EPG,NEW_EPG_CONTRACT,OLD_EPG_CONTRACT" + '\n')
                                 f.close()
                             f = open(dir_path + "/ACI_" + tenantdir + "-" + vrf + "/" + fname, "a")
                             for c in d['contract']:
-                                f.write(
-                                    tenant + "," + ap + "," + epg + "," + tenantdir + "-" + vrf + "-" + "SG-PBR-Permit_Any" + "," + c + '\n')
+                                f.write(tenant + "," + ap + "," + epg + "," + tenantdir + "-" + vrf + "-" + "SG-PBR-Permit_Any" + "," + c + '\n')
                             f.close()
+
+			    if len(d['contract']) == 0:
+				print "WARNING: No contracts found on TYPE-B EPG %s.  Adding new contracts only as provider" % epg
+                                fname = vrf + " 2 Type " + d['t_type'] + " - Assign new contract as provider only.csv"
+                                if not os.path.isfile(dir_path + "/ACI_" + tenantdir + "-" + vrf + "/" + fname):
+                                	f = open(dir_path + "/ACI_" + tenantdir + "-" + vrf + "/" + fname, "a")
+                                	f.write("TENANT,AP,EPG,NEW_EPG_CONTRACT" + '\n')
+                                	f.close()
+				f = open(dir_path + "/ACI_" + tenantdir + "-" + vrf + "/" + fname, "a")
+                                f.write(tenant + "," + ap + "," + epg + "," + tenantdir + "-" + vrf + "-" + "SG-PBR-Permit_Any" + '\n')
+				f.close()
 
                             fverify = open(dir_path + "/ACI_CONTRACT_VERIFICATION/" + tenantdir + "-" + vrf, "a")
                             fverify.write("EPG," + tenant + "," + ap + "," + epg + '\n')
@@ -2716,15 +2862,14 @@ def main(argv):
                     print "OK: Excluding EPG " + epg + " from old contract removal"
                     continue
                 for d in write_to_aci_cfg[tenant][vrf][epg]:
-                    if d['l3'] == 'yes':
+                    if d['l3'] == 'yes' or ( d['l2_unknown_unicast'] == 'proxy' and d['arp_flood'] == 'no' ) or bool(re.search('DCX', epg, re.IGNORECASE)):
                         d_l3out = d['l3out']
                         d_extepg = d['extepg']
                         ap = d['ap']
                         s = epg.split("-")
                         t_type = d['t_type']
                         tenantdir = s[0]
-                        fname = vrf + " 3 Type " + d[
-                            't_type'] + " - Remove contract from L3Out and EPG as provider_consumer.csv"
+                        fname = vrf + " 3 Type " + d['t_type'] + " - Remove contract from L3Out and EPG as provider_consumer.csv"
                         if not os.path.isfile(dir_path + "/ACI_" + tenantdir + "-" + vrf + "/" + fname):
                             f = open(dir_path + "/ACI_" + tenantdir + "-" + vrf + "/" + fname, "a")
                             f.write("TENANT,AP,EPG,OLD_EPG_CONTRACT,L3OUT,NETWORK,OLD_L3_CONTRACT" + '\n')
@@ -2791,9 +2936,60 @@ def main(argv):
                     f.write(tenant + ',' + ap + ',' + epg + ',' + c + '\n')
                 f.close()
 
+    
     f = open('write_to_aci_cfg.json', 'w')
     f.write(json.dumps(write_to_aci_cfg))
     f.close()
+
+    # Add VGI/F5 L3outs here
+    # Make sure to append F5/VGI L3out to l3out dictionary as that is the dictionary that will hold the contracts to be removed
+
+
+    total_l3_contracts = get_total_l3_contracts(dafe_file)
+    
+    # Remove contracts on L3Out that are not in use. Check if contract is in use on the EPGs as well
+    # Take into account L3outs that are have no EPGs
+    # l3out dictionary has list of contracts to be removed
+  
+    # result should be added to dictionary l3out.  l3out -> extepg -> contract (as dictionary) which should list all the contracts to be removed
+    add_other_l3outs_to_vrfl3out(total_l3_contracts,l3out)
+    
+    contracts_to_remove = []
+    c_checked_in_l3out = []
+ 
+    
+    for tenant in all_l3_contracts:
+	for vrf in all_l3_contracts[tenant]:
+		for l3outs in all_l3_contracts[tenant][vrf]:
+			for extepg in all_l3_contracts[tenant][vrf][l3outs]:
+				for ctype in ('provider','consumer'):
+					for c in all_l3_contracts[tenant][vrf][l3outs][extepg][ctype]:
+					# Check if contract is slated to be removed
+						if c in l3out[l3outs][extepg]:
+							#print "FOUND %s CONTRACT %s in L3out %s, EXT EPG: %s, SLATED TO BE REMOVED ALREADY" % (ctype,c,l3outs,extepg)
+							continue
+						else:
+							#print "COULD NOT FIND %s CONTRACT %s in L3out %s, EXT EPG: %s, checking other ext epgs" % (ctype,c,l3outs,extepg) 
+							# Check all other l3outs as provider and consumer
+							if c not in c_checked_in_l3out:
+								c_checked_in_l3out.append(c)
+								found = check_other_l3_outs(total_l3_contracts,c,l3outs,extepg)
+								if found == 'yes':
+									continue
+								else:
+									#print "COULD NOT FIND %s CONTRACT %s in all L3outs, checking EPGs" % (ctype,c)
+									if c not in contracts_to_remove:
+										c_in_use = check_epgs_for_contracts(write_to_aci_cfg,c)
+										if c_in_use is False:
+											write_contract_removal(tenant,vrf,c)
+											contracts_to_remove.append(c)
+											print "OK: COULD NOT FIND CONTRACT %s in any L3out or EPG as provider or consumer, ADDING TO L3OUT CLEANUP" % (c)
+		
+									 
+							
+    
+    #print json.dumps(l3out)
+    #print json.dumps(all_l3_contracts)
 
     print "\n\n\n"
     print "!" * 50
