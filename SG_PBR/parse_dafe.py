@@ -19,14 +19,142 @@ from ciscoconfparse import CiscoConfParse
 
 warnings.filterwarnings("ignore")
 
+def append_l3out_no_bd(vrf_no_epg,all_l3_contracts,dafe_file):
+	worksheets = []
+	l3out_to_add = []
+
+	wb = openpyxl.load_workbook(dafe_file, data_only=True)
+
+    	for sheet in wb:
+        	worksheets.append(sheet.title)
+    	wb.close()
+
+    	wb.active = worksheets.index('l3out')
+    	ws = wb.active
+
+	for v in vrf_no_epg:
+    		row_start = ws.min_row
+    		row_end = ws.max_row
+    		for x in range(row_start + 1, row_end + 1):
+			cell = 'C' + str(x)
+                	vrf_cell = ws[cell].value
+			if vrf_cell == v:
+				cell = 'A' + str(x)
+                		l3out_cell = ws[cell].value
+				l3out_to_add.append([l3out_cell,v])
+
+	wb.active = worksheets.index('external_epg')
+        ws = wb.active
+
+	for l3s in l3out_to_add:
+		row_start = ws.min_row
+                row_end = ws.max_row
+
+		for x in range(row_start + 1, row_end + 1):
+                        cell = 'B' + str(x)
+                        l3out_cell = ws[cell].value
+			l3s_found = l3s[0]	
+			vrf_found = l3s[1]
+	
+			if l3out_cell == l3s_found:
+                        	cell = 'A' + str(x)
+                        	tenant_cell = ws[cell].value
+
+                        	cell = 'D' + str(x)
+                        	extepg_cell = ws[cell].value
+                        	
+				cell = 'G' + str(x)
+                        	ccontract_cell = ws[cell].value
+
+				cell = 'I' + str(x)
+                        	pcontract_cell = ws[cell].value
+
+				if tenant_cell not in all_l3_contracts:
+					all_l3_contracts[tenant_cell] = {}
+				if vrf_found not in all_l3_contracts[tenant_cell]:
+					all_l3_contracts[tenant_cell][vrf_found] = {}
+				if l3out_cell not in all_l3_contracts[tenant_cell][vrf_found]:
+					all_l3_contracts[tenant_cell][vrf_found][l3out_cell] = {}
+				if extepg_cell not in all_l3_contracts[tenant_cell][vrf_found][l3out_cell]:
+					all_l3_contracts[tenant_cell][vrf_found][l3out_cell][extepg_cell] = {}
+					all_l3_contracts[tenant_cell][vrf_found][l3out_cell][extepg_cell]['consumer'] = []
+					all_l3_contracts[tenant_cell][vrf_found][l3out_cell][extepg_cell]['provider'] = []
+
+				ccontracts = ccontract_cell.split(",")
+				for cc in ccontracts:
+					all_l3_contracts[tenant_cell][vrf_found][l3out_cell][extepg_cell]['consumer'].append(cc)
+						
+				pcontracts = pcontract_cell.split(",")
+				for pc in pcontracts:
+					all_l3_contracts[tenant_cell][vrf_found][l3out_cell][extepg_cell]['provider'].append(pc)
+					
+	return all_l3_contracts
+
+def load_aci_json(dc,district):
+
+	pattern = 'ce2_' + dc.upper() + '_' + district.upper() + '_FullBackup_to_*'
+	files = os.listdir('.')
+    	for name in files:
+        	if fnmatch.fnmatch(name, pattern):
+            		if not bool(re.search('^~', name, re.IGNORECASE)):
+                		aci_json_file = name
+                		break
+    	try:
+        	aci_json_file
+    	except NameError:
+        	print "ERROR: ACI JSON File not found"
+        	sys.exit(9)
+
+	with open(aci_json_file) as f:
+		data = json.load(f)
+
+	return data
+
+
+def get_subnet_nhip(l3out,aci_json_cfg,tenant):
+	routes = {}
+	
+	for tenant_id in aci_json_cfg['polUni']['children']:
+		for tn in tenant_id:
+			if tn == 'fvTenant' and tenant_id[tn]['attributes']['name'] == tenant:
+				for l3extid in tenant_id[tn]['children']:
+					for l3ext in l3extid:
+						if l3ext == 'l3extOut' and l3extid[l3ext]['attributes']['name'] == l3out:
+							for npid in l3extid[l3ext]['children']:
+								for l_npid in npid:
+									if l_npid == 'l3extLNodeP':
+										for l3extLNodeP_children in npid[l_npid]['children']:
+											for l3extLNodeP_children_keys in l3extLNodeP_children:
+												if l3extLNodeP_children_keys == 'l3extRsNodeL3OutAtt':
+													leafid = l3extLNodeP_children[l3extLNodeP_children_keys]['attributes']['tDn']
+													for l3extRsNodeL3OutAtt in l3extLNodeP_children[l3extLNodeP_children_keys]['children']:
+														for iproute in l3extRsNodeL3OutAtt:
+															if iproute == 'ipRouteP':
+																snet = l3extRsNodeL3OutAtt[iproute]['attributes']['ip']
+																if leafid not in routes:
+																	routes[leafid] = []
+																	routes[leafid].append(snet)
+																else:
+																	
+																	routes[leafid].append(snet)
+																routes[leafid].sort()
+	return routes
+
 def add_other_l3outs_to_vrfl3out(total_l3_contracts,l3out,vrflist,save_ttype):
 	delta_l3outs = {}
 	for tenant in total_l3_contracts:
+		if tenant == 'common':
+			continue
 		for vrf in total_l3_contracts[tenant]:
+			if vrf is None:
+				continue
 			if vrf in save_ttype:
 				vrftype = save_ttype[vrf]
+			elif bool(re.search('DNS', vrf, re.IGNORECASE)) and vrf is not None:
+				vrftype = 'B'
 			else:
 				vrftype = 'X'
+
 			for l3outs in total_l3_contracts[tenant][vrf]:
 				for extepg in total_l3_contracts[tenant][vrf][l3outs]:
 					if l3outs not in l3out and vrf in vrflist:
@@ -57,7 +185,6 @@ def add_other_l3outs_to_vrfl3out(total_l3_contracts,l3out,vrflist,save_ttype):
 							if extepg not in delta_l3outs[tenant][vrf][vrftype][l3outs]:
 								delta_l3outs[tenant][vrf][vrftype][l3outs][extepg] = {}
 							delta_l3outs[tenant][vrf][vrftype][l3outs][extepg][c] = {}
-	
 	return (l3out,delta_l3outs)
 
 def check_epgs_for_contracts(write_to_aci_cfg,c):
@@ -1290,6 +1417,7 @@ def get_epg_from_vrf(dafe_file, vrfs):
     epgs = []
     bds = []
     found = 0
+    bd_vrf_map = {}
 
     for sheet in wb:
         worksheets.append(sheet.title)
@@ -1321,6 +1449,7 @@ def get_epg_from_vrf(dafe_file, vrfs):
                 bdvalue = ws[cell].value
                 if bdvalue.endswith("-FW") is False and bdvalue.endswith("-VMFW") is False:
                     bds.append(bdvalue)
+		    bd_vrf_map[bdvalue] = vrf
                     found = 1
 
         if found == 0:
@@ -1334,6 +1463,7 @@ def get_epg_from_vrf(dafe_file, vrfs):
     ws = wb.active
     row_start = ws.min_row
     row_end = ws.max_row
+    vrf_no_epg = []
 
     for b in bds:
         for x in range(row_start, row_end + 1):
@@ -1346,11 +1476,12 @@ def get_epg_from_vrf(dafe_file, vrfs):
 
         if found == 0:
             print "ERROR: Could not find any EPGs for BD: %s. build L3out configs manually for now" % (b)
+	    vrf_no_epg.append(bd_vrf_map[b])
             # sys.exit(9)
         else:
             found = 0
 
-    return epgs
+    return (epgs,vrf_no_epg)
 
 
 def get_vrf_to_fw(zones_vl_ip_file, dc, district):
@@ -2261,6 +2392,7 @@ def get_data(filename, epgs, dc, district, p2psubnets):
 
 
 def main(argv):
+    
     dir_path = './output'
     if os.path.isdir(dir_path):
         shutil.rmtree(dir_path)
@@ -2330,7 +2462,7 @@ def main(argv):
             sys.exit(9)
 
     dafe_file = dc.upper() + "_" + district.upper() + "_DAFE.xlsx"
-
+        
     with open(infile) as f:
         epgs = f.readlines()
         numparams = epgs[0].split(",")
@@ -2346,7 +2478,7 @@ def main(argv):
     if len(numparams) == 6 and district.upper() == 'SDE':
         with open(infile) as f:
             vrfs = f.readlines()
-            epgs = get_epg_from_vrf(dafe_file, vrfs)
+            (epgs,vrf_no_epg) = get_epg_from_vrf(dafe_file, vrfs)
 
     if len(numparams) != 6 and district.upper() == 'SDE':
         print "ERROR: Check input file. There must be at least 6 parameters (tenant, vrf, P2P Subnet 1, P2P Subnet 2, etc"
@@ -2355,7 +2487,7 @@ def main(argv):
     if len(numparams) == 18 and (district.upper() == 'SOE' or district.upper() == 'GIS'):
         with open(infile) as f:
             vrfs = f.readlines()
-            epgs = get_epg_from_vrf(dafe_file, vrfs)
+            (epgs,vrf_no_epg) = get_epg_from_vrf(dafe_file, vrfs)
 
     if len(numparams) != 18 and (district.upper() == 'SOE' or district.upper() == 'GIS'):
         print "ERROR: Check input file. There must be at least 18 parameters (tenant, vrf, P2P Subnet 1, P2P Subnet 2, etc"
@@ -3008,6 +3140,8 @@ def main(argv):
     f.close()
     
     total_l3_contracts = get_total_l3_contracts(dafe_file)
+    # Get L3outs for VRFs that have no EPGs
+    (all_l3_contracts) = append_l3out_no_bd(vrf_no_epg,all_l3_contracts,dafe_file)
     
     # Remove contracts on L3Out that are not in use. Check if contract is in use on the EPGs as well
     # Take into account L3outs that are have no EPGs
@@ -3022,6 +3156,7 @@ def main(argv):
     # this function is to add any L3outs that exist within the VRF (F5/VGI), other than the standard VRF L3out
     # result should be added to dictionary l3out.  l3out -> extepg -> contract (as dictionary) which should list all the contracts to be removed
     (l3out,delta_l3outs) = add_other_l3outs_to_vrfl3out(total_l3_contracts,l3out,vrflist,save_ttype)
+    #print json.dumps(l3out)
     
     contracts_to_remove = []
     c_checked_in_l3out = []
@@ -3034,14 +3169,14 @@ def main(argv):
 					for c in all_l3_contracts[tenant][vrf][l3outs][extepg][ctype]:
 					# Check if contract is slated to be removed
 						if c in l3out[l3outs][extepg]:
-							#print "FOUND %s CONTRACT %s in L3out %s, EXT EPG: %s, SLATED TO BE REMOVED ALREADY" % (ctype,c,l3outs,extepg)
+							print "FOUND %s CONTRACT %s in L3out %s, EXT EPG: %s, SLATED TO BE REMOVED ALREADY" % (ctype,c,l3outs,extepg)
 							c_checked_in_l3out.append(c)
 							continue
 						# Check other L3 outs that are targeted in this change
 						for e in l3out:
 							for f in l3out[e]:
 								if c in l3out[e][f] and e != l3outs and f != extepg:
-									#print "OK: FOUND %s CONTRACT %s in L3out %s, EXT EPG: %s, SLATED TO BE REMOVED ALREADY" % (ctype,c,e,f)
+									print "OK: FOUND %s CONTRACT %s in L3out %s, EXT EPG: %s, SLATED TO BE REMOVED ALREADY" % (ctype,c,e,f)
 									c_checked_in_l3out.append(c)
 									continue
 								
@@ -3063,7 +3198,20 @@ def main(argv):
 											contracts_to_remove.append(c)
 											print "OK: COULD NOT FIND CONTRACT %s in any L3out or EPG as provider or consumer, ADDING TO L3OUT CLEANUP" % (c)
 										if c_in_use is True:
-											print "WARNING: CONTRACT %s found on EPG %s, will not be removed from L3Out %s" % (c,f_epg,l3outs)
+											c_info = []
+											l2orl3 = write_to_aci_cfg[tenant][vrf][f_epg][0]['l3']
+											if l2orl3 == 'no':
+												l2orl3 = 'L2'
+											else:
+												l2orl3 = 'L3'
+											if c in write_to_aci_cfg[tenant][vrf][f_epg][0]['curr_c_contracts']:
+												c_info.append('consumer')
+											if c in write_to_aci_cfg[tenant][vrf][f_epg][0]['curr_p_contracts']:
+												c_info.append('provider')
+											c_info_msg = ','.join(c_info)
+											print "WARNING: CONTRACT %s found on %s EPG %s as %s, will not be removed from L3Out %s" % (c,l2orl3,f_epg,c_info_msg,l3outs)
+											del c_info
+											del c_info_msg
 		
 									 
 							
@@ -3083,6 +3231,7 @@ def main(argv):
 							update_aci_contract_verification_file(tenant,vrf,dir_path,"L3Out",l3out,extepg)
     
     # For Type-A, print out the script to run and which subnets will be moved
+    aci_json_cfg = load_aci_json(dc,district)
     print "OK: RUN THE FOLLOWING SCRIPTS TO MIGRATE TYPE-A F5 L3OUTs"
     
     for tenant in delta_l3outs:
@@ -3095,7 +3244,13 @@ def main(argv):
 						x[0] = x[0].replace("L3Out_","")
 						shorttenant = x[0]
 						print "./f5_typeA_l3out.py -l %s -t %s -c ACI_CONTRACT_VERIFICATION/aci_creds -a %s-%s-SG-PBR-Permit_Any" % (l3out,tenant,shorttenant,vrf) 
-    
+   						subnet_nhip = get_subnet_nhip(l3out,aci_json_cfg,tenant)
+						print "LEAF ID/SUBNET LIST TO BE MOVED:"
+						for leaf in subnet_nhip:
+							snlist = ','.join(subnet_nhip[leaf])
+							leaf = leaf.replace("topology/pod-1/","")
+							print leaf + ":" + snlist
+						print "\n\n\n" 
 
 
     #print json.dumps(delta_l3outs)
@@ -3142,8 +3297,8 @@ def main(argv):
         print "Make sure to copy check_n7k_output.py to the output folder"
 
     print "\n\nDo not include the N7K_NEXT_CLEANUP as part of this change window.  It is to be used for the NEXT change window.  Running the commands in this folder will undo everything you have done!!"
-    print "\n\nDuring migration, run the script f5_typeA_l3out.py to add the static routes to the external EPG. For Type-B VRF's, use the postman scripts"
-    print "\n\nCheck to make sure the generic 'Permit_Any' contract is removed from the L3Out for Type-B VRFs if not in use"
+    #print "\n\nDuring migration, run the script f5_typeA_l3out.py to add the static routes to the external EPG. For Type-B VRF's, use the postman scripts"
+    #print "\n\nCheck to make sure the generic 'Permit_Any' contract is removed from the L3Out for Type-B VRFs if not in use"
 
     print "\n\n\n"
     print "!" * 50
