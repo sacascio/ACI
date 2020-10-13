@@ -3210,25 +3210,29 @@ def main(argv):
 									#print "COULD NOT FIND %s CONTRACT %s in all L3outs, checking EPGs" % (ctype,c)
 									if c not in contracts_to_remove:
 										(c_in_use,f_epg) = check_epgs_for_contracts(write_to_aci_cfg,c)
-										if c_in_use is False and save_ttype[vrf] == 'B':
+										if c_in_use is False and save_ttype[vrf] == 'B' :
 											write_contract_removal(tenant,vrf,c,l3outs,extepg,'B',dir_path)
 											contracts_to_remove.append(c)
 											print "OK: COULD NOT FIND CONTRACT %s in any L3out or EPG as provider or consumer, ADDING TO L3OUT CLEANUP" % (c)
-										if c_in_use is True:
+										if c_in_use is True and save_ttype[vrf] == 'B':
 											c_info = []
 											l2orl3 = write_to_aci_cfg[tenant][vrf][f_epg][0]['l3']
 											if l2orl3 == 'no':
 												l2orl3 = 'L2'
+												write_contract_removal(tenant,vrf,c,l3outs,extepg,'B',dir_path)
+												contracts_to_remove.append(c)
+												print "OK: COULD NOT FIND CONTRACT %s in any L3out or EPG as provider or consumer, ADDING TO L3OUT CLEANUP" % (c)
+												print "OK: ** CONTRACT %s is TIED TO L2 EPG %s and will be removed from the L3Out **" % (c,f_epg)
 											else:
 												l2orl3 = 'L3'
-											if c in write_to_aci_cfg[tenant][vrf][f_epg][0]['curr_c_contracts']:
-												c_info.append('consumer')
-											if c in write_to_aci_cfg[tenant][vrf][f_epg][0]['curr_p_contracts']:
-												c_info.append('provider')
-											c_info_msg = ','.join(c_info)
-											print "WARNING: CONTRACT %s found on %s EPG %s as %s, will not be removed from L3Out %s" % (c,l2orl3,f_epg,c_info_msg,l3outs)
-											del c_info
-											del c_info_msg
+												if c in write_to_aci_cfg[tenant][vrf][f_epg][0]['curr_c_contracts']:
+													c_info.append('consumer')
+												if c in write_to_aci_cfg[tenant][vrf][f_epg][0]['curr_p_contracts']:
+													c_info.append('provider')
+												c_info_msg = ','.join(c_info)
+												print "WARNING: CONTRACT %s found on %s EPG %s as %s, will not be removed from L3Out %s" % (c,l2orl3,f_epg,c_info_msg,l3outs)
+												del c_info
+												del c_info_msg
 		
 									 
 							
