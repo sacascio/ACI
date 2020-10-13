@@ -1475,7 +1475,7 @@ def get_epg_from_vrf(dafe_file, vrfs):
                 found = 1
 
         if found == 0:
-            print "ERROR: Could not find any EPGs for BD: %s. build L3out configs manually for now" % (b)
+            print "WARNING: Could not find any EPGs for BD: %s. All L3Outs for VRF %s will be targeted" % (b,bd_vrf_map[b])
 	    vrf_no_epg.append(bd_vrf_map[b])
             # sys.exit(9)
         else:
@@ -2172,6 +2172,14 @@ def get_data(filename, epgs, dc, district, p2psubnets):
         # Got all the contract info for the EPG, now identify the ones to remove or are an issue:
         # On EPG, if contract is on EPG prov/cons and in L3out as provider and consumer, list it for removal
         contracts_to_remove = []
+	# Corner case - remove DCX contracts that exist on EPG but can't find L3out associated to the DCX EPG
+	if len(l3out_c_contracts) == 0 and len(l3out_p_contracts) == 0 and bool(re.search('DCX',epg,re.IGNORECASE)) and ( len(epg_c_contracts) != 0 or len(epg_p_contracts) != 0):
+		for xcc in epg_c_contracts:
+			contracts_to_remove.append(xcc)
+		for xcc in epg_p_contracts:
+			if xcc not in contracts_to_remove:
+				contracts_to_remove.append(xcc)
+		
         for c in epg_c_contracts:
             if c in l3out_c_contracts and c in l3out_p_contracts and c in epg_p_contracts:
                 contracts_to_remove.append(c)
@@ -2809,7 +2817,9 @@ def main(argv):
                 pgname + "," + link + "," + cdppol + "," + mcp_pol + "," + lldppol + "," + stppol + "," + lacppol + "," + aeppol + '\n')
             f.close()
         else:
-            print "OK: Port channel policy group name " + pgname + " exists, not creating it"
+	    ff = open("pc_and_int_sel.log","a")
+            ff.write("OK: Port channel policy group name " + pgname + " exists, not creating it")
+	    ff.close()
 
         f = open(
             dir_path + "/ACI_PRE_WORK/3.7 - Create int selectors and associate leaf interfaces to port channel interface policy group.csv",
@@ -2823,7 +2833,9 @@ def main(argv):
             if selector_exists is False:
                 f.write(swprofname + "," + pgname + "," + selector + "," + portnum + '\n')
             else:
-                print "OK: Interface selector " + selector + " already exists in policy group " + pgname + ".  Selector will not be created"
+		ff = open("pc_and_int_sel.log","a")
+                ff.write("OK: Interface selector " + selector + " already exists in policy group " + pgname + ".  Selector will not be created")
+		ff.close()
         f.close()
 
     # 3.8 to 3.14 - Create new construct names, save it and access it later 
@@ -3079,7 +3091,16 @@ def main(argv):
                             f.write('Control,' + 'Control,' + epg + ',' + 'PTD_Permit_Any' + '\n')
                             f.close()
 
-                        for c in d['contract']:
+                        for c in d['contract']: 
+   
+                            if t_type == 'A':
+                                f = open(dir_path + "/ACI_" + tenantdir + "-" + vrf + "/" + fname, "a")
+                                f.write(tenant + "," + ap + "," + epg + "," + c + '\n')
+                                f.close()
+
+			    if d_l3out == 'N/A' and d_extepg == 'N/A':
+				continue
+
                             if d_l3out not in l3out:
                                 l3out[d_l3out] = {}
                                 if d_extepg not in l3out[d_l3out]:
@@ -3107,10 +3128,6 @@ def main(argv):
                                         f = open(dir_path + "/ACI_" + tenantdir + "-" + vrf + "/" + fname, "a")
                                         f.write(tenant + ",,,," + d_l3out + "," + d_extepg + "," + c + '\n')
                                         f.close()
-                            if t_type == 'A':
-                                f = open(dir_path + "/ACI_" + tenantdir + "-" + vrf + "/" + fname, "a")
-                                f.write(tenant + "," + ap + "," + epg + "," + c + '\n')
-                            f.close()
 
     # Remove contracts that exist on the EPG but not on the L3 Out
 
@@ -3169,14 +3186,14 @@ def main(argv):
 					for c in all_l3_contracts[tenant][vrf][l3outs][extepg][ctype]:
 					# Check if contract is slated to be removed
 						if c in l3out[l3outs][extepg]:
-							print "FOUND %s CONTRACT %s in L3out %s, EXT EPG: %s, SLATED TO BE REMOVED ALREADY" % (ctype,c,l3outs,extepg)
+							#print "FOUND %s CONTRACT %s in L3out %s, EXT EPG: %s, SLATED TO BE REMOVED ALREADY" % (ctype,c,l3outs,extepg)
 							c_checked_in_l3out.append(c)
 							continue
 						# Check other L3 outs that are targeted in this change
 						for e in l3out:
 							for f in l3out[e]:
 								if c in l3out[e][f] and e != l3outs and f != extepg:
-									print "OK: FOUND %s CONTRACT %s in L3out %s, EXT EPG: %s, SLATED TO BE REMOVED ALREADY" % (ctype,c,e,f)
+									#print "OK: FOUND %s CONTRACT %s in L3out %s, EXT EPG: %s, SLATED TO BE REMOVED ALREADY" % (ctype,c,e,f)
 									c_checked_in_l3out.append(c)
 									continue
 								
@@ -3224,20 +3241,24 @@ def main(argv):
 			if ctype == 'B':
 				for l3out in delta_l3outs[tenant][vrf][ctype]:
 					for extepg in delta_l3outs[tenant][vrf][ctype][l3out]:
+						print "OK: INCLUDING VGI/F5 L3Out %s, SG CONTRACT WILL BE ADDED AS PROVIDER" % (l3out) 
+						update_aci_contract_verification_file(tenant,vrf,dir_path,"L3Out",l3out,extepg)
+    						write_contract_addition(tenant,vrf,l3out,extepg,dir_path,ctype) 
 						for c in delta_l3outs[tenant][vrf][ctype][l3out][extepg]:
-							print "OK: INCLUDING VGI/F5 L3Out %s, SG CONTRACT WILL BE ADDED AS PROVIDER" % (l3out) 
     							write_contract_removal(tenant,vrf,c,l3out,extepg,ctype,dir_path) 
-    							write_contract_addition(tenant,vrf,l3out,extepg,dir_path,ctype) 
-							update_aci_contract_verification_file(tenant,vrf,dir_path,"L3Out",l3out,extepg)
     
     # For Type-A, print out the script to run and which subnets will be moved
+    found_A_to_remove = 0
     aci_json_cfg = load_aci_json(dc,district)
-    print "OK: RUN THE FOLLOWING SCRIPTS TO MIGRATE TYPE-A F5 L3OUTs"
     
     for tenant in delta_l3outs:
 	for vrf in delta_l3outs[tenant]:
 		for ctype in delta_l3outs[tenant][vrf]:
 			if ctype == 'A':
+				if found_A_to_remove == 0:
+    					print "OK: RUN THE FOLLOWING SCRIPTS TO MIGRATE TYPE-A F5 L3OUTs"
+					found_A_to_remove = 1
+				
 				for l3out in delta_l3outs[tenant][vrf][ctype]:
 					for extepg in delta_l3outs[tenant][vrf][ctype][l3out]:
 						x = l3out.split("-")
