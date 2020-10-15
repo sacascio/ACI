@@ -2533,7 +2533,9 @@ def main(argv):
                     vrftype = e['t_type']
 		    arp_flood = e['arp_flood']
 		    l2_unknown_unicast = e['l2_unknown_unicast']
-                    if isl3 == 'yes' or ( l2_unknown_unicast == 'proxy' and arp_flood == 'no' ) or bool(re.search('DCX', epg, re.IGNORECASE)):
+                    #if isl3 == 'yes' or ( l2_unknown_unicast == 'proxy' and arp_flood == 'no' ) or bool(re.search('DCX', epg, re.IGNORECASE)):
+		    # 10-15-2020: Exclude DCX even if L2
+                    if isl3 == 'yes' or ( l2_unknown_unicast == 'proxy' and arp_flood == 'no' ):
                         f.write(epg + ',' + bdip + ',' + fw + ',' + vrftype + ',' + vrf + ',' + tenant + ',' + '\n')
                         ecount = ecount + 1
                     else:
@@ -3013,7 +3015,9 @@ def main(argv):
                     print "OK: Excluding EPG " + epg + " from new contract association"
                     continue
                 for d in write_to_aci_cfg[tenant][vrf][epg]:
-                    if d['l3'] == 'yes' or ( d['l2_unknown_unicast'] == 'proxy' and d['arp_flood'] == 'no' ) or bool(re.search('DCX', epg, re.IGNORECASE)):
+                    #if d['l3'] == 'yes' or ( d['l2_unknown_unicast'] == 'proxy' and d['arp_flood'] == 'no' ) or bool(re.search('DCX', epg, re.IGNORECASE)):
+		    # 10-15-2020 Exclude DCX if L2
+                    if d['l3'] == 'yes' or ( d['l2_unknown_unicast'] == 'proxy' and d['arp_flood'] == 'no' ):
 			if d['l3'] == 'no' and d['l2_unknown_unicast'] == 'proxy' and d['arp_flood'] == 'no':
 				print "WARNING: EPG %s has unicast routing disabled, but ARP flooding set to %s and L2 Unknown unicast set to %s" % (epg,d['arp_flood'],d['l2_unknown_unicast'])
                         s = epg.split("-")
@@ -3072,7 +3076,9 @@ def main(argv):
                     print "OK: Excluding EPG " + epg + " from old contract removal"
                     continue
                 for d in write_to_aci_cfg[tenant][vrf][epg]:
-                    if d['l3'] == 'yes' or ( d['l2_unknown_unicast'] == 'proxy' and d['arp_flood'] == 'no' ) or bool(re.search('DCX', epg, re.IGNORECASE)):
+                    #if d['l3'] == 'yes' or ( d['l2_unknown_unicast'] == 'proxy' and d['arp_flood'] == 'no' ) or bool(re.search('DCX', epg, re.IGNORECASE)):
+		    # 10-15-2020 exclude DCX L2
+                    if d['l3'] == 'yes' or ( d['l2_unknown_unicast'] == 'proxy' and d['arp_flood'] == 'no' ):
                         d_l3out = d['l3out']
                         d_extepg = d['extepg']
                         ap = d['ap']
