@@ -198,32 +198,44 @@ def check_epgs_for_contracts(write_to_aci_cfg,c):
 
 	return (False,None,None)
 
+def remove_dups(msg):
+  return list(dict.fromkeys(msg))
+
 def check_other_l3_outs(total_l3_contracts,c,l3outs,externalepg,delta_l3outs):
-	retval = 'no'
-	for tenant in total_l3_contracts:
-		for vrf in total_l3_contracts[tenant]:
-			for l3out in total_l3_contracts[tenant][vrf]:
-				for extepg in total_l3_contracts[tenant][vrf][l3out]:
-					if c in total_l3_contracts[tenant][vrf][l3out][extepg]['provider']:
-						if l3outs != l3out and extepg != externalepg:
-							retval = 'yes'
-							if tenant in delta_l3outs:
-                                                        	if vrf in delta_l3outs[tenant]:
-                                                                	for ccctype in delta_l3outs[tenant][vrf]:
-                                                                        	if l3out in delta_l3outs[tenant][vrf][ccctype]:
-                                                                                	if extepg in delta_l3outs[tenant][vrf][ccctype][l3out]:
-												retval = 'no'
-					if c in total_l3_contracts[tenant][vrf][l3out][extepg]['consumer']:
-						if l3outs != l3out and extepg != externalepg:
-							retval = 'yes'
-							if tenant in delta_l3outs:
-                                                        	if vrf in delta_l3outs[tenant]:
-                                                                	for ccctype in delta_l3outs[tenant][vrf]:
-                                                                        	if l3out in delta_l3outs[tenant][vrf][ccctype]:
-                                                                                	if extepg in delta_l3outs[tenant][vrf][ccctype][l3out]:
-												print "Contract %s exists on external EPG %s as consumer" % (c,extepg)
-												retval = 'no'
-	return retval
+	total_retval = 'no'
+	delta_retval = 'no'
+	msg = []
+	pc = ['provider','consumer']
+	
+	for t_tenant in delta_l3outs:
+       		for t_vrf in delta_l3outs[t_tenant]:
+                	for ccctype in delta_l3outs[t_tenant][t_vrf]:
+                        	for t_l3out in delta_l3outs[t_tenant][t_vrf][ccctype]:
+                                	for t_extepg in delta_l3outs[t_tenant][t_vrf][ccctype][t_l3out]:
+						for t_c in delta_l3outs[t_tenant][t_vrf][ccctype][t_l3out][t_extepg]:
+							if t_c == c: 
+								#print "WARNING: Contract %s on L3OUT: %s, EXT EPG %s, exists on external EPG %s as consumer SLATED FOR REMOVAL" % (c,l3outs,externalepg,extepg)
+								delta_retval = 'yes'
+	for t_pc in pc:	
+		for tenant in total_l3_contracts:
+			for vrf in total_l3_contracts[tenant]:
+				for l3out in total_l3_contracts[tenant][vrf]:
+					for extepg in total_l3_contracts[tenant][vrf][l3out]:
+						if c in total_l3_contracts[tenant][vrf][l3out][extepg][t_pc]:
+							if l3outs != l3out and extepg != externalepg:
+								total_retval = 'yes'
+								if delta_retval == 'no':
+									print "WARNING: Contract %s exists on L3OUT: %s, EXT EPG %s as %s - will not be removed" % (c,l3out,extepg,t_pc)
+								else:
+									msg.append("OK: Contract %s does not exist on any other on L3OUT, ADDING TO L3OUT CLEANUP" % (c))
+	msg = remove_dups(msg)
+	if len(msg) > 0:
+		print '\n'.join(msg)	
+
+	if total_retval == 'yes' and delta_retval == 'no':
+		return 'yes'
+	else:
+		return 'no'
 
 def write_contract_removal(tenant,vrf,c,l3out,extepg,ctype,dir_path,f_epg,f_ap,objtype):
 	fname = vrf + " 3 Type " + ctype + " - Remove contract from L3Out and EPG as provider_consumer.csv"
@@ -3271,12 +3283,12 @@ def main(argv):
 												del c_info_msg
 		
 									 
-							
     # Write the additional L3outs (F5/VGI) to the CSV files only if Type-B using the delta_l3outs dictionary.  Type-A is taken care of with the python script
     #Type-B: Add as provider only
     #Type-B: Remove as provider/consumer
     f_epg = ''
     f_ap = ''
+    
     for tenant in delta_l3outs:
 	for vrf in delta_l3outs[tenant]:
 		for ctype in delta_l3outs[tenant][vrf]:
@@ -3287,12 +3299,20 @@ def main(argv):
 							print "OK: INCLUDING VGI/F5 L3Out %s, SG CONTRACT WILL BE ADDED AS PROVIDER" % (l3out) 
     							write_contract_addition(tenant,vrf,l3out,extepg,dir_path,ctype) 
 							for c in delta_l3outs[tenant][vrf][ctype][l3out][extepg]:
-    								write_contract_removal(tenant,vrf,c,l3out,extepg,ctype,dir_path,f_epg,f_ap,'l3out') 
+								found = check_other_l3_outs(total_l3_contracts,c,l3out,extepg,delta_l3outs)
+								if found == 'no':
+    									write_contract_removal(tenant,vrf,c,l3out,extepg,ctype,dir_path,f_epg,f_ap,'l3out') 
+								else:
+									print "WARNING: CONTRACT %s found on L3OUT %s, will not be removed" % (c,l3out)
 						else:
 							print "OK: INCLUDING VRF L3Out %s, SG CONTRACT WILL BE ADDED AS CONSUMER" % (l3out) 
     							write_contract_addition_consumer(tenant,vrf,l3out,extepg,dir_path,ctype) 
 							for c in delta_l3outs[tenant][vrf][ctype][l3out][extepg]:
-    								write_contract_removal(tenant,vrf,c,l3out,extepg,ctype,dir_path,f_epg,f_ap,'l3out') 
+								found = check_other_l3_outs(total_l3_contracts,c,l3out,extepg,delta_l3outs)
+								if found == 'no':
+    									write_contract_removal(tenant,vrf,c,l3out,extepg,ctype,dir_path,f_epg,f_ap,'l3out') 
+								else:
+									print "WARNING: CONTRACT %s found on L3OUT %s, will not be removed" % (c,l3out)
 						update_aci_contract_verification_file(tenant,vrf,dir_path,"L3Out",l3out,extepg)
 
     
