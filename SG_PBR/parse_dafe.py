@@ -113,7 +113,7 @@ def load_aci_json(dc,district):
 
 def get_subnet_nhip(l3out,aci_json_cfg,tenant):
 	routes = {}
-	
+
 	for tenant_id in aci_json_cfg['polUni']['children']:
 		for tn in tenant_id:
 			if tn == 'fvTenant' and tenant_id[tn]['attributes']['name'] == tenant:
@@ -127,21 +127,27 @@ def get_subnet_nhip(l3out,aci_json_cfg,tenant):
 											for l3extLNodeP_children_keys in l3extLNodeP_children:
 												if l3extLNodeP_children_keys == 'l3extRsNodeL3OutAtt':
 													leafid = l3extLNodeP_children[l3extLNodeP_children_keys]['attributes']['tDn']
-													for l3extRsNodeL3OutAtt in l3extLNodeP_children[l3extLNodeP_children_keys]['children']:
-														for iproute in l3extRsNodeL3OutAtt:
-															if iproute == 'ipRouteP':
-																snet = l3extRsNodeL3OutAtt[iproute]['attributes']['ip']
-																if leafid not in routes:
-																	routes[leafid] = []
-																	routes[leafid].append(snet)
-																else:
-																	
-																	routes[leafid].append(snet)
-																routes[leafid].sort()
+													if 'children' not in l3extLNodeP_children[l3extLNodeP_children_keys]:
+														if leafid not in routes:
+															routes[leafid] = []
+														routes[leafid].append('NO STATIC ROUTES FOUND')
+													else:
+														for l3extRsNodeL3OutAtt in l3extLNodeP_children[l3extLNodeP_children_keys]['children']:
+															for iproute in l3extRsNodeL3OutAtt:
+																if iproute == 'ipRouteP':
+																	snet = l3extRsNodeL3OutAtt[iproute]['attributes']['ip']
+																	if leafid not in routes:
+																		routes[leafid] = []
+																		routes[leafid].append(snet)
+																	else:
+																		
+																		routes[leafid].append(snet)
+																	routes[leafid].sort()
 	return routes
 
 def add_other_l3outs_to_vrfl3out(total_l3_contracts,l3out,vrflist,save_ttype):
 	delta_l3outs = {}
+	#print json.dumps(l3out)
 	for tenant in total_l3_contracts:
 		if tenant == 'common':
 			continue
@@ -160,7 +166,6 @@ def add_other_l3outs_to_vrfl3out(total_l3_contracts,l3out,vrflist,save_ttype):
 					if l3outs not in l3out and vrf in vrflist:
 						l3out[l3outs] = {}
 						l3out[l3outs][extepg] = {}
-						
 						for c in total_l3_contracts[tenant][vrf][l3outs][extepg]['consumer']:
 							l3out[l3outs][extepg][c] = {}
 							if tenant not in delta_l3outs:
@@ -238,6 +243,8 @@ def check_other_l3_outs(total_l3_contracts,c,l3outs,externalepg,delta_l3outs):
 		return 'no'
 
 def write_contract_removal(tenant,vrf,c,l3out,extepg,ctype,dir_path,f_epg,f_ap,objtype):
+	if tenant == 'Limited':
+		tenant = 'LTD'
 	fname = vrf + " 3 Type " + ctype + " - Remove contract from L3Out and EPG as provider_consumer.csv"
         if not os.path.isfile(dir_path + "/ACI_" + tenant + "-" + vrf + "/" + fname):
         	f = open(dir_path + "/ACI_" + tenant + "-" + vrf + "/" + fname, "a")
@@ -3144,14 +3151,17 @@ def main(argv):
 				continue
 
                             if d_l3out not in l3out:
-                                l3out[d_l3out] = {}
-                                if d_extepg not in l3out[d_l3out]:
+				if not bool(re.search("F5",d_l3out)):
+                                	l3out[d_l3out] = {}
+				#else:
+					#print "NOT adding d_l3out %s to l3out" % d_l3out
+                                if d_l3out in l3out and d_extepg not in l3out[d_l3out]:
                                     l3out[d_l3out][d_extepg] = {}
                                     l3out[d_l3out][d_extepg][c] = {}
                                     f = open(dir_path + "/ACI_" + tenantdir + "-" + vrf + "/" + fname, "a")
                                     f.write(tenant + ",,,," + d_l3out + "," + d_extepg + "," + c + '\n')
                                     f.close()
-                                if d_extepg in l3out[d_l3out]:
+                                if d_l3out in l3out and d_extepg in l3out[d_l3out]:
                                     if c not in l3out[d_l3out][d_extepg]:
                                         l3out[d_l3out][d_extepg][c] = {}
                                         f = open(dir_path + "/ACI_" + tenantdir + "-" + vrf + "/" + fname, "a")
@@ -3170,6 +3180,7 @@ def main(argv):
                                         f = open(dir_path + "/ACI_" + tenantdir + "-" + vrf + "/" + fname, "a")
                                         f.write(tenant + ",,,," + d_l3out + "," + d_extepg + "," + c + '\n')
                                         f.close()
+    
 
     # Remove contracts that exist on the EPG but not on the L3 Out
 
@@ -3197,7 +3208,7 @@ def main(argv):
     f = open('write_to_aci_cfg.json', 'w')
     f.write(json.dumps(write_to_aci_cfg))
     f.close()
-    
+     
     total_l3_contracts = get_total_l3_contracts(dafe_file)
     # Get L3outs for VRFs that have no EPGs
     (all_l3_contracts) = append_l3out_no_bd(vrf_no_epg,all_l3_contracts,dafe_file)
