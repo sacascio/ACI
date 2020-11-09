@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import re
 import sys
 import requests
 import json
@@ -139,7 +140,7 @@ def add_extepg_to_pg(tenant,l3out,extepg,ip,cookie):
 		print (response.json())
 
 
-def remove_quad_zero(subnet,ip,cookie,tenant,extepg,l3out):
+def remove_quad_zero(ip,cookie,tenant,extepg,l3out):
 	
 	url = "https://" + ip + "/api/node/mo/uni/tn-" + tenant + "/out-" + l3out + "/instP-" + extepg + ".json"
 	json = { 
@@ -195,7 +196,10 @@ def add_subnet(subnet,ip,cookie,tenant,extepg,l3out):
 	if response.status_code == 200:
                 print ("OK: Subnet %s added to external EPG %s " % (subnet,extepg))
 	else:
-		print (response.json())
+		if bool(re.search("already exists",response.json()["imdata"][0]['error']['attributes']['text'])):
+			print ("WARNING: Subnet %s already defined as a static route" % (subnet))
+		else:
+			print (response.json())
 
 
 def get_subnets(data,subnets,np):
@@ -344,15 +348,17 @@ def main(argv):
 					subnets = get_subnets(response.json(),subnets,np)
 				else:
 					print ("ERROR: Unable to pull subnet info for L3Oout/NodeProfile: %s/%s " %(l3out,np))
+
+		extepg = getextepg(l3out,f_ip,cookie,tenant)
+
 		if len(subnets) == 0:
-			print ("ERROR: No subnets found in Node profiles for L3Out %s" % l3out)	
+			print ("WARNING: No subnets found in Node profiles for L3Out %s, still adding contracts to ext EPG and adding ext EPG to Preferred group" % l3out)	
 		else:
-			extepg = getextepg(l3out,f_ip,cookie,tenant)
 			sorted_subnets = sorted(set(subnets))
 			for s in sorted_subnets:
 				add_subnet(s,f_ip,cookie,tenant,extepg,l3out)
 
-		remove_quad_zero(s,f_ip,cookie,tenant,extepg,l3out)
+		remove_quad_zero(f_ip,cookie,tenant,extepg,l3out)
 		add_extepg_to_pg(tenant,l3out,extepg,f_ip,cookie)
 
 		extepgcontracts = getextepgcontracts(l3out,f_ip,cookie,tenant,extepg)
