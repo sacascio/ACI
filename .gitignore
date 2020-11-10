@@ -824,3 +824,9 @@ SG_PBR/vrflist_soe_dc1
 REMOVE_MSO
 SG_PBR/output*
 SG_PBR/vrflist*
+SG_PBR_V_1_18_ACI*/
+SG_PBR/*.json
+SG_PBR/aci_creds
+SG_PBR/pc_and_int_sel.log
+SG_PBR/cmp_files.py
+.idea/*
