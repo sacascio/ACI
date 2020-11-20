@@ -113,7 +113,6 @@ def load_aci_json(dc,district):
 
 def get_subnet_nhip(l3out,aci_json_cfg,tenant):
 	routes = {}
-
 	for tenant_id in aci_json_cfg['polUni']['children']:
 		for tn in tenant_id:
 			if tn == 'fvTenant' and tenant_id[tn]['attributes']['name'] == tenant:

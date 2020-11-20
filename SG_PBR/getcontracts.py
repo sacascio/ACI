@@ -148,6 +148,7 @@ def main(argv):
                              timeout=10)
 
     		if response.status_code == 200:
+    			numc = len(response.json()["imdata"])
     			for i in response.json()["imdata"]:
     				for k in i.keys():
     					contract = i[k]['attributes']['tnVzBrCPName']
@@ -159,6 +160,8 @@ def main(argv):
     						p_or_c = 'Consumer'
 
     					f.write(construct_type + ": " + epgname + ", " +  p_or_c + ": " + contract + ", status: " + state + "\n")
+    			if numc == 0:
+    				f.write(construct_type + ": " + epgname + ", NO CONTRACTS DEFINED " + "\n")
 
     		else:
     			print ("Failed to get Provide contract info for EPG: %s" % epgname)
