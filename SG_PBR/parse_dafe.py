@@ -83,10 +83,11 @@ def append_l3out_no_bd(vrf_no_epg,all_l3_contracts,dafe_file):
 				ccontracts = ccontract_cell.split(",")
 				for cc in ccontracts:
 					all_l3_contracts[tenant_cell][vrf_found][l3out_cell][extepg_cell]['consumer'].append(cc)
-						
-				pcontracts = pcontract_cell.split(",")
-				for pc in pcontracts:
-					all_l3_contracts[tenant_cell][vrf_found][l3out_cell][extepg_cell]['provider'].append(pc)
+
+				if pcontract_cell is not None:		
+					pcontracts = pcontract_cell.split(",")
+					for pc in pcontracts:
+						all_l3_contracts[tenant_cell][vrf_found][l3out_cell][extepg_cell]['provider'].append(pc)
 					
 	return all_l3_contracts
 
@@ -235,7 +236,11 @@ def check_other_l3_outs(total_l3_contracts,c,l3outs,externalepg,delta_l3outs,out
 								else:
 									# save for later
 									#msg.append("OK: Contract %s does not exist on any other on L3OUT, ADDING TO L3OUT CLEANUP" % (c))
-									output_messages[vrf].append("OK: Contract %s does not exist on any other on L3OUT, ADDING TO L3OUT CLEANUP" % (c))
+									if vrf in output_messages:
+										output_messages[vrf].append("OK: Contract %s does not exist on any other on L3OUT, ADDING TO L3OUT CLEANUP" % (c))
+									else:
+										output_messages[vrf] = []
+										output_messages[vrf].append("OK: Contract %s does not exist on any other on L3OUT, ADDING TO L3OUT CLEANUP" % (c))
 	#msg = remove_dups(msg)
 	#if len(msg) > 0:
 	#	print '\n'.join(msg)	
@@ -271,6 +276,8 @@ def write_contract_addition(tenant,vrf,l3out,extepg,dir_path,ctype):
         f.close()
 
 def write_contract_addition_consumer(tenant,vrf,l3out,extepg,dir_path,ctype):
+	if tenant == 'Limited':
+		tenant = 'LTD'
 	fname = vrf + " 1 Type " + ctype + " - Associate contracts to L3out as consumer.csv"
         if not os.path.isfile(dir_path + "/ACI_" + tenant + "-" + vrf + "/" + fname):
         	f = open(dir_path + "/ACI_" + tenant + "-" + vrf + "/" + fname, "a")
@@ -373,13 +380,16 @@ def write_new_n7k_configs(vrfmember, p2psubnets, dc, district, n7k_data):
     bgp_rb_outer = {}
     svi_cleanup = {}
     bgp_cleanup_inner = {}
+    bgp_cleanup_inner_rb = {}
     bgp_cleanup_outer = {}
+    bgp_cleanup_outer_rb = {}
     svi_inner_cutover = {}
     subint_inner_cutover = {}
     subint_outer_cutover = {}
     cutover_dir = dir_path + "/" + "N7K_CUTOVER" + "/" + vrfmember
     rollback_dir = dir_path + "/" + "N7K_ROLLBACK" + "/" + vrfmember
     cleanup_dir = dir_path + "/" + "N7K_NEXT_CLEANUP" + "/" + vrfmember
+    rb_cleanup_dir = dir_path + "/" + "N7K_NEXT_CLEANUP_ROLLBACK" + "/" + vrfmember
 
     if not os.path.exists(dir_path + "/" + "N7K_PREWORK"):
         os.mkdir(dir_path + "/" + "N7K_PREWORK")
@@ -389,10 +399,13 @@ def write_new_n7k_configs(vrfmember, p2psubnets, dc, district, n7k_data):
         os.mkdir(dir_path + "/" + "N7K_ROLLBACK")
     if not os.path.exists(dir_path + "/" + "N7K_NEXT_CLEANUP"):
         os.mkdir(dir_path + "/" + "N7K_NEXT_CLEANUP")
+    if not os.path.exists(dir_path + "/" + "N7K_NEXT_CLEANUP_ROLLBACK"):
+        os.mkdir(dir_path + "/" + "N7K_NEXT_CLEANUP_ROLLBACK")
 
     os.mkdir(cutover_dir)
     os.mkdir(rollback_dir)
     os.mkdir(cleanup_dir)
+    os.mkdir(rb_cleanup_dir)
 
     k = 0
 
@@ -412,6 +425,9 @@ def write_new_n7k_configs(vrfmember, p2psubnets, dc, district, n7k_data):
         bgp_rb_inner[n7k]['svi'] = []
         bgp_cleanup_inner[n7k] = {}
         bgp_cleanup_inner[n7k]['neighbors'] = []
+        
+	bgp_cleanup_inner_rb[n7k] = {}
+        bgp_cleanup_inner_rb[n7k]['neighbors'] = []
 
         neighbors = n7k_data[n7k][vrfmember]['neighbors']
         local_as = n7k_data[n7k][vrfmember]['local_as']
@@ -429,6 +445,10 @@ def write_new_n7k_configs(vrfmember, p2psubnets, dc, district, n7k_data):
         # Squeeze in cleanup for new adjacencies
         bgp_cleanup_inner[n7k]['neighbors'].append("router bgp " + local_as)
         bgp_cleanup_inner[n7k]['neighbors'].append(" vrf " + vrfmember)
+        
+	# Squeeze in rollback cleanup for new adjacencies
+        bgp_cleanup_inner_rb[n7k]['neighbors'].append("router bgp " + local_as)
+        bgp_cleanup_inner_rb[n7k]['neighbors'].append(" vrf " + vrfmember)
 
         for n in neighbors:
             bgp_shut_inner[n7k][vrfmember].append(" neighbor " + n + " remote-as " + remote_as)
@@ -440,6 +460,12 @@ def write_new_n7k_configs(vrfmember, p2psubnets, dc, district, n7k_data):
 
             # cleanup
             bgp_cleanup_inner[n7k]['neighbors'].append("   no neighbor " + n + " remote-as " + remote_as)
+
+	    #rollback the cleanup
+            bgp_cleanup_inner_rb[n7k]['neighbors'].append("   neighbor " + n + " remote-as " + remote_as)
+            bgp_cleanup_inner_rb[n7k]['neighbors'].append("   address-family ipv4 unicast")
+            bgp_cleanup_inner_rb[n7k]['neighbors'].append("      send-community both")
+            bgp_cleanup_inner_rb[n7k]['neighbors'].append("      shutdown")
 
     # Get outer VDC BGP details
     for n7k in n7k_data:
@@ -455,6 +481,9 @@ def write_new_n7k_configs(vrfmember, p2psubnets, dc, district, n7k_data):
         bgp_rb_outer[n7k]['svi'] = []
         bgp_cleanup_outer[n7k] = {}
         bgp_cleanup_outer[n7k]['neighbors'] = []
+        
+	bgp_cleanup_outer_rb[n7k] = {}
+        bgp_cleanup_outer_rb[n7k]['neighbors'] = []
 
         for svi in n7k_data[n7k]:
             if svi == 'P2P':
@@ -476,6 +505,9 @@ def write_new_n7k_configs(vrfmember, p2psubnets, dc, district, n7k_data):
 
                     # Squeeze in cleanup for BGP Neighbors
                     bgp_cleanup_outer[n7k]['neighbors'].append("router bgp " + local_as)
+                    
+		    # Squeeze in rollback cleanup for BGP Neighbors
+                    bgp_cleanup_outer_rb[n7k]['neighbors'].append("router bgp " + local_as)
 
                     for n in outer_neighbors:
                         bgp_shut_outer[n7k].append(" neighbor " + n + " remote-as " + remote_as)
@@ -487,6 +519,14 @@ def write_new_n7k_configs(vrfmember, p2psubnets, dc, district, n7k_data):
 
                         # Cleanup
                         bgp_cleanup_outer[n7k]['neighbors'].append(" no neighbor " + n + " remote-as " + remote_as)
+                        
+			# rollback Cleanup
+                        bgp_cleanup_outer_rb[n7k]['neighbors'].append(" neighbor " + n + " remote-as " + remote_as)
+                        bgp_cleanup_outer_rb[n7k]['neighbors'].append("   address-family ipv4 unicast")
+                        bgp_cleanup_outer_rb[n7k]['neighbors'].append("     send-community both") 
+                        bgp_cleanup_outer_rb[n7k]['neighbors'].append("     route-map PERMIT_DEFAULT_ONLY out") 
+                        bgp_cleanup_outer_rb[n7k]['neighbors'].append("     default-originate") 
+                        bgp_cleanup_outer_rb[n7k]['neighbors'].append("   shutdown")
 
     if district.upper() == 'SDE':
         numn7k = ['1', '2']
@@ -833,8 +873,25 @@ def write_new_n7k_configs(vrfmember, p2psubnets, dc, district, n7k_data):
         f.write(('\n'.join(svi_cleanup[n7ks]['svi'])))
         f.write('\n')
         f.close()
+        
+	# Rollback of the cleanup
+        f = open(rb_cleanup_dir + "/" + n7ks, "a")
+        f.write("!!" + '\n')
+        f.write("!! Add SVI N7K Inner VDC - VRF " + vrfmember + '\n')
+        f.write("!!" + '\n')
+        f.write("configure terminal" + '\n')
+        f.write("interface  Vlan" + n7k_data[n7ks][vrfmember]['svi'] + '\n')
+        f.write(('\n'.join(n7k_data[n7ks][vrfmember]['raw_config'])))
+        f.write('\n')
+        f.close()
 
         f = open(dir_path + "/" + "N7K_NEXT_CLEANUP" + "/" + "execute_cleanup_" + vrfmember + ".sh", "a")
+        f.write("../push_to_n7k.py -f " + vrfmember + "/" + n7ks + " -c ../" + n7ks + "_creds" + '\n')
+        f.write("echo FINISHED UPDATING " + n7ks + '\n\n')
+        f.close()
+        
+        # Rollback of the cleanup
+        f = open(dir_path + "/" + "N7K_NEXT_CLEANUP_ROLLBACK" + "/" + "execute_cleanup_" + vrfmember + ".sh", "a")
         f.write("../push_to_n7k.py -f " + vrfmember + "/" + n7ks + " -c ../" + n7ks + "_creds" + '\n')
         f.write("echo FINISHED UPDATING " + n7ks + '\n\n')
         f.close()
@@ -851,6 +908,16 @@ def write_new_n7k_configs(vrfmember, p2psubnets, dc, district, n7k_data):
                 f.write(" switchport trunk allowed vlan remove " + svi + '\n')
                 f.write('\n')
             f.close()
+            
+            # Rollback of the cleanup
+            f = open(rb_cleanup_dir + "/" + n7ks, "a")
+            f.write('\n')
+            f.write("!! Add VLAN to firewall trunk" + '\n')
+            for fw in fwints:
+                f.write("interface Ethernet" + fw + '\n')
+                f.write(" switchport trunk allowed vlan add " + svi + '\n')
+                f.write('\n')
+            f.close()
 
     for n7ks in bgp_cleanup_inner:
         f = open(cleanup_dir + "/" + n7ks, "a")
@@ -861,18 +928,43 @@ def write_new_n7k_configs(vrfmember, p2psubnets, dc, district, n7k_data):
         f.write(('\n'.join(bgp_cleanup_inner[n7ks]['neighbors'])))
         f.write('\n')
         f.close()
+        
+	# Rollback of the cleanup
+        f = open(rb_cleanup_dir + "/" + n7ks, "a")
+        f.write("!!" + '\n')
+        f.write("!! Add BGP adjacency to the outer N7K VDC connected to the FW " + '\n')
+        f.write("!!" + '\n')
+        f.write("configure terminal" + '\n')
+        f.write(('\n'.join(bgp_cleanup_inner_rb[n7ks]['neighbors'])))
+        f.write('\n')
+        f.close()
 
     for n7ks in bgp_cleanup_outer:
         f = open(cleanup_dir + "/" + n7ks, "a")
         f.write("!!" + '\n')
         f.write("!! Remove BGP adjacency to the inner N7K VDC connected to the FW " + '\n')
         f.write("!!" + '\n')
-        f.write("configure terminal" + '\n')
         f.write(('\n'.join(bgp_cleanup_outer[n7ks]['neighbors'])))
+        f.write('\n')
+        f.close()
+        
+	# Rollback of the cleanup
+	f = open(rb_cleanup_dir + "/" + n7ks, "a")
+        f.write("!!" + '\n')
+        f.write("!! Add BGP adjacency to the inner N7K VDC connected to the FW " + '\n')
+        f.write("!!" + '\n')
+        f.write("configure terminal" + '\n')
+        f.write(('\n'.join(bgp_cleanup_outer_rb[n7ks]['neighbors'])))
         f.write('\n')
         f.close()
 
         f = open(dir_path + "/" + "N7K_NEXT_CLEANUP" + "/" + "execute_cleanup_" + vrfmember + ".sh", "a")
+        f.write("../push_to_n7k.py -f " + vrfmember + "/" + n7ks + " -c ../" + n7ks + "_creds" + '\n')
+        f.write("echo FINISHED UPDATING " + n7ks + '\n\n')
+        f.close()
+        
+	# Rollback of the cleanup
+	f = open(dir_path + "/" + "N7K_NEXT_CLEANUP_ROLLBACK" + "/" + "execute_cleanup_" + vrfmember + ".sh", "a")
         f.write("../push_to_n7k.py -f " + vrfmember + "/" + n7ks + " -c ../" + n7ks + "_creds" + '\n')
         f.write("echo FINISHED UPDATING " + n7ks + '\n\n')
         f.close()
@@ -1103,7 +1195,13 @@ def get_bgp_int_vlan(dc, district, vrfs):
                 svi = svi.replace("interface Vlan", "")
 
                 if obj.hash_children != 0:
+		    raw_config = []
+
                     for c in obj.children:
+			if bool(re.search('shutdown',c.text, re.IGNORECASE)):
+				raw_config.append("  shutdown")
+			else:
+				raw_config.append(c.text)
 
                         if bool((re.search('vrf member', c.text, re.IGNORECASE))):
                             vrf = c.text
@@ -1122,7 +1220,7 @@ def get_bgp_int_vlan(dc, district, vrfs):
                     data[n7k][vrf] = {}
                     data[n7k]['P2P'] = {}
                     data[n7k][vrf] = {'svi': svi, 'shutdown': 'N', 'fw_trunk_int': [], 'remote_as': 'N/A',
-                                      'neighbors': [], 'svi_ip': svi_ip, 'local_as': 'N/A'}
+                                      'neighbors': [], 'svi_ip': svi_ip, 'local_as': 'N/A', 'raw_config': raw_config}
 
             # GET FW INT
             vlallowed = []
@@ -2696,6 +2794,7 @@ def main(argv):
 
     cutover_dir = dir_path + "/" + "N7K_CUTOVER"
     cleanup_dir = dir_path + "/" + "N7K_NEXT_CLEANUP"
+    rb_cleanup_dir = dir_path + "/" + "N7K_NEXT_CLEANUP_ROLLBACK"
 
     for n7k in n7k_data:
         if bool((re.search('outer', n7k, re.IGNORECASE))):
@@ -2781,6 +2880,20 @@ def main(argv):
                         f.write(" switchport trunk allowed vlan remove " + svi + '\n')
                         f.write('\n')
                     f.close()
+                    
+                    # Rollback of the cleanup  
+                    f = open(rb_cleanup_dir + "/" + sorted_d[-1][0] + "/" + n7k, "a")
+                    f.write("\n!!Put back VLAN Interface for VRF " + sorted_d[-1][0] + '\n')
+                    f.write("interface Vlan" + svi + '\n')
+		    f.write('\n'.join(n7k_data[n7k][svi]['raw_config']))
+                    f.write('\n\n')
+                    for fw in fwints:
+                        f.write("!!Add VLAN from FW trunk for VRF " + sorted_d[-1][0] + '\n')
+                        f.write("interface Ethernet" + fw + '\n')
+                        f.write(" switchport trunk allowed vlan add " + svi + '\n')
+                        f.write('\n')
+                    f.close()
+
 
                 count = {}
                 stillexist = []
