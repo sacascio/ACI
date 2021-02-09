@@ -891,7 +891,7 @@ def write_new_n7k_configs(vrfmember, p2psubnets, dc, district, n7k_data):
         f.close()
         
         # Rollback of the cleanup
-        f = open(dir_path + "/" + "N7K_NEXT_CLEANUP_ROLLBACK" + "/" + "execute_cleanup_" + vrfmember + ".sh", "a")
+        f = open(dir_path + "/" + "N7K_NEXT_CLEANUP_ROLLBACK" + "/" + "execute_cleanup_rb_" + vrfmember + ".sh", "a")
         f.write("../push_to_n7k.py -f " + vrfmember + "/" + n7ks + " -c ../" + n7ks + "_creds" + '\n')
         f.write("echo FINISHED UPDATING " + n7ks + '\n\n')
         f.close()
@@ -964,7 +964,7 @@ def write_new_n7k_configs(vrfmember, p2psubnets, dc, district, n7k_data):
         f.close()
         
 	# Rollback of the cleanup
-	f = open(dir_path + "/" + "N7K_NEXT_CLEANUP_ROLLBACK" + "/" + "execute_cleanup_" + vrfmember + ".sh", "a")
+	f = open(dir_path + "/" + "N7K_NEXT_CLEANUP_ROLLBACK" + "/" + "execute_cleanup_rb_" + vrfmember + ".sh", "a")
         f.write("../push_to_n7k.py -f " + vrfmember + "/" + n7ks + " -c ../" + n7ks + "_creds" + '\n')
         f.write("echo FINISHED UPDATING " + n7ks + '\n\n')
         f.close()
