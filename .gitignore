@@ -9,7 +9,7 @@ m
 
 dc1
 scratch.py
-n7k
+#n7k
 x.py
 
 .DS_Store
@@ -830,3 +830,5 @@ SG_PBR/aci_creds
 SG_PBR/pc_and_int_sel.log
 SG_PBR/cmp_files.py
 .idea/*
+SG_PBR/soe_dc1_all_cleanup_rollback
+SG_PBR/soe_dc2_all_cleanup_rollback
