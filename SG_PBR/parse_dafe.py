@@ -1276,11 +1276,15 @@ def get_bgp_int_vlan(dc, district, vrfs):
                                                 continue
                                             if bool((re.search('timers bgp', d.text, re.IGNORECASE))):
                                                 continue
+                                            if vrfmember == 'SVC-ITC-DC1-GIS' and dc == 'dc2':
+                                                print "SKIPPING VRF: " + vrfmember + ".  VRF is in wrong district"
+                                                continue
                                             attribs = d.text
                                             attribs = attribs.lstrip()
                                             attribsx = attribs.split(" ")
                                             neighbor = attribsx[1]
                                             remote_as = attribsx[3]
+				 	    
                                             data[n7k][vrfmember]['remote_as'] = remote_as
                                             if len(data[n7k][vrfmember]['neighbors']) == 0:
                                                 data[n7k][vrfmember]['neighbors'] = [neighbor]
@@ -1704,6 +1708,10 @@ def get_vrf_to_fw(zones_vl_ip_file, dc, district):
                 if tenant == 'User Access':
                     tenant = 'User_Access'
 
+		# Another One off 9-13-2021
+		if tenant == 'Restricted' and vrf == 'DIST':
+		    vrf = 'DST'
+	
                 if tenant in vrf_to_fw:
                     vrf_to_fw[tenant][vrf] = {}
                     vrf_to_fw[tenant][vrf] = {'firewall': firewall, 'encap': outerencap, 'to_delete': 0}
@@ -1942,6 +1950,15 @@ def get_data(filename, epgs, dc, district, p2psubnets):
 
         cell = 'G' + str(x)
         vrfmember = ws2[cell].value
+        # 9-13-2021 workaround for RES naming convention
+        #if vrfmember == 'RES-MMP-DC2-GIS':
+        #        vrfmember = 'RST-MMP-DC2-GIS'
+        #if vrfmember == 'RES-MMP-DC1-GIS':
+        #        vrfmember = 'RST-MMP-DC1-GIS'
+        #if vrfmember == 'RES-DST-DC2-GIS':
+        #        vrfmember = 'RST-DST-DC2-GIS'
+        #if vrfmember == 'RES-DST-DC1-GIS':
+        #        vrfmember = 'RST-DST-DC1-GIS'
 
         if vrfmember is not None:
             cell = 'B' + str(x)
@@ -2186,6 +2203,14 @@ def get_data(filename, epgs, dc, district, p2psubnets):
             tenantvalue = ws[cell].value
             if vrfvalue == vrf and tenantvalue == tenant:
                 vrfmember = ws['H' + str(x)].value
+     		if vrfmember == 'RST-DST-DC2-GIS':
+		    vrfmember = 'RES-DST-DC2-GIS'
+     		if vrfmember == 'RST-MMP-DC2-GIS':
+		    vrfmember = 'RES-MMP-DC2-GIS'
+     		if vrfmember == 'RST-DST-DC1-GIS':
+		    vrfmember = 'RES-DST-DC1-GIS'
+     		if vrfmember == 'RST-MMP-DC1-GIS':
+		    vrfmember = 'RES-MMP-DC1-GIS'
                 # Services/Common has 2 bgpAddressFamilyContext values.  Picking first one
 
                 if vrfvalue == 'Common' and tenantvalue == 'Services':
@@ -3309,6 +3334,11 @@ def main(argv):
                 xx = epg.split("-")
                 shorttenant = xx[0]
                 shortvrf = xx[1]
+	        if  bool(re.search("PTM-DMZ",epg,re.IGNORECASE)):
+		    shortvrf = 'PTM-DMZ'
+		if not os.path.exists(dir_path + "/" + "/ACI_" + shorttenant + "-" + shortvrf + "/"):
+        		os.mkdir(dir_path + "/" + "/ACI_" + shorttenant + "-" + shortvrf + "/")
+
 		if shortvrf[0] == 'V' and shortvrf[1] == 'N' and shorttenant == 'LTD':
                         shortvrf = 'VND'
 
