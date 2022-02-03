@@ -569,6 +569,7 @@ def write_new_n7k_configs(vrfmember, p2psubnets, dc, district, n7k_data):
         if not os.path.exists(dir_path + "/" + "N7K_PREWORK" + "/" + n7kname + "_" + vrfmember):
             f = open(dir_path + "/" + "N7K_PREWORK" + "/" + n7kname + "_" + vrfmember, "a")
             f.write("! Create sub interfaces to outer VDCs in VRF " + vrfmember + " in a shutdown state" + '\n')
+            #f.write("switchto vdc " + n7kname + '\n')
             f.write("configure terminal" + '\n')
             f.close()
 
@@ -685,6 +686,7 @@ def write_new_n7k_configs(vrfmember, p2psubnets, dc, district, n7k_data):
                     # Write outer config
                     if not os.path.exists(dir_path + "/" + "N7K_PREWORK" + "/" + outer_7k + "_" + vrfmember):
                         f = open(dir_path + "/" + "N7K_PREWORK" + "/" + outer_7k + "_" + vrfmember, "a")
+                        #f.write("switchto vdc " + outer_7k + '\n')
                         f.write("configure terminal" + '\n')
                         f.close()
 
@@ -768,6 +770,7 @@ def write_new_n7k_configs(vrfmember, p2psubnets, dc, district, n7k_data):
 
     for n7ks in bgp_shut_outer:
         f = open(cutover_dir + "/" + n7ks, "a")
+        #f.write("switchto vdc " + n7ks + '\n')
         f.write("configure terminal" + '\n')
         f.write("! Shutdown the BGP adjacency to the N7K Inner in VRF " + vrfmember + '\n')
         f.write(('\n'.join(bgp_shut_outer[n7ks])))
@@ -785,6 +788,7 @@ def write_new_n7k_configs(vrfmember, p2psubnets, dc, district, n7k_data):
 
     for n7ks in svi_inner_cutover:
         f = open(cutover_dir + "/" + n7ks, "a")
+        #f.write(" switchto vdc " + n7ks + '\n')
         f.write(" configure terminal" + '\n')
         f.write("! Shutdown Inside SVI VRF " + vrfmember + " for firewall-cluster" + '\n')
         f.write(('\n'.join(svi_inner_cutover[n7ks])))
@@ -813,6 +817,7 @@ def write_new_n7k_configs(vrfmember, p2psubnets, dc, district, n7k_data):
         f.write("!!" + '\n')
         f.write("!! N7K VDC - VRF " + vrfmember + '\n')
         f.write("!!" + '\n')
+        #f.write("switchto vdc " + n7ks + '\n')
         f.write("configure terminal" + '\n')
         f.write("! Remove new sub interfaces to Outer VDCs" + '\n')
         f.write(('\n'.join(bgp_rb_inner[n7ks]['subint'])))
@@ -841,6 +846,7 @@ def write_new_n7k_configs(vrfmember, p2psubnets, dc, district, n7k_data):
         f.write("!!" + '\n')
         f.write("!! N7K Outer VDC - VRF " + vrfmember + '\n')
         f.write("!!" + '\n')
+        #f.write("switchto vdc " + n7ks + '\n')
         f.write("configure terminal" + '\n')
         f.write("! Remove new sub interfaces to Inner VDCs" + '\n')
         f.write(('\n'.join(bgp_rb_outer[n7ks]['subint'])))
@@ -869,6 +875,7 @@ def write_new_n7k_configs(vrfmember, p2psubnets, dc, district, n7k_data):
         f.write("!!" + '\n')
         f.write("!! SVI Removal N7K Inner VDC - VRF " + vrfmember + '\n')
         f.write("!!" + '\n')
+        #f.write("switchto vdc " + n7ks + '\n')
         f.write("configure terminal" + '\n')
         f.write(('\n'.join(svi_cleanup[n7ks]['svi'])))
         f.write('\n')
@@ -879,6 +886,7 @@ def write_new_n7k_configs(vrfmember, p2psubnets, dc, district, n7k_data):
         f.write("!!" + '\n')
         f.write("!! Add SVI N7K Inner VDC - VRF " + vrfmember + '\n')
         f.write("!!" + '\n')
+        #f.write("switchto vdc " + n7ks + '\n')
         f.write("configure terminal" + '\n')
         f.write("interface  Vlan" + n7k_data[n7ks][vrfmember]['svi'] + '\n')
         f.write(('\n'.join(n7k_data[n7ks][vrfmember]['raw_config'])))
@@ -924,6 +932,7 @@ def write_new_n7k_configs(vrfmember, p2psubnets, dc, district, n7k_data):
         f.write("!!" + '\n')
         f.write("!! Remove BGP adjacency to the outer N7K VDC connected to the FW " + '\n')
         f.write("!!" + '\n')
+        #f.write("switchto vdc " + n7ks + '\n')
         f.write("configure terminal" + '\n')
         f.write(('\n'.join(bgp_cleanup_inner[n7ks]['neighbors'])))
         f.write('\n')
@@ -934,6 +943,7 @@ def write_new_n7k_configs(vrfmember, p2psubnets, dc, district, n7k_data):
         f.write("!!" + '\n')
         f.write("!! Add BGP adjacency to the outer N7K VDC connected to the FW " + '\n')
         f.write("!!" + '\n')
+        #f.write("switchto vdc " + n7ks + '\n')
         f.write("configure terminal" + '\n')
         f.write(('\n'.join(bgp_cleanup_inner_rb[n7ks]['neighbors'])))
         f.write('\n')
@@ -953,6 +963,7 @@ def write_new_n7k_configs(vrfmember, p2psubnets, dc, district, n7k_data):
         f.write("!!" + '\n')
         f.write("!! Add BGP adjacency to the inner N7K VDC connected to the FW " + '\n')
         f.write("!!" + '\n')
+        #f.write("switchto vdc " + n7ks + '\n')
         f.write("configure terminal" + '\n')
         f.write(('\n'.join(bgp_cleanup_outer_rb[n7ks]['neighbors'])))
         f.write('\n')
@@ -3569,6 +3580,20 @@ def main(argv):
 
     else:
         print "Make sure to copy n7k_verification.sh to the output folder"
+    
+    if os.path.isfile("./gis_dc2_n7k_check.sh"):
+        shutil.copyfile("./gis_dc2_n7k_check.sh", "./output/gis_dc2_n7k_check.sh")
+        os.chmod("./output/gis_dc2_n7k_check.sh", 0755)
+
+    else:
+        print "Make sure to copy gis_dc2_n7k_check.sh to the output folder"
+    
+    if os.path.isfile("./gis_dc1_n7k_check.sh"):
+        shutil.copyfile("./gis_dc1_n7k_check.sh", "./output/gis_dc1_n7k_check.sh")
+        os.chmod("./output/gis_dc1_n7k_check.sh", 0755)
+
+    else:
+        print "Make sure to copy gis_dc1_n7k_check.sh to the output folder"
     
     if os.path.isfile("./check_n7k_output.py"):
         shutil.copyfile("./check_n7k_output.py", "./output/check_n7k_output.py")
